@@ -246,9 +246,11 @@ namespace GeeksCoreLibrary.Core.Services
                 {
                     if (createNewTransaction && !alreadyHadTransaction) await databaseConnection.BeginTransactionAsync();
                     databaseConnection.AddParameter("moduleId", wiserItem.ModuleId);
+                    databaseConnection.AddParameter("ordering", wiserItem.Ordering);
                     databaseConnection.AddParameter("title", wiserItem.Title ?? "");
                     databaseConnection.AddParameter("entityType", wiserItem.EntityType);
-                    
+                    databaseConnection.AddParameter("parentId", parentId);
+                    databaseConnection.AddParameter("linkTypeNumber", linkTypeNumber);
                     databaseConnection.AddParameter("username", username);
                     databaseConnection.AddParameter("userId", userId);
                     databaseConnection.AddParameter("publishedEnvironment",
@@ -256,32 +258,11 @@ namespace GeeksCoreLibrary.Core.Services
                     databaseConnection.AddParameter("json", wiserItem.Json);
                     databaseConnection.AddParameter("jsonLastProcessedDate", wiserItem.JsonLastProcessedDate);
                     databaseConnection.AddParameter("saveHistoryGcl", saveHistory); // This is used in triggers.
-
-                    if (parentId.HasValue)
-                    {
-                        databaseConnection.AddParameter("parentId", parentId.Value);
-                        
-                        if (wiserItem.Ordering == 0)
-                        {
-                            var orderResult = await databaseConnection.GetAsync($"SELECT IFNULL(MAX(ordering), 0) + 1 AS newOrdering FROM {tablePrefix}{WiserTableNames.WiserItem} WHERE parent_item_id = ?parentId");
-                            databaseConnection.AddParameter("ordering", orderResult.Rows.Count > 0 ? orderResult.Rows[0].Field<long>("newOrdering") : 1);    
-                        }
-                        else
-                        {
-                            databaseConnection.AddParameter("ordering", wiserItem.Ordering);
-                        }
-                    }
-                    else
-                    {
-                        databaseConnection.AddParameter("parentId", 0);
-                        databaseConnection.AddParameter("ordering", wiserItem.Ordering);
-                    }
-                    
                     var query = $@"SET @saveHistory = ?saveHistoryGcl;
 SET @_userId = ?userId;
 SET @saveHistory = ?saveHistoryGcl;
-INSERT INTO {tablePrefix}{WiserTableNames.WiserItem} (moduleid, title, entity_type, added_by, published_environment, json, json_last_processed_date, parent_item_id, ordering)
-VALUES (?moduleId, ?title, ?entityType, ?username, ?publishedEnvironment, ?json, ?jsonLastProcessedDate, ?parentId, ?ordering);
+INSERT INTO {tablePrefix}{WiserTableNames.WiserItem} (moduleid, title, entity_type, added_by, published_environment, json, json_last_processed_date)
+VALUES (?moduleId, ?title, ?entityType, ?username, ?publishedEnvironment, ?json, ?jsonLastProcessedDate);
 SELECT LAST_INSERT_ID() AS newId;";
                     var queryResult = await databaseConnection.GetAsync(query, true);
 
@@ -292,7 +273,50 @@ SELECT LAST_INSERT_ID() AS newId;";
 
                     wiserItem.Id = Convert.ToUInt64(queryResult.Rows[0]["newId"]);
                     wiserItem.EncryptedId = wiserItem.Id.ToString().EncryptWithAesWithSalt(encryptionKey, true);
-                 
+
+                    if (!parentId.HasValue)
+                    {
+                        return wiserItem;
+                    }
+
+                    // Check where we need to save the link to the parent ID.
+                    databaseConnection.AddParameter("parentId", parentId.Value);
+                    queryResult = await databaseConnection.GetAsync($@"SELECT entity_type FROM {tablePrefix}{WiserTableNames.WiserItem} WHERE id = ?parentId", true);
+                    var destinationEntityType = "";
+                    if (queryResult.Rows.Count > 0)
+                    {
+                        destinationEntityType = queryResult.Rows[0].Field<string>("entity_type");
+                    }
+
+                    var linkTypeSettings = await wiserItemsService.GetLinkTypeSettingsAsync(0, wiserItem.EntityType, destinationEntityType);
+                    if (linkTypeSettings is {UseItemParentId: true})
+                    {
+                        // Save parent ID in parent_item_id column of wiser_item.
+                        wiserItem.ParentItemId = parentId.Value;
+                        databaseConnection.AddParameter("newItemId", wiserItem.Id);
+                        databaseConnection.AddParameter("parentId", parentId);
+                        var orderResult = await databaseConnection.GetAsync($"SELECT IFNULL(MAX(ordering), 0) + 1 AS newOrdering FROM {tablePrefix}{WiserTableNames.WiserItem} WHERE parent_item_id = ?parentId");
+                        databaseConnection.AddParameter("newOrdering", orderResult.Rows.Count > 0 ? orderResult.Rows[0].Field<long>("newOrdering") : 1);
+                        await databaseConnection.ExecuteAsync($"UPDATE {tablePrefix}{WiserTableNames.WiserItem} SET parent_item_id = ?parentId, ordering = @newOrdering WHERE id = ?newItemId");
+                    }
+                    else
+                    {
+                        var linkTablePrefix = wiserItemsService.GetTablePrefixForLink(linkTypeSettings);
+
+                        // Save parent ID in wiser_itemlink.
+                        var newOrderNumber = 1;
+                        queryResult = await databaseConnection.GetAsync($"SELECT IFNULL(MAX(ordering), 0) + 1 AS newOrderNumber FROM {linkTablePrefix}{WiserTableNames.WiserItemLink} WHERE destination_item_id = ?parentId", true);
+                        if (queryResult.Rows.Count > 0)
+                        {
+                            newOrderNumber = Convert.ToInt32(queryResult.Rows[0]["newOrderNumber"]);
+                        }
+
+                        databaseConnection.AddParameter("newId", wiserItem.Id);
+                        databaseConnection.AddParameter("newOrderNumber", newOrderNumber);
+                        await databaseConnection.ExecuteAsync($@"INSERT INTO {linkTablePrefix}{WiserTableNames.WiserItemLink} (item_id, destination_item_id, ordering, type)
+VALUES (?newId, ?parentId, ?newOrderNumber, ?linkTypeNumber)");
+                    }
+
                     if (createNewTransaction && !alreadyHadTransaction) await databaseConnection.CommitTransactionAsync();
                     transactionCompleted = true;
 
