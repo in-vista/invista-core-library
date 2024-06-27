@@ -1434,7 +1434,7 @@ SET @saveHistory = ?saveHistoryGcl;
 
             var entityTypeSettings = await wiserItemsService.GetEntityTypeSettingsAsync(entityType);
             var tablePrefix = wiserItemsService.GetTablePrefixForEntity(entityTypeSettings);
-
+            
             if (entityTypeSettings.DeleteAction == EntityDeletionTypes.Disallow)
             {
                 throw new InvalidOperationException($"Items of type '{entityType}' can not be deleted.");
@@ -1841,9 +1841,11 @@ VALUES ('UNDELETE_ITEM', 'wiser_item', ?itemId, IFNULL(@_username, USER()), ?ent
                         // Also delete children of this item, if applicable.
                         foreach (var linkSettings in allLinkTypeSettings.Where(l => l.CascadeDelete && String.Equals(l.DestinationEntityType, entityType)))
                         {
+                            // Cascade delete children when source type matches link settings 
+                            var tablePrefixSource = await wiserItemsService.GetTablePrefixForEntityAsync(linkSettings.SourceEntityType);
                             var linkTablePrefix = GetTablePrefixForLink(linkSettings);
                             var archiveSuffix = undelete ? WiserTableNames.ArchiveSuffix : "";
-                            query = $@"SELECT item_id FROM {linkTablePrefix}{WiserTableNames.WiserItemLink}{archiveSuffix} WHERE destination_item_id IN ({formattedItemIds})";
+                            query = $@"SELECT l.item_id FROM {linkTablePrefix}{WiserTableNames.WiserItemLink}{archiveSuffix} l JOIN {tablePrefixSource}{WiserTableNames.WiserItem}{archiveSuffix} i ON i.id=l.item_id AND i.entity_type='{linkSettings.SourceEntityType}' WHERE l.destination_item_id IN ({formattedItemIds})";
                             var dataTable = await databaseConnection.GetAsync(query);
                             var children = dataTable.Rows.Cast<DataRow>().Select(dataRow => Convert.ToUInt64(dataRow["item_id"])).ToList();
                             await DeleteAsync(wiserItemsService, children, undelete, username, userId, saveHistory, linkSettings.SourceEntityType, false, skipPermissionsCheck);
