@@ -17,6 +17,7 @@ public static class QueryHelpers
         }
 
         return query.Contains("INSERT", StringComparison.OrdinalIgnoreCase) ||
+               query.Contains("CALL", StringComparison.OrdinalIgnoreCase) ||
                query.Contains("UPDATE", StringComparison.OrdinalIgnoreCase) ||
                query.Contains("DELETE", StringComparison.OrdinalIgnoreCase) ||
                query.Contains("ALTER", StringComparison.OrdinalIgnoreCase) ||
