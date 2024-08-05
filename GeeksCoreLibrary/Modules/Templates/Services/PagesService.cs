@@ -89,6 +89,7 @@ namespace GeeksCoreLibrary.Modules.Templates.Services
                 WHERE {String.Join(" AND ", whereClause)}
                 GROUP BY template.template_id";
 
+                databaseConnection.ClearParameters();
                 var globalHeaders = await databaseConnection.GetAsync(query);
                 foreach (DataRow globalHeaderDataRow in globalHeaders.Rows)
                 {
@@ -157,6 +158,7 @@ namespace GeeksCoreLibrary.Modules.Templates.Services
                 WHERE {String.Join(" AND ", whereClause)}
                 GROUP BY template.template_id";
 
+                databaseConnection.ClearParameters();
                 var globalFooters = await databaseConnection.GetAsync(query);
                 foreach (DataRow globalFooterDataRow in globalFooters.Rows)
                 {
