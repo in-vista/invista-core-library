@@ -802,8 +802,8 @@ namespace GeeksCoreLibrary.Components.OrderProcess.Services
 
                     webhookUrl = new UriBuilder(pspWebhookDomain);
                 }
-                // The PSP can't reach our development and test environments, so use the main domain in those cases.
-                else if (gclSettings.Environment.InList(Environments.Development, Environments.Test))
+                // The PSP can't reach our development and test environments, so use the main domain in those cases (except when NoPsp because we can test this locally)
+                else if (gclSettings.Environment.InList(Environments.Development, Environments.Test) && paymentMethodSettings.PaymentServiceProvider.Type!=PaymentServiceProviders.NoPsp)
                 {
                     var mainDomain = await objectsService.FindSystemObjectByDomainNameAsync("maindomain");
                     if (String.IsNullOrWhiteSpace(mainDomain))

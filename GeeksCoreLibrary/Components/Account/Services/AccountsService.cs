@@ -56,7 +56,7 @@ namespace GeeksCoreLibrary.Components.Account.Services
         }
 
         /// <inheritdoc />
-        public async Task<UserCookieDataModel> GetUserDataFromCookieAsync(string cookieName = Constants.CookieName)
+        public async Task<UserCookieDataModel> GetUserDataFromCookieAsync(string cookieName = Constants.CookieName, bool skipRoles = false)
         {
             var httpContext = httpContextAccessor?.HttpContext;
             if (httpContext == null)
@@ -99,7 +99,11 @@ namespace GeeksCoreLibrary.Components.Account.Services
 
                 // Note: Added the word 'update' to the query force the GCL to use the write connection string.
                 // Note: This is done because sometimes the sync to a read database is not instant and then the cookie cannot be found immediately after creating it.
-                var query = $@"# UPDATE
+                var query = await objectsService.FindSystemObjectByDomainNameAsync("Account_CustomQuery");
+                var hasCustomQuery = query != "";
+                if (query == "")
+                {
+                    query = $@"# UPDATE
                                 SELECT 
                                     user_id, 
                                     main_user_id,
@@ -113,7 +117,8 @@ namespace GeeksCoreLibrary.Components.Account.Services
                                 FROM {Constants.AuthenticationTokensTableName}
                                 WHERE selector = ?selector
                                 AND entity_type = ?entityType
-                                AND expires > NOW()";
+                                AND expires > NOW()
+                                LIMIT 1";
 
                 databaseConnection.AddParameter("selector", cookieValueParts[0]);
                 databaseConnection.AddParameter("entityType", cookieValueParts[2]);
@@ -148,10 +153,22 @@ namespace GeeksCoreLibrary.Components.Account.Services
                     IpAddress = dataSetFirstRow.Field<string>("ip_address"),
                     UserAgent = dataSetFirstRow.Field<string>("user_agent"),
                     MainUserEntityType = dataSetFirstRow.Field<string>("main_user_entity_type"),
-                    Roles = await GetUserRolesAsync(userId),
+                    Roles = (!skipRoles) ? await GetUserRolesAsync(userId) : null,
                     ExtraData = new Dictionary<string, string>(StringComparer.InvariantCultureIgnoreCase)
                 };
+                
+                //Fill extra data with fields from custom query
+                if (hasCustomQuery)
+                    foreach (DataColumn dataColumn in result.Columns)
+                    {
+                        if (dataColumn.ColumnName.StartsWith("additional_"))
+                        {
+                            output.ExtraData.Add(dataColumn.ColumnName.Replace("additional_",""),
+                                dataSetFirstRow.IsNull(dataColumn.ColumnName) ? "" : dataSetFirstRow[dataColumn.ColumnName].ToString());
+                        }
+                    }
 
+                //Retreive additional data
                 var extraDataQuery = await objectsService.FindSystemObjectByDomainNameAsync("Account_ExtraDataQuery");
                 if (String.IsNullOrWhiteSpace(extraDataQuery))
                 {

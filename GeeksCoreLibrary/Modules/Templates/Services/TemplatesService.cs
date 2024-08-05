@@ -1380,7 +1380,7 @@ ORDER BY ORDINAL_POSITION ASC";
             }
 
             var query = await DoReplacesAsync(templatesService, template.PreLoadQuery, forQuery: true, templateType: TemplateTypes.Query);
-            var dataTable = await databaseConnection.GetAsync(query);
+            var dataTable = await databaseConnection.GetAsync(query, skipCache: template.CachingMinutes==-1);
             if (dataTable.Rows.Count == 0)
             {
                 return false;

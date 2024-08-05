@@ -295,8 +295,16 @@ SELECT LAST_INSERT_ID() AS newId;";
                         wiserItem.ParentItemId = parentId.Value;
                         databaseConnection.AddParameter("newItemId", wiserItem.Id);
                         databaseConnection.AddParameter("parentId", parentId);
-                        var orderResult = await databaseConnection.GetAsync($"SELECT IFNULL(MAX(ordering), 0) + 1 AS newOrdering FROM {tablePrefix}{WiserTableNames.WiserItem} WHERE parent_item_id = ?parentId");
-                        databaseConnection.AddParameter("newOrdering", orderResult.Rows.Count > 0 ? orderResult.Rows[0].Field<long>("newOrdering") : 1);
+                        if (entityTypeSettings.DefaultOrdering == EntityOrderingTypes.LinkOrdering)
+                        {
+                            var orderResult = await databaseConnection.GetAsync($"SELECT IFNULL(MAX(ordering), 0) + 1 AS newOrdering FROM {tablePrefix}{WiserTableNames.WiserItem} WHERE parent_item_id = ?parentId");
+                            databaseConnection.AddParameter("newOrdering", orderResult.Rows.Count > 0 ? orderResult.Rows[0].Field<long>("newOrdering") : 1);
+                        }
+                        else
+                        {
+                            //Do not save if the ordering of this entity is set to itemTitle, because in that case orering does not matter (for example for baskets)
+                            databaseConnection.AddParameter("newOrdering", 1);
+                        }
                         await databaseConnection.ExecuteAsync($"UPDATE {tablePrefix}{WiserTableNames.WiserItem} SET parent_item_id = ?parentId, ordering = @newOrdering WHERE id = ?newItemId");
                     }
                     else
@@ -2864,6 +2872,7 @@ WHERE {String.Join(" AND ", where)}";
         /// <inheritdoc />
         public async Task<EntitySettingsModel> GetEntityTypeSettingsAsync(string entityType, int moduleId = 0)
         {
+            databaseConnection.ClearParameters();
             databaseConnection.AddParameter("entityType", entityType);
             var query = $@"SELECT 
                                 entity.*,
@@ -2901,6 +2910,7 @@ WHERE {String.Join(" AND ", where)}";
                         Id = id,
                         ModuleId = dataRow.Field<int?>("module_id") ?? 0,
                         EntityType = entityType,
+                        DefaultOrdering = dataRow.Field<string>("default_ordering")=="item_title" ? EntityOrderingTypes.ItemTitle : EntityOrderingTypes.LinkOrdering,
                         QueryAfterInsert = dataRow.Field<string>("query_after_insert"),
                         QueryAfterUpdate = dataRow.Field<string>("query_after_update"),
                         SaveTitleAsSeo = !dataRow.IsNull("save_title_as_seo") && Convert.ToInt16(dataRow["save_title_as_seo"]) > 0,
