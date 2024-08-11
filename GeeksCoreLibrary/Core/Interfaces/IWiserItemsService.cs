@@ -747,6 +747,12 @@ namespace GeeksCoreLibrary.Core.Interfaces
         Task<List<WiserItemFileModel>> GetItemFilesAsync(IWiserItemsService wiserItemsService, ulong[] ids, string field = "id", string propertyName = null, string entityType = null, int linkType = 0);
 
         /// <summary>
+        /// Get a list of all dedicated prefixes used on the server
+        /// </summary>
+        /// <returns>a list of dedicated prefixes strings, or an empty list none have been found.</returns>
+        Task<List<string>> GetDedicatedTablePrefixesAsync();
+        
+        /// <summary>
         /// Gets the prefix for the wiser_item and wiser_itemdetail tables for a specific entity type.
         /// Certain entity types can have dedicated tables, they won't use wiser_item and wiser_itemdetail, but something like basket_wiser_item and basket_wiser_itemdetail instead.
         /// This function checks wiser_entity if the entity type has dedicated tables and returns the prefix for those tables.

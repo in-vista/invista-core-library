@@ -148,6 +148,7 @@ namespace GeeksCoreLibrary.Core.Helpers
             {
                 return null;
             }
+            
             if (String.IsNullOrEmpty(key))
             {
                 return null;
@@ -198,6 +199,7 @@ namespace GeeksCoreLibrary.Core.Helpers
             {
                 return false;
             }
+            
             if (String.IsNullOrEmpty(key))
             {
                 return false;
@@ -311,7 +313,7 @@ namespace GeeksCoreLibrary.Core.Helpers
                 return default;
             }
 
-            return (T)Convert.ChangeType(rawValues, typeof(T));
+            return (T) Convert.ChangeType(rawValues, typeof(T));
         }
 
         /// <summary>
@@ -330,7 +332,12 @@ namespace GeeksCoreLibrary.Core.Helpers
             var result = GetHeaderValueAs<string>(httpContext, "CF_CONNECTING_IP"); // Cloud Flare IP address.
             if (String.IsNullOrWhiteSpace(result))
             {
-                result = GetHeaderValueAs<string>(httpContext, "X_FORWARDED_FOR");
+                result = GetHeaderValueAs<string>(httpContext, "True-Client-IP"); // Also Cloud Flare IP address.
+            }
+
+            if (String.IsNullOrWhiteSpace(result))
+            {
+                result = GetHeaderValueAs<string>(httpContext, "X_FORWARDED_FOR"); // TransIP and other providers use this.
             }
 
             if (String.IsNullOrWhiteSpace(result))

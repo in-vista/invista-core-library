@@ -98,8 +98,8 @@ namespace GeeksCoreLibrary.Modules.Databases.Helpers
                 {
                     new(WiserTableNames.WiserItemLinkDetail, "itemlink_key", IndexTypes.Unique, new List<string> { "itemlink_id", "key", "language_code" }),
                     new(WiserTableNames.WiserItemLinkDetail, "key_value", IndexTypes.Normal, new List<string> { "key(50)", "value(100)" }),
-                    new(WiserTableNames.WiserItemLinkDetail, "itemlink_id_key_value", IndexTypes.Normal, new List<string> { "item_id", "key(40)", "value(40)" }),
-                    new(WiserTableNames.WiserItemLinkDetail, "itemlink_id_group", IndexTypes.Normal, new List<string> { "item_id", "groupname", "key(40)" })
+                    new(WiserTableNames.WiserItemLinkDetail, "itemlink_id_key_value", IndexTypes.Normal, new List<string> {"itemlink_id", "key(40)", "value(40)"}),
+                    new(WiserTableNames.WiserItemLinkDetail, "itemlink_id_group", IndexTypes.Normal, new List<string> {"itemlink_id", "groupname", "key(40)"})
                 }
             },
 
@@ -828,7 +828,7 @@ namespace GeeksCoreLibrary.Modules.Databases.Helpers
             new WiserTableDefinitionModel
             {
                 Name = WiserTableNames.WiserStyledOutput,
-                LastUpdate = new DateTime(2024, 05, 28),
+                LastUpdate = new DateTime(2024, 06, 06),
                 Columns = new List<ColumnSettingsModel>
                 {
                     new("id", MySqlDbType.Int32, notNull: true, isPrimaryKey: true, autoIncrement: true),
@@ -839,7 +839,9 @@ namespace GeeksCoreLibrary.Modules.Databases.Helpers
                     new("format_empty",MySqlDbType.MediumText),
                     new("query_id", MySqlDbType.Int32),
                     new("return_type", MySqlDbType.VarChar, 10),
-                    new("options", MySqlDbType.JSON)
+                    new("options", MySqlDbType.JSON),
+                    new("log_average_runtime", MySqlDbType.Double),
+                    new("log_run_count", MySqlDbType.Int32)
                 }
             },
 
@@ -1016,6 +1018,42 @@ namespace GeeksCoreLibrary.Modules.Databases.Helpers
                 {
                     new(Constants.DatabaseConnectionLogTableName, "idx_instance_id", IndexTypes.Normal, new List<string> { "database_service_instance_id" }),
                     new(Constants.DatabaseConnectionLogTableName, "idx_closed", IndexTypes.Normal, new List<string> { "closed" })
+                }
+            },
+            
+             // gcl_request_log
+            new WiserTableDefinitionModel
+            {
+                Name = WiserTableNames.GclRequestLog,
+                LastUpdate = new DateTime(2024, 6, 12),
+                Columns = new List<ColumnSettingsModel>
+                {
+                    new("id", MySqlDbType.UInt64, notNull: true, isPrimaryKey: true, autoIncrement: true),
+                    new("host", MySqlDbType.VarChar, 255, notNull: true),
+                    new("path", MySqlDbType.VarChar, 255),
+                    new("query_string", MySqlDbType.MediumText),
+                    new("scheme", MySqlDbType.VarChar, 10),
+                    new("method", MySqlDbType.VarChar, 10),
+                    new("protocol", MySqlDbType.VarChar, 20),
+                    new("request_headers", MySqlDbType.MediumText),
+                    new("request_body", MySqlDbType.MediumText),
+                    new("response_headers", MySqlDbType.MediumText),
+                    new("response_body", MySqlDbType.MediumText),
+                    new("status_code", MySqlDbType.Int24),
+                    new("environment", MySqlDbType.VarChar, 50, notNull: true),
+                    new("user_id", MySqlDbType.UInt64),
+                    new("ip_address", MySqlDbType.VarChar, 255),
+                    new("extra_data", MySqlDbType.JSON),
+                    new("start_datetime", MySqlDbType.DateTime, notNull: true),
+                    new("end_datetime", MySqlDbType.DateTime)
+                },
+                Indexes = new List<IndexSettingsModel>
+                {
+                    new(WiserTableNames.GclRequestLog, "idx_environment", IndexTypes.Normal, new List<string> {"environment", "user_id", "status_code"}),
+                    new(WiserTableNames.GclRequestLog, "idx_user_id", IndexTypes.Normal, new List<string> {"user_id", "status_code"}),
+                    new(WiserTableNames.GclRequestLog, "idx_status_code", IndexTypes.Normal, new List<string> {"status_code"}),
+                    new(WiserTableNames.GclRequestLog, "idx_host", IndexTypes.Normal, new List<string> {"host", "path", "method"}),
+                    new(WiserTableNames.GclRequestLog, "idx_path", IndexTypes.Normal, new List<string> {"path", "method"})
                 }
             }
         };

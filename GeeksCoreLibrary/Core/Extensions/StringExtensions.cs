@@ -63,27 +63,7 @@ namespace GeeksCoreLibrary.Core.Extensions
         /// <returns>The string with all requested values replaced.</returns>
         public static string ReplaceCaseInsensitive(this string input, string oldValue, string newValue)
         {
-            if (String.IsNullOrEmpty(input))
-            {
-                return input;
-            }
-
-            var sb = new StringBuilder();
-
-            var previousIndex = 0;
-            var index = input.IndexOf(oldValue, StringComparison.CurrentCultureIgnoreCase);
-            while (index != -1)
-            {
-                sb.Append(input[previousIndex..index]);
-                sb.Append(newValue);
-                index += oldValue.Length;
-
-                previousIndex = index;
-                index = input.IndexOf(oldValue, index, StringComparison.CurrentCultureIgnoreCase);
-            }
-            sb.Append(input[previousIndex..]);
-
-            return sb.ToString();
+            return input.Replace(oldValue, newValue, StringComparison.CurrentCultureIgnoreCase);
         }
 
         /// <summary>
@@ -803,6 +783,11 @@ namespace GeeksCoreLibrary.Core.Extensions
         /// <returns>A string that can be safely used as a file name on the machine that this application runs on.</returns>
         public static string StripIllegalFilenameCharacters(this string input)
         {
+            if (String.IsNullOrEmpty(input))
+            {
+                return input;
+            }
+
             var regexSearch = Path.GetInvalidFileNameChars().ToString();
             var regex = new Regex($"[{Regex.Escape(regexSearch!)}]", RegexOptions.IgnoreCase, TimeSpan.FromMilliseconds(2000));
             var output = regex.Replace(input, "");

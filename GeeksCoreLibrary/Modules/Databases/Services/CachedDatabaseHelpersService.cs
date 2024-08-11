@@ -32,6 +32,8 @@ namespace GeeksCoreLibrary.Modules.Databases.Services
             this.branchesService = branchesService;
         }
 
+        public List<WiserTableDefinitionModel> ExtraWiserTableDefinitions { get; set; }
+        
         /// <inheritdoc />
         public async Task<bool> ColumnExistsAsync(string tableName, string columnName, string databaseName = null)
         {
