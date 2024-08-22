@@ -25,6 +25,7 @@ using GeeksCoreLibrary.Modules.Objects.Interfaces;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc.ViewFeatures;
 using Microsoft.Extensions.Options;
+using Newtonsoft.Json.Linq;
 
 namespace GeeksCoreLibrary.Modules.Templates.Controllers
 {
@@ -319,7 +320,14 @@ namespace GeeksCoreLibrary.Modules.Templates.Controllers
                     stopWatch.Start();
                 }
 
-                var jsonResult = await templatesService.GetJsonResponseFromQueryAsync(result);
+                JToken jsonResult = await templatesService.GetJsonResponseFromQueryAsync(result);
+                
+                // If the template is expected to be returned as an object, check whether it is viable to do so and grab the first result as a JObject.
+                if (
+                    result.GroupingSettings.ObjectInsteadOfArray &&
+                    jsonResult is JArray jsonResultArray &&
+                    jsonResultArray.Count > 0)
+                    jsonResult = jsonResult[0] as JObject;
 
                 return Content(JsonConvert.SerializeObject(jsonResult), "application/json");
             }
