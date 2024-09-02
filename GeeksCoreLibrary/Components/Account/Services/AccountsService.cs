@@ -119,6 +119,7 @@ namespace GeeksCoreLibrary.Components.Account.Services
                                 AND entity_type = ?entityType
                                 AND expires > NOW()
                                 LIMIT 1";
+                }
 
                 databaseConnection.AddParameter("selector", cookieValueParts[0]);
                 databaseConnection.AddParameter("entityType", cookieValueParts[2]);
