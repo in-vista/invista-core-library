@@ -58,6 +58,11 @@ namespace GeeksCoreLibrary.Components.Account.Services
         /// <inheritdoc />
         public async Task<UserCookieDataModel> GetUserDataFromCookieAsync(string cookieName = Constants.CookieName, bool skipRoles = false)
         {
+            if (String.IsNullOrWhiteSpace(cookieName))
+            {
+                cookieName = Constants.CookieName;
+            }
+
             var httpContext = httpContextAccessor?.HttpContext;
             if (httpContext == null)
             {
@@ -119,10 +124,13 @@ namespace GeeksCoreLibrary.Components.Account.Services
                                 AND entity_type = ?entityType
                                 AND expires > NOW()
                                 LIMIT 1";
+                }
 
                 databaseConnection.AddParameter("selector", cookieValueParts[0]);
                 databaseConnection.AddParameter("entityType", cookieValueParts[2]);
-                var result = await databaseConnection.GetAsync(query, true);
+
+                // Writing connection is used because sometimes the sync to a read database is not instant and then the cookie cannot be found immediately after creating it.
+                var result = await databaseConnection.GetAsync(query, true, useWritingConnectionIfAvailable: true);
 
                 if (result.Rows.Count == 0)
                 {
@@ -154,6 +162,7 @@ namespace GeeksCoreLibrary.Components.Account.Services
                     UserAgent = dataSetFirstRow.Field<string>("user_agent"),
                     MainUserEntityType = dataSetFirstRow.Field<string>("main_user_entity_type"),
                     Roles = (!skipRoles) ? await GetUserRolesAsync(userId) : null,
+                    CustomRole = dataSetFirstRow.Field<string>("role"),
                     ExtraData = new Dictionary<string, string>(StringComparer.InvariantCultureIgnoreCase)
                 };
                 
@@ -248,7 +257,9 @@ namespace GeeksCoreLibrary.Components.Account.Services
         }
 
         /// <inheritdoc />
-        public async Task<string> GenerateNewCookieTokenAsync(ulong userId, ulong mainUserId, int amountOfDaysToRememberCookie, string mainUserEntityType = "relatie", string userEntityType = "account")
+        public async Task<string> GenerateNewCookieTokenAsync(ulong userId, ulong mainUserId,
+            int amountOfDaysToRememberCookie, string mainUserEntityType = "relatie", string userEntityType = "account",
+            string role = null)
         {
             // Make sure we always have a valid main user ID. If the user is logging in with a main user, this should be the same as the user ID.
             if (mainUserId == 0)
@@ -274,8 +285,9 @@ namespace GeeksCoreLibrary.Components.Account.Services
             databaseConnection.AddParameter("main_user_entity_type", mainUserEntityType);
             databaseConnection.AddParameter("ip_address", HttpContextHelpers.GetUserIpAddress(httpContextAccessor?.HttpContext));
             databaseConnection.AddParameter("user_agent", HttpContextHelpers.GetHeaderValueAs<string>(httpContextAccessor?.HttpContext, HeaderNames.UserAgent));
-            databaseConnection.AddParameter("expires", DateTime.Now.AddDays(amountOfDaysToRememberCookie));
+            databaseConnection.AddParameter("expires", DateTime.Now.AddDays(amountOfDaysToRememberCookie <= 0 ? 1 : amountOfDaysToRememberCookie));
             databaseConnection.AddParameter("login_date", DateTime.Now);
+            databaseConnection.AddParameter("role", role);
             await databaseConnection.InsertOrUpdateRecordBasedOnParametersAsync(Constants.AuthenticationTokensTableName, 0UL);
 
             return $"{selector}:{Uri.EscapeDataString(validator.EncryptWithAes(gclSettings.AccountCookieValueEncryptionKey))}:{entityTypeToUse}";

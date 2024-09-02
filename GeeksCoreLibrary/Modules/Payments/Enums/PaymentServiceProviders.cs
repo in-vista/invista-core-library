@@ -14,6 +14,8 @@
         AfterPay,
         Mollie,
         PayNl,
-        PayPal
+        PayPal,
+        XMoney,
+        Dimoco
     }
 }
