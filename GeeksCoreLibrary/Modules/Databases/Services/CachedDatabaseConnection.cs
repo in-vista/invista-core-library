@@ -1,4 +1,5 @@
-﻿using System.Collections.Concurrent;
+﻿using System;
+using System.Collections.Concurrent;
 using System.Data;
 using System.Data.Common;
 using System.Linq;
@@ -89,6 +90,12 @@ namespace GeeksCoreLibrary.Modules.Databases.Services
             cacheName.Append(query.ToSha512Simple());
             foreach (var (key, value) in parameters.OrderBy(item => item.Key))
             {
+                if (!query.Contains($"?{key}", StringComparison.OrdinalIgnoreCase))
+                {
+                    // Don't include parameters that are not used in the query.
+                    continue;
+                }
+
                 cacheName.Append($"{key}={value}");
             }
 
@@ -97,7 +104,7 @@ namespace GeeksCoreLibrary.Modules.Databases.Services
                 async cacheEntry =>
                 {
                     cacheEntry.AbsoluteExpirationRelativeToNow = gclSettings.DefaultQueryCacheDuration;
-                    return await databaseConnection.GetAsync(query);
+                    return await databaseConnection.GetAsync(query, cleanUp: cleanUp, useWritingConnectionIfAvailable: useWritingConnectionIfAvailable);
                 }, cacheService.CreateMemoryCacheEntryOptions(CacheAreas.Database));
         }
 
@@ -223,6 +230,24 @@ namespace GeeksCoreLibrary.Modules.Databases.Services
         public bool HasActiveTransaction()
         {
             return databaseConnection.HasActiveTransaction();
+        }
+
+        /// <inheritdoc />
+        public DbConnection GetConnectionForReading()
+        {
+            return databaseConnection.GetConnectionForReading();
+        }
+
+        /// <inheritdoc />
+        public DbConnection GetConnectionForWriting()
+        {
+            return databaseConnection.GetConnectionForWriting();
+        }
+
+        /// <inheritdoc />
+        public async Task<int> BulkInsertAsync(DataTable dataTable, string tableName, bool useWritingConnectionIfAvailable = true, bool useInsertIgnore = false)
+        {
+            return await databaseConnection.BulkInsertAsync(dataTable, tableName, useWritingConnectionIfAvailable, useInsertIgnore);
         }
     }
 }

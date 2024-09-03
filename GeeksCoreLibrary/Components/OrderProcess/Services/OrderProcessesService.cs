@@ -905,7 +905,7 @@ namespace GeeksCoreLibrary.Components.OrderProcess.Services
                 paymentMethodSettings.PaymentServiceProvider.PendingUrl = UriHelpers.AddToQueryString(String.IsNullOrEmpty(paymentMethodSettings.PaymentServiceProvider.PendingUrl) ? $"{webhookUrl.Scheme}://{webhookUrl.Host}/" : paymentMethodSettings.PaymentServiceProvider.PendingUrl, queryParameters);
                 // Generate invoice number.
                 var invoiceNumber = "";
-                var invoiceNumberQuery = (await templatesService.GetTemplateAsync(name: Constants.InvoiceNumberQueryTemplate, type: TemplateTypes.Query))?.Content;
+                var invoiceNumberQuery = (await templatesService.GetTemplateContentAsync(name: Constants.InvoiceNumberQueryTemplate, type: TemplateTypes.Query))?.Content;
                 if (!String.IsNullOrWhiteSpace(invoiceNumberQuery))
                 {
                     invoiceNumberQuery = invoiceNumberQuery.Replace("{oid}", orderId.ToString(), StringComparison.OrdinalIgnoreCase).Replace("{orderId}", orderId.ToString(), StringComparison.OrdinalIgnoreCase);
@@ -943,6 +943,7 @@ namespace GeeksCoreLibrary.Components.OrderProcess.Services
                     main.SetDetail(Constants.UniquePaymentNumberProperty, uniquePaymentNumber);
                     main.SetDetail(Constants.InvoiceNumberProperty, invoiceNumber);
                     main.SetDetail(Constants.LanguageCodeProperty, languagesService?.CurrentLanguageCode ?? "");
+                    main.SetDetail(Constants.CountryCodeProperty, await objectsService.FindSystemObjectByDomainNameAsync(Constants.CountryCodeProperty));
                     main.SetDetail(Constants.IsTestOrderProperty, isTestOrder ? 1 : 0);
                     await shoppingBasketsService.SaveAsync(main, lines, basketSettings);
                 }

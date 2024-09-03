@@ -323,7 +323,7 @@ WHERE `order`.entity_type IN ('{OrderProcess.Models.Constants.OrderEntityType}',
 
             if (settings.MultipleBasketsPossible && itemId == 0 && String.IsNullOrWhiteSpace(settings.GetBasketQuery))
             {
-                settings.GetBasketQuery = (await templatesService.GetTemplateAsync(name: "GetBasketQuery", type: TemplateTypes.Query)).Content;
+                settings.GetBasketQuery = (await templatesService.GetTemplateContentAsync(name: "GetBasketQuery", type: TemplateTypes.Query)).Content;
             }
 
             if (settings.MultipleBasketsPossible && itemId == 0 && !String.IsNullOrWhiteSpace(settings.GetBasketQuery))
@@ -364,7 +364,7 @@ WHERE `order`.entity_type IN ('{OrderProcess.Models.Constants.OrderEntityType}',
 
                 if (settings.BasketLineStockAction)
                 {
-                    var basketLineStockActionQuery = (await templatesService.GetTemplateAsync(0, "BasketLineStockAction", TemplateTypes.Query)).Content;
+                    var basketLineStockActionQuery = (await templatesService.GetTemplateContentAsync(0, "BasketLineStockAction", TemplateTypes.Query)).Content;
                     if (!String.IsNullOrWhiteSpace(basketLineStockActionQuery))
                     {
                         logger.LogTrace("UpdateLineDetailsViaLineStockActionQuery");
@@ -409,13 +409,13 @@ WHERE `order`.entity_type IN ('{OrderProcess.Models.Constants.OrderEntityType}',
                     {
                         // Retrieve the TempData object, but make sure it doesn't cause a NullReferenceException.
                         var tempData = httpContextAccessor.HttpContext?.Items;
-                        var dataKey = $"ShoppingBasketQueriesExecuted_{settings.CookieName}";
+                        var dataKey = $"ShoppingBasketQueriesExecuted_{itemId}";
                         var allowGeneralQueries = tempData == null || !tempData.ContainsKey(dataKey) || Convert.ToInt32(tempData[dataKey]) != 1;
 
                         // Get extra details on line level, overwrite existing details.
                         if (String.IsNullOrWhiteSpace(settings.ExtraLineFieldsQuery) && allowGeneralQueries)
                         {
-                            settings.ExtraLineFieldsQuery = (await templatesService.GetTemplateAsync(name: "BasketExtraLineFields", type: TemplateTypes.Query)).Content;
+                            settings.ExtraLineFieldsQuery = (await templatesService.GetTemplateContentAsync(name: "BasketExtraLineFields", type: TemplateTypes.Query)).Content;
                         }
 
                         await UpdateLineDetailsViaExtraQueryAsync(shoppingBasket, basketLines, settings, settings.ExtraLineFieldsQuery);
@@ -424,14 +424,14 @@ WHERE `order`.entity_type IN ('{OrderProcess.Models.Constants.OrderEntityType}',
                         if (String.IsNullOrEmpty(settings.ExtraMainFieldsQuery) && allowGeneralQueries)
                         {
                             // See if there's a template in the QUERY folder called "BasketExtraMainFields".
-                            settings.ExtraMainFieldsQuery = (await templatesService.GetTemplateAsync(name: "BasketExtraMainFields", type: TemplateTypes.Query)).Content;
+                            settings.ExtraMainFieldsQuery = (await templatesService.GetTemplateContentAsync(name: "BasketExtraMainFields", type: TemplateTypes.Query)).Content;
                         }
 
                         await UpdateMainDetailsViaExtraQueryAsync(shoppingBasket, basketLines, settings, settings.ExtraMainFieldsQuery);
 
                         if (settings.BasketLineValidityCheck && allowGeneralQueries)
                         {
-                            var basketLineValidityCheckQuery = (await templatesService.GetTemplateAsync(0, "BasketLineValidityCheck", TemplateTypes.Query)).Content;
+                            var basketLineValidityCheckQuery = (await templatesService.GetTemplateContentAsync(0, "BasketLineValidityCheck", TemplateTypes.Query)).Content;
                             if (!String.IsNullOrWhiteSpace(basketLineValidityCheckQuery))
                             {
                                 logger.LogTrace("UpdateLineDetailsViaLineValidityCheckQuery");
@@ -754,7 +754,7 @@ WHERE `order`.entity_type IN ('{OrderProcess.Models.Constants.OrderEntityType}',
                 newLines.Add(conceptLine);
             }
 
-            var createConceptOrderQuery = (await templatesService.GetTemplateAsync(0, "AfterCreateConceptOrder", TemplateTypes.Query)).Content;
+            var createConceptOrderQuery = (await templatesService.GetTemplateContentAsync(0, "AfterCreateConceptOrder", TemplateTypes.Query)).Content;
             if (!String.IsNullOrWhiteSpace(createConceptOrderQuery))
             {
                 var query = stringReplacementsService.DoSessionReplacements(createConceptOrderQuery, true);
@@ -800,7 +800,7 @@ WHERE `order`.entity_type IN ('{OrderProcess.Models.Constants.OrderEntityType}',
 
             return (conceptOrder.Id, conceptOrder, newLines);
         }
-        
+
         /// <inheritdoc />
         public async Task RevertConceptOrderToBasketAsync(WiserItemModel conceptOrder, List<WiserItemModel> conceptOrderLines)
         {
@@ -883,7 +883,7 @@ WHERE `order`.entity_type IN ('{OrderProcess.Models.Constants.OrderEntityType}',
                     await wiserItemsService.ChangeEntityTypeAsync(conceptOrder.Id, OrderProcess.Models.Constants.ConceptOrderEntityType, OrderProcess.Models.Constants.OrderEntityType, skipPermissionsCheck: true, resetAddedOnDate: true);
 
                     // Check if there is a AfterCreateConceptOrder query in the templates module and execute this query if present.
-                    var afterConvertToOrderQuery = (await templatesService.GetTemplateAsync(0, "AfterConvertToOrder", TemplateTypes.Query)).Content;
+                    var afterConvertToOrderQuery = (await templatesService.GetTemplateContentAsync(0, "AfterConvertToOrder", TemplateTypes.Query)).Content;
                     if (!String.IsNullOrWhiteSpace(afterConvertToOrderQuery))
                     {
                         var query = stringReplacementsService.DoSessionReplacements(afterConvertToOrderQuery, true);
@@ -947,11 +947,11 @@ WHERE `order`.entity_type IN ('{OrderProcess.Models.Constants.OrderEntityType}',
             if (isForConfirmationEmail)
             {
                 // Get extra details on basket line level, overwrite existing details.
-                var query = (await templatesService.GetTemplateAsync(name: "BasketExtraLineFieldsForConfirmationEmail", type: TemplateTypes.Query)).Content;
+                var query = (await templatesService.GetTemplateContentAsync(name: "BasketExtraLineFieldsForConfirmationEmail", type: TemplateTypes.Query)).Content;
                 await UpdateLineDetailsViaExtraQueryAsync(shoppingBasket, basketLines, settings, query);
 
                 // Get extra details on basket level, overwrite existing details.
-                query = (await templatesService.GetTemplateAsync(name: "BasketExtraMainFieldsForConfirmationEmail", type: TemplateTypes.Query)).Content;
+                query = (await templatesService.GetTemplateContentAsync(name: "BasketExtraMainFieldsForConfirmationEmail", type: TemplateTypes.Query)).Content;
                 await UpdateMainDetailsViaExtraQueryAsync(shoppingBasket, basketLines, settings, query);
             }
 
@@ -1478,7 +1478,7 @@ WHERE `order`.entity_type IN ('{OrderProcess.Models.Constants.OrderEntityType}',
                     shippingCostsLine.SetDetail("price", shippingCosts.ToString(CultureInfo.InvariantCulture));
                     shippingCostsLine.SetDetail("includesvat", includesVat);
                     shippingCostsLine.SetDetail("vatrate", vatRate);
-                    shippingCostsLine.SetDetail("description", friendlyName);
+                    shippingCostsLine.SetDetail(OrderProcessConstants.DescriptionProperty, friendlyName);
                 }
                 else
                 {
@@ -1487,7 +1487,7 @@ WHERE `order`.entity_type IN ('{OrderProcess.Models.Constants.OrderEntityType}',
                         ["price"] = shippingCosts.ToString(CultureInfo.InvariantCulture),
                         ["includesvat"] = includesVat,
                         ["vatrate"] = vatRate,
-                        ["description"] = friendlyName
+                        [OrderProcessConstants.DescriptionProperty] = friendlyName
                     };
                     await AddLineAsync(shoppingBasket, basketLines, settings, id, type: "shipping_costs", lineDetails: details, createNewTransaction: createNewTransaction);
                 }
@@ -1599,7 +1599,7 @@ WHERE `order`.entity_type IN ('{OrderProcess.Models.Constants.OrderEntityType}',
                     { "includesvat", couponIncludesVat ? "1" : "0" },
                     { "vatrate", couponVatRateSetting },
                     { "code", couponResult.Coupon.GetDetailValue(CouponConstants.Code) },
-                    { "description", "Kortingscode" },
+                    { OrderProcessConstants.DescriptionProperty, "Kortingscode" },
                     { Constants.CouponDividedOverProductsPropertyName, divideDiscountOverProducts ? "1" : "0" }
                 };
 
@@ -1734,7 +1734,7 @@ WHERE `order`.entity_type IN ('{OrderProcess.Models.Constants.OrderEntityType}',
                     paymentMethodCostsLine.SetDetail("price", paymentMethodCosts.ToString(CultureInfo.InvariantCulture));
                     paymentMethodCostsLine.SetDetail("includesvat", includesVat);
                     paymentMethodCostsLine.SetDetail("vatrate", vatRate);
-                    paymentMethodCostsLine.SetDetail("description", friendlyName);
+                    paymentMethodCostsLine.SetDetail(OrderProcessConstants.DescriptionProperty, friendlyName);
                     logger.LogTrace("Calculating paymentmethodcosts - Changed existing rule");
                 }
                 else
@@ -1744,7 +1744,7 @@ WHERE `order`.entity_type IN ('{OrderProcess.Models.Constants.OrderEntityType}',
                         ["price"] = paymentMethodCosts.ToString(CultureInfo.InvariantCulture),
                         ["includesvat"] = includesVat,
                         ["vatrate"] = vatRate,
-                        ["description"] = friendlyName
+                        [OrderProcessConstants.DescriptionProperty] = friendlyName
                     };
                     await AddLineAsync(shoppingBasket, basketLines, settings, id, type: "paymentmethod_costs", lineDetails: details, createNewTransaction: createNewTransaction);
                 }
@@ -2854,15 +2854,7 @@ WHERE coupon.entity_type = 'coupon'", true);
                 return;
             }
 
-            var user = await accountsService.GetUserDataFromCookieAsync();
-            var extraReplacements = new Dictionary<string, object>
-            {
-                { "Account_MainUserId", user.MainUserId },
-                { "Account_UserId", user.UserId },
-                { "AccountWiser2_MainUserId", user.MainUserId },
-                { "AccountWiser2_UserId", user.UserId }
-            };
-            query = stringReplacementsService.DoHttpRequestReplacements(await ReplaceBasketInTemplateAsync(shoppingBasket, basketLines, settings, stringReplacementsService.DoSessionReplacements(stringReplacementsService.DoReplacements(query, extraReplacements, forQuery: true), true), stripNotExistingVariables: false, forQuery: true), true);
+            query = stringReplacementsService.DoHttpRequestReplacements(await ReplaceBasketInTemplateAsync(shoppingBasket, basketLines, settings, stringReplacementsService.DoSessionReplacements(await accountsService.DoAccountReplacementsAsync(query, forQuery: true), true), stripNotExistingVariables: false, forQuery: true), true);
 
             var queryResult = await databaseConnection.GetAsync(query, true);
 
@@ -3019,6 +3011,12 @@ WHERE coupon.entity_type = 'coupon'", true);
                         continue;
                     }
 
+                    var originalPrice = line.GetDetailValue(Constants.OriginalPricePropertyName);
+                    if (String.IsNullOrEmpty(originalPrice))
+                    {
+                        line.SetDetail(Constants.OriginalPricePropertyName, line.GetDetailValue<decimal>(settings.PricePropertyName));
+                    }
+
                     totalPrice += await GetLinePriceAsync(shoppingBasket, line, settings, useOriginalPrice: divideDiscountOverProducts);
                 }
             }
@@ -3030,6 +3028,12 @@ WHERE coupon.entity_type = 'coupon'", true);
                     if (excludedItems.Any(item => item.ItemId == itemId))
                     {
                         continue;
+                    }
+
+                    var originalPrice = line.GetDetailValue(Constants.OriginalPricePropertyName);
+                    if (String.IsNullOrEmpty(originalPrice))
+                    {
+                        line.SetDetail(Constants.OriginalPricePropertyName, line.GetDetailValue<decimal>(settings.PricePropertyName));
                     }
 
                     totalPrice += await GetLinePriceAsync(shoppingBasket, line, settings);
@@ -3390,7 +3394,7 @@ WHERE coupon.entity_type = 'coupon'", true);
                 return output.ToString();
             }
 
-            var template = (await templatesService.GetTemplateAsync(0, templateName)).Content;
+            var template = (await templatesService.GetTemplateContentAsync(0, templateName)).Content;
             var queryResult = await databaseConnection.GetAsync(await ReplaceBasketInTemplateAsync(shoppingBasket, basketLines, settings, methodsQuery, true, forQuery: true), true);
 
             foreach (DataRow dataRow in queryResult.Rows)
