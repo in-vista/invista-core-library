@@ -32,7 +32,8 @@ namespace GeeksCoreLibrary.Modules.Databases.Interfaces
         /// <param name="skipCache">Optional: Set to true to skip the query cache. Queries that get data, will get cached by default, based on a hash of the query and all parameters.</param>
         /// <param name="cleanUp">Optional: Clean up after the query has been completed.</param>
         /// <param name="useWritingConnectionIfAvailable">Optional: Use the writing connection to get information, if there is one available. If we detect that your query contains a database modification, then we will always use the write connection string, no matter what you enter here.</param>
-        Task<DataTable> GetAsync(string query, bool skipCache = false, bool cleanUp = true, bool useWritingConnectionIfAvailable = false);
+        /// <param name="cacheName">Optional: Give cache name if the function should not generate a cache name by itself</param>
+        Task<DataTable> GetAsync(string query, bool skipCache = false, bool cleanUp = true, bool useWritingConnectionIfAvailable = false, string cacheName = "");
 
         /// <summary>
         /// Gets results from a query as a JSON string.

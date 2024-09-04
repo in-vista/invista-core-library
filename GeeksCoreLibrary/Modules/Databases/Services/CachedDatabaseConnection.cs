@@ -71,7 +71,7 @@ namespace GeeksCoreLibrary.Modules.Databases.Services
         }
 
         /// <inheritdoc />
-        public async Task<DataTable> GetAsync(string query, bool skipCache = false, bool cleanUp = true, bool useWritingConnectionIfAvailable = false)
+        public async Task<DataTable> GetAsync(string query, bool skipCache = false, bool cleanUp = true, bool useWritingConnectionIfAvailable = false, string cacheName = "")
         {
             // TODO: This skipCache parameter is temporary, and will be removed once a better solution is found to skip cache.
             if (skipCache)
@@ -80,27 +80,33 @@ namespace GeeksCoreLibrary.Modules.Databases.Services
             }
 
             var currentUri = HttpContextHelpers.GetOriginalRequestUri(httpContextAccessor?.HttpContext);
-            var cacheName = new StringBuilder($"GCL_QUERY_{currentUri.Host}");
-
-            if (gclSettings.MultiLanguageBasedOnUrlSegments && currentUri.Segments.Length > gclSettings.IndexOfLanguagePartInUrl)
+            if (string.IsNullOrEmpty(cacheName))
             {
-                cacheName.Append(currentUri.Segments[gclSettings.IndexOfLanguagePartInUrl].Trim('/'));
-            }
+                var generatedCacheName = new StringBuilder($"GCL_QUERY_{currentUri.Host}");
 
-            cacheName.Append(query.ToSha512Simple());
-            foreach (var (key, value) in parameters.OrderBy(item => item.Key))
-            {
-                if (!query.Contains($"?{key}", StringComparison.OrdinalIgnoreCase))
+                if (gclSettings.MultiLanguageBasedOnUrlSegments && currentUri.Segments.Length > gclSettings.IndexOfLanguagePartInUrl)
                 {
-                    // Don't include parameters that are not used in the query.
-                    continue;
+                    generatedCacheName.Append(currentUri.Segments[gclSettings.IndexOfLanguagePartInUrl].Trim('/'));
                 }
 
-                cacheName.Append($"{key}={value}");
-            }
+                generatedCacheName.Append(query.ToSha512Simple());
+                foreach (var (key, value) in parameters.OrderBy(item => item.Key))
+                {
+                    if (!query.Contains($"?{key}", StringComparison.OrdinalIgnoreCase))
+                    {
+                        // Don't include parameters that are not used in the query.
+                        continue;
+                    }
 
-            cacheName.Append('_').Append(branchesService.GetDatabaseNameFromCookie());
-            return await cache.GetOrAddAsync(cacheName.ToString(),
+                    generatedCacheName.Append($"{key}={value}");
+                }
+
+                generatedCacheName.Append('_').Append(branchesService.GetDatabaseNameFromCookie());
+
+                cacheName = generatedCacheName.ToString();
+            }
+           
+            return await cache.GetOrAddAsync(cacheName,
                 async cacheEntry =>
                 {
                     cacheEntry.AbsoluteExpirationRelativeToNow = gclSettings.DefaultQueryCacheDuration;
