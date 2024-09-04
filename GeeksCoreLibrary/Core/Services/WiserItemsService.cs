@@ -300,7 +300,7 @@ SELECT {(wiserItem.Id > 0 ? "?id" : "LAST_INSERT_ID()")} AS newId;";
                         databaseConnection.AddParameter("parentId", parentId);
                         if (entityTypeSettings.DefaultOrdering == EntityOrderingTypes.LinkOrdering)
                         {
-                            var orderResult = await databaseConnection.GetAsync($"SELECT IFNULL(MAX(ordering), 0) + 1 AS newOrdering FROM {tablePrefix}{WiserTableNames.WiserItem} WHERE parent_item_id = ?parentId");
+                            var orderResult = await databaseConnection.GetAsync($"SELECT IFNULL(MAX(ordering), 0) + 1 AS newOrdering FROM {tablePrefix}{WiserTableNames.WiserItem} WHERE parent_item_id = ?parentId", skipCache: true);
                             databaseConnection.AddParameter("newOrdering", orderResult.Rows.Count > 0 ? orderResult.Rows[0].Field<long>("newOrdering") : 1);
                         }
                         else
@@ -1721,12 +1721,12 @@ SELECT
 FROM {{0}}{WiserTableNames.WiserItemLinkDetail}{(undelete ? WiserTableNames.ArchiveSuffix : "")} AS detail
 JOIN {{0}}{WiserTableNames.WiserItemLink}{(undelete ? WiserTableNames.ArchiveSuffix : "")} AS link ON link.id = detail.itemlink_id AND {{1}}";
 
-                        var deleteItemLinksQuery = $@"SET @saveHistory = FALSE; # Don't save the history when deleting the item details, otherwise we will get UPDATE_ITEM lines in the history and that will cause problems for branches.
+                        /*var deleteItemLinksQuery = $@"SET @saveHistory = FALSE; # Don't save the history when deleting the item details, otherwise we will get UPDATE_ITEM lines in the history and that will cause problems for branches.
 DELETE detail.* FROM {{0}}{WiserTableNames.WiserItemLink}{(undelete ? WiserTableNames.ArchiveSuffix : "")} AS link 
 JOIN {{0}}{WiserTableNames.WiserItemLinkDetail}{(undelete ? WiserTableNames.ArchiveSuffix : "")} AS detail ON detail.itemlink_id = link.id 
 WHERE {{1}};
 SET @saveHistory = ?saveHistoryGcl;
-DELETE FROM {{0}}{WiserTableNames.WiserItemLink}{(undelete ? WiserTableNames.ArchiveSuffix : "")} AS link WHERE {{1}};";
+DELETE FROM {{0}}{WiserTableNames.WiserItemLink}{(undelete ? WiserTableNames.ArchiveSuffix : "")} AS link WHERE {{1}};";*/
 
                         // If there are not dedicated link tables for this entity type, then copy from the base table.
                         if (!linkTypeSettingsWithDedicatedTablesForSource.Any() && !linkTypeSettingsWithDedicatedTablesForDestination.Any())
@@ -1747,10 +1747,10 @@ DELETE FROM {{0}}{WiserTableNames.WiserItemLink}{(undelete ? WiserTableNames.Arc
                                 await databaseConnection.ExecuteAsync(String.Format(copyItemLinkDetailsQuery, "", $"(link.item_id IN({formattedItemIds}) OR link.destination_item_id IN({formattedItemIds}))"));
                             }
 
-                            if (entityTypeSettings.DeleteAction is EntityDeletionTypes.Archive or EntityDeletionTypes.Permanent)
-                            {
-                                await databaseConnection.ExecuteAsync(String.Format(deleteItemLinksQuery, "", $"(link.item_id IN({formattedItemIds}) OR link.destination_item_id IN({formattedItemIds}))"));
-                            }
+                            //if (entityTypeSettings.DeleteAction is EntityDeletionTypes.Archive or EntityDeletionTypes.Permanent)
+                            //{
+                            //    await databaseConnection.ExecuteAsync(String.Format(deleteItemLinksQuery, "", $"(link.item_id IN({formattedItemIds}) OR link.destination_item_id IN({formattedItemIds}))"));
+                            //}
                         }
 
                         // Copy from dedicated link table, where the current entity type is the source.
@@ -1778,10 +1778,10 @@ DELETE FROM {{0}}{WiserTableNames.WiserItemLink}{(undelete ? WiserTableNames.Arc
                                 await databaseConnection.ExecuteAsync(String.Format(copyItemLinkDetailsQuery, tablePrefixForLink, $"link.item_id IN({formattedItemIds})"));
                             }
 
-                            if (entityTypeSettings.DeleteAction is EntityDeletionTypes.Archive or EntityDeletionTypes.Permanent)
-                            {
-                                await databaseConnection.ExecuteAsync(String.Format(deleteItemLinksQuery, tablePrefixForLink, $"link.item_id IN({formattedItemIds})"));
-                            }
+                            //if (entityTypeSettings.DeleteAction is EntityDeletionTypes.Archive or EntityDeletionTypes.Permanent)
+                            //{
+                            //    await databaseConnection.ExecuteAsync(String.Format(deleteItemLinksQuery, tablePrefixForLink, $"link.item_id IN({formattedItemIds})"));
+                            //}
                         }
 
                         // Copy from dedicated link table, where the current entity type is the destination.
@@ -1809,10 +1809,10 @@ DELETE FROM {{0}}{WiserTableNames.WiserItemLink}{(undelete ? WiserTableNames.Arc
                                 await databaseConnection.ExecuteAsync(String.Format(copyItemLinkDetailsQuery, tablePrefixForLink, $"link.destination_item_id IN({formattedItemIds})"));
                             }
 
-                            if (entityTypeSettings.DeleteAction is EntityDeletionTypes.Archive or EntityDeletionTypes.Permanent)
-                            {
-                                await databaseConnection.ExecuteAsync(String.Format(deleteItemLinksQuery, tablePrefixForLink, $"link.destination_item_id IN({formattedItemIds})"));
-                            }
+                            //if (entityTypeSettings.DeleteAction is EntityDeletionTypes.Archive or EntityDeletionTypes.Permanent)
+                            //{
+                            //    await databaseConnection.ExecuteAsync(String.Format(deleteItemLinksQuery, tablePrefixForLink, $"link.destination_item_id IN({formattedItemIds})"));
+                            //}
                         }
 
                         // And then delete the item from the original table (or vice versa, when undeleting).
@@ -2623,14 +2623,6 @@ WHERE {String.Join(" AND ", where)}";
             var permissionsQueryPart = "";
             var linkTypePart = linkType > -1 ? " AND link.type = ?linkType" : "";
             var where = new List<string> { "TRUE" };
-            if (!skipPermissionsCheck)
-            {
-                databaseConnection.AddParameter("userId", userId);
-                permissionsQueryPart = $@"# Check permissions. Default permissions are everything enabled, so if the user has no role or the role has no permissions on this item, they are allowed everything.
-	                                    LEFT JOIN {WiserTableNames.WiserUserRoles} user_role ON user_role.user_id = ?userId
-	                                    LEFT JOIN {WiserTableNames.WiserPermission} permission ON permission.role_id = user_role.role_id AND permission.item_id = item.id";
-                where.Add("(permission.id IS NULL OR (permission.permissions & 1) > 0)");
-            }
 
             var tablePrefix = "";
             if (!String.IsNullOrWhiteSpace(entityType))
@@ -2642,6 +2634,15 @@ WHERE {String.Join(" AND ", where)}";
             else if (!String.IsNullOrWhiteSpace(itemIdEntityType))
             {
                 tablePrefix = await wiserItemsService.GetTablePrefixForEntityAsync(itemIdEntityType);
+            }
+            
+            if (!skipPermissionsCheck)
+            {
+                databaseConnection.AddParameter("userId", userId);
+                permissionsQueryPart = $@"# Check permissions. Default permissions are everything enabled, so if the user has no role or the role has no permissions on this item, they are allowed everything.
+	                                    LEFT JOIN {WiserTableNames.WiserUserRoles} user_role ON user_role.user_id = ?userId
+	                                    LEFT JOIN {WiserTableNames.WiserPermission} permission ON permission.role_id = user_role.role_id AND permission.item_id = item.id";
+                where.Add("(permission.id IS NULL OR (permission.permissions & 1) > 0)");
             }
 
             databaseConnection.AddParameter("itemId", itemId);
@@ -2902,7 +2903,7 @@ WHERE {String.Join(" AND ", where)}";
                             LEFT JOIN {WiserTableNames.WiserEntityProperty} AS property ON property.entity_name = ?entityType
                             ORDER BY entity.id ASC, property.ordering ASC";
 
-            var dataTable = await databaseConnection.GetAsync(query);
+            var dataTable = await databaseConnection.GetAsync(query, cacheName: $"QueryGetEntityTypeSettingsAsync-{entityType}");
             if (dataTable.Rows.Count <= 0)
             {
                 return new EntitySettingsModel();
@@ -3008,7 +3009,7 @@ WHERE {String.Join(" AND ", where)}";
                             WHERE property.link_type = ?linkType
                             ORDER BY property.ordering ASC";
 
-            var dataTable = await databaseConnection.GetAsync(query);
+            var dataTable = await databaseConnection.GetAsync(query, cacheName: $"QueryGetFieldOptionsForLinkFieldsAsync-{linkType.ToString()}");
             if (dataTable.Rows.Count <= 0)
             {
                 return results;
@@ -3097,7 +3098,7 @@ WHERE {String.Join(" AND ", where)}";
         {
             databaseConnection.AddParameter("destinationEntityType", destinationEntityType);
             databaseConnection.AddParameter("connectedEntityType", connectedEntityType);
-            var getResult = await databaseConnection.GetAsync($"SELECT type FROM {WiserTableNames.WiserLink} WHERE destination_entity_type = ?destinationEntityType AND connected_entity_type = ?connectedEntityType");
+            var getResult = await databaseConnection.GetAsync($"SELECT type FROM {WiserTableNames.WiserLink} WHERE destination_entity_type = ?destinationEntityType AND connected_entity_type = ?connectedEntityType", cacheName: $"QueryGetLinkTypeAsync-{destinationEntityType}-{connectedEntityType}");
 
             return getResult.Rows.Count == 0 ? 0 : getResult.Rows[0].Field<int>("type");
         }

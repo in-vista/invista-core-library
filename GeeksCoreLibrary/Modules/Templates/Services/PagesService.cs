@@ -90,7 +90,7 @@ namespace GeeksCoreLibrary.Modules.Templates.Services
                 GROUP BY template.template_id";
 
                 databaseConnection.ClearParameters();
-                var globalHeaders = await databaseConnection.GetAsync(query);
+                var globalHeaders = await databaseConnection.GetAsync(query, cacheName: "QueryGetGlobalHeader");
                 foreach (DataRow globalHeaderDataRow in globalHeaders.Rows)
                 {
                     headerRegexCheck = globalHeaderDataRow.Field<string>("default_header_footer_regex");
@@ -159,7 +159,7 @@ namespace GeeksCoreLibrary.Modules.Templates.Services
                 GROUP BY template.template_id";
 
                 databaseConnection.ClearParameters();
-                var globalFooters = await databaseConnection.GetAsync(query);
+                var globalFooters = await databaseConnection.GetAsync(query, cacheName: "QueryGetGlobalFooter");
                 foreach (DataRow globalFooterDataRow in globalFooters.Rows)
                 {
                     headerRegexCheck = globalFooterDataRow.Field<string>("default_header_footer_regex");
