@@ -323,12 +323,14 @@ namespace GeeksCoreLibrary.Modules.Templates.Controllers
                 JToken jsonResult = await templatesService.GetJsonResponseFromQueryAsync(result);
                 
                 // If the template is expected to be returned as an object, check whether it is viable to do so and grab the first result as a JObject.
-                if (
-                    result.GroupingSettings.ObjectInsteadOfArray &&
-                    jsonResult is JArray jsonResultArray &&
-                    jsonResultArray.Count > 0)
-                    jsonResult = jsonResult[0] as JObject;
-
+                if (result.GroupingSettings.ObjectInsteadOfArray && jsonResult is JArray jsonResultArray)
+                {
+                    if (jsonResultArray.Count > 0)
+                        jsonResult = jsonResult[0] as JObject;
+                    else
+                        jsonResult = null;
+                }
+                
                 return Content(JsonConvert.SerializeObject(jsonResult), "application/json");
             }
             catch (Exception exception)
