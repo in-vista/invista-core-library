@@ -1428,6 +1428,7 @@ SET @saveHistory = ?saveHistoryGcl;
             if (!skipPermissionsCheck)
             {
                 var itemsWithNoPermissionToDelete = new List<ulong>();
+                var errorMessage = "";
 
                 foreach (var itemId in filteredItemIds)
                 {
@@ -1435,12 +1436,13 @@ SET @saveHistory = ?saveHistoryGcl;
                     if (!isPossible.ok)
                     {
                         itemsWithNoPermissionToDelete.Add(itemId);
+                        errorMessage = isPossible.errorMessage;
                     }
                 }
 
                 if (itemsWithNoPermissionToDelete.Any())
                 {
-                    throw new InvalidAccessPermissionsException($"User '{userId}' is not allowed to delete items '{String.Join(", ", itemsWithNoPermissionToDelete)}'.")
+                    throw new InvalidAccessPermissionsException(errorMessage ?? $"User '{userId}' is not allowed to delete items '{String.Join(", ", itemsWithNoPermissionToDelete)}'.")
                     {
                         Action = EntityActions.Delete,
                         ItemId = itemsWithNoPermissionToDelete.First(),
