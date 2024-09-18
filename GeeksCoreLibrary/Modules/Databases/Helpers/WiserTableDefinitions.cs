@@ -1077,6 +1077,26 @@ public class WiserTableDefinitions
                 new("groupname", MySqlDbType.VarChar, 100, notNull: true, defaultValue: ""),
                 new("target_id", MySqlDbType.UInt64, notNull: true, defaultValue: "0")
             }
+        },
+        
+        // wiser_module
+        new WiserTableDefinitionModel
+        {
+            Name = WiserTableNames.WiserModule,
+            LastUpdate = new DateTime(2024, 9, 10),
+            Columns = new List<ColumnSettingsModel>
+            {
+                new("id", MySqlDbType.UInt64, notNull: true, isPrimaryKey: true, autoIncrement: true),
+                new("custom_query", MySqlDbType.MediumText),
+                new("count_query", MySqlDbType.MediumText),
+                new("options", MySqlDbType.MediumText),
+                new("name", MySqlDbType.VarChar, 255),
+                new("icon", MySqlDbType.VarChar, 100),
+                new("color", MySqlDbType.VarChar, 8),
+                new("type", MySqlDbType.VarChar, 255),
+                new("group", MySqlDbType.VarChar, 100),
+                new("custom_script", MySqlDbType.MediumText)
+            }
         }
     };
 }
