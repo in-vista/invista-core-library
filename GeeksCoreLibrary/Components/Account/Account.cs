@@ -431,6 +431,12 @@ namespace GeeksCoreLibrary.Components.Account
                 if (Settings.EnableOciLogin && !String.IsNullOrWhiteSpace(ociHookUrl))
                 {
                     HttpContextHelpers.WriteCookie(httpContext, Constants.OciHookUrlCookieName, ociHookUrl, isEssential: true);
+                    
+                    // Write OCI session cookie, so multiple sessions (baskets) can exist of the same OCI user
+                    if (string.IsNullOrEmpty(HttpContextHelpers.ReadCookie(httpContext,Constants.OciSessionCookieName)))
+                    {
+                        HttpContextHelpers.WriteCookie(httpContext, Constants.OciSessionCookieName, httpContext.Session.Id , isEssential: true);    
+                    }
                 }
 
                 if (Settings.EnableOciLogin && !String.IsNullOrWhiteSpace(ociUsername) && !String.IsNullOrWhiteSpace(ociPassword))

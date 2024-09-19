@@ -34,7 +34,8 @@
         // Cookies and sessions.
         public const string CookieName = "gcl_user_cookie";
         internal const string GoogleAnalyticsCookieName = "_ga";
-        public const string OciHookUrlCookieName = "gcl_oci_hook_url";
+        public const string OciHookUrlCookieName = "icl_oci_hook_url";
+        public const string OciSessionCookieName = "icl_oci_session";
         public const string CreatedAccountCookieName = "gcl_user_created";
 
         public const string LoginValueSessionKey = "AccountSavedLogin";
