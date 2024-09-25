@@ -271,17 +271,26 @@ public class ReplacementsMediator : IReplacementsMediator, IScopedService
             if (skipFormatters || !variable.Formatters.Any())
             {
                 // Simply replace the variable if there are no formatters found.
-                if (forQuery)
+                if (forQuery && !variable.IsInLogicBlock)
                 {
                     var parameterName = $"sql_{DatabaseHelpers.CreateValidParameterName(variable.VariableName)}";
                     databaseConnection.AddParameter(parameterName, value);
                     value = $"?{parameterName}";
 
                     // Make sure there won't be quotes around the variable in the query, otherwise it will be seen as a literal string by MySql.
-                    output.Replace($"'{variable.MatchString}'", value).Replace($"\"{variable.MatchString}\"", value);
-                }
+                    // output.Replace($"'{variable.MatchString}'", value).Replace($"\"{variable.MatchString}\"", value);
 
-                output.Replace(variable.MatchString, value);
+                    string replaced = Regex.Replace(output.ToString(), $"(?<!\\[if\\()['\"]?{Regex.Escape(variable.MatchString)}['\"]?", value);
+                    output = new StringBuilder(replaced);
+                }
+                else
+                {
+                    string replaced = Regex.Replace(output.ToString(), $"(?<=\\[if\\()['\"]?{Regex.Escape(variable.MatchString)}['\"]?", value);
+                    output = new StringBuilder(replaced);
+                    
+                    // output.Replace(variable.MatchString, value);
+                }
+                
                 continue;
             }
 
@@ -463,12 +472,13 @@ public class ReplacementsMediator : IReplacementsMediator, IScopedService
         prefix = Regex.Escape(prefix);
         suffix = Regex.Escape(suffix);
 
-        var regex = new Regex($@"{prefix}(?<field>[^\{{\}}]+?){suffix}", RegexOptions.IgnoreCase, TimeSpan.FromMilliseconds(2000));
+        var regex = new Regex($@"(?<evaluation_block>\[if\()?(?<match>{prefix}(?<field>[^\{{\}}]+?){suffix})", RegexOptions.IgnoreCase, TimeSpan.FromMilliseconds(2000));
 
         var result = new List<StringReplacementVariable>();
         foreach (Match match in regex.Matches(input))
         {
-            var fieldName = match.Groups["field"].Value;
+            Group fieldNameGroup = match.Groups["field"];
+            var fieldName = fieldNameGroup.Value;
             var originalFieldName = fieldName;
             var variableFormatters = "";
             var defaultValue = "";
@@ -498,12 +508,19 @@ public class ReplacementsMediator : IReplacementsMediator, IScopedService
                 fieldName = fieldName[..lastColonIndex];
             }
 
+            string evaluatedFieldSuffix = "_evaluated";
+            
+            bool isInLogicBlock = !string.IsNullOrEmpty(match.Groups["evaluation_block"].Value);
+            string variableName = $"{fieldName}{(isInLogicBlock ? evaluatedFieldSuffix : string.Empty)}";
+            string matchString = $"{Regex.Unescape(prefix)}{fieldName}{Regex.Unescape(suffix)}";
+
             var variable = new StringReplacementVariable
             {
-                MatchString = match.Value,
-                VariableName = fieldName,
+                MatchString = matchString,
+                VariableName = variableName,
                 OriginalVariableName = originalFieldName,
-                DefaultValue = defaultValue
+                DefaultValue = defaultValue,
+                IsInLogicBlock = isInLogicBlock
             };
 
             // Now replace "~~COLON~~" with an actual colon again.
