@@ -1095,7 +1095,8 @@ public class WiserTableDefinitions
                 new("color", MySqlDbType.VarChar, 8),
                 new("type", MySqlDbType.VarChar, 255),
                 new("group", MySqlDbType.VarChar, 100),
-                new("custom_script", MySqlDbType.MediumText)
+                new("custom_script", MySqlDbType.MediumText),
+                new("is_fullscreen", MySqlDbType.Bool, notNull: true, defaultValue: "0")
             }
         }
     };
