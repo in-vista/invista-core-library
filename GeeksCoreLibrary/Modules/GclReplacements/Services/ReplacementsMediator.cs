@@ -276,10 +276,7 @@ public class ReplacementsMediator : IReplacementsMediator, IScopedService
                     var parameterName = $"sql_{DatabaseHelpers.CreateValidParameterName(variable.VariableName)}";
                     databaseConnection.AddParameter(parameterName, value);
                     value = $"?{parameterName}";
-
-                    // Make sure there won't be quotes around the variable in the query, otherwise it will be seen as a literal string by MySql.
-                    // output.Replace($"'{variable.MatchString}'", value).Replace($"\"{variable.MatchString}\"", value);
-
+                    
                     string replaced = Regex.Replace(output.ToString(), $"(?<!\\[if\\()['\"]?{Regex.Escape(variable.MatchString)}['\"]?", value);
                     output = new StringBuilder(replaced);
                 }
@@ -287,8 +284,6 @@ public class ReplacementsMediator : IReplacementsMediator, IScopedService
                 {
                     string replaced = Regex.Replace(output.ToString(), $"(?<=\\[if\\()['\"]?{Regex.Escape(variable.MatchString)}['\"]?", value);
                     output = new StringBuilder(replaced);
-                    
-                    // output.Replace(variable.MatchString, value);
                 }
                 
                 continue;
@@ -332,14 +327,22 @@ public class ReplacementsMediator : IReplacementsMediator, IScopedService
                 }
                 else
                 {
-                    var list = new List<string> {variableName};
-                    list.AddRange(variable.Formatters);
-                    var parameterName = $"sql_{DatabaseHelpers.CreateValidParameterName(String.Join("_", list))}";
-                    databaseConnection.AddParameter(parameterName, value);
-                    value = $"?{parameterName}";
+                    if (!variable.IsInLogicBlock)
+                    {
+                        var list = new List<string> {variableName};
+                        list.AddRange(variable.Formatters);
+                        var parameterName = $"sql_{DatabaseHelpers.CreateValidParameterName(String.Join("_", list))}";
+                        databaseConnection.AddParameter(parameterName, value);
+                        value = $"?{parameterName}";
 
-                    // Make sure there won't be quotes around the variable in the query, otherwise it will be seen as a literal string by MySql.
-                    output.Replace($"'{variable.MatchString}'", value).Replace($"\"{variable.MatchString}\"", value);
+                        string replaced = Regex.Replace(output.ToString(), $"(?<!\\[if\\()['\"]?{Regex.Escape(variable.MatchString)}['\"]?", value);
+                        output = new StringBuilder(replaced);
+                    }
+                    else
+                    {
+                        string replaced = Regex.Replace(output.ToString(), $"(?<=\\[if\\()['\"]?{Regex.Escape(variable.MatchString)}['\"]?", value);
+                        output = new StringBuilder(replaced);
+                    }
                 }
             }
 
@@ -512,7 +515,7 @@ public class ReplacementsMediator : IReplacementsMediator, IScopedService
             
             bool isInLogicBlock = !string.IsNullOrEmpty(match.Groups["evaluation_block"].Value);
             string variableName = $"{fieldName}{(isInLogicBlock ? evaluatedFieldSuffix : string.Empty)}";
-            string matchString = $"{Regex.Unescape(prefix)}{fieldName}{Regex.Unescape(suffix)}";
+            string matchString = match.Groups["match"].Value;
 
             var variable = new StringReplacementVariable
             {
