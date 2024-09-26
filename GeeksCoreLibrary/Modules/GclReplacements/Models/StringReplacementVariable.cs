@@ -28,5 +28,15 @@ namespace GeeksCoreLibrary.Modules.GclReplacements.Models
         /// The default value of the variable when given.
         /// </summary>
         public string DefaultValue { get; set; }
+        
+        /// <summary>
+        /// Whether the variable resides within a logic block.
+        /// </summary>
+        public bool IsInLogicBlock { get; set; }
+        
+        /// <summary>
+        /// The index position of the replacement variable in the input value.
+        /// </summary>
+        public int Index { get; set; }
     }
 }
