@@ -148,7 +148,7 @@ namespace GeeksCoreLibrary.Modules.Templates.Middlewares
                 switch (template.Type)
                 {
                     case TemplateTypes.Html:
-                        context.Request.Path = "/template.gcl";
+                        context.Request.Path = template.AllowCallWithoutAntiForgeryToken ? "/template_without_anti_forgery_token_check.gcl" : "/template.gcl";
                         break;
                     case TemplateTypes.Query:
                         context.Request.Path = "/json.gcl";

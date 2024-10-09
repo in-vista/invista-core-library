@@ -192,7 +192,8 @@ namespace GeeksCoreLibrary.Modules.Templates.Services
     template.trigger_event,
     template.trigger_table_name,
     template.is_partial,
-    template.version
+    template.version,
+    template.allow_call_without_anti_forgery_token
 FROM {WiserTableNames.WiserTemplate} AS template
 {joinPart}
 LEFT JOIN {WiserTableNames.WiserTemplate} AS parent1 ON parent1.template_id = template.parent_id AND parent1.version = (SELECT MAX(version) FROM {WiserTableNames.WiserTemplate} WHERE template_id = template.parent_id)
@@ -1349,7 +1350,15 @@ ORDER BY id ASC");
                     var extraData = match.Groups["data"].Value?.ToDictionary("&", "=");
                     var dynamicContentData = componentOverrides?.FirstOrDefault(d => d.Id == contentId);
                     var html = dynamicContentData == null ? await templatesService.GenerateDynamicContentHtmlAsync(contentId, extraData: extraData) : await templatesService.GenerateDynamicContentHtmlAsync(dynamicContentData, extraData: extraData);
-                    template = template.Replace(match.Value, $"<!-- Start component {contentId} -->{(string)html}<!-- End component {contentId} -->");
+                    if (!string.IsNullOrEmpty(httpContextAccessor.HttpContext?.Response?.ContentType) 
+                        && httpContextAccessor.HttpContext.Response.ContentType.ToLower().Contains("xml")) // For example: Account component in CXmlPunchOutLogin mode, response is then xml
+                    {
+                        template = template.Replace(match.Value, $"{(string)html}");    
+                    }
+                    else
+                    {
+                        template = template.Replace(match.Value, $"<!-- Start component {contentId} -->{(string)html}<!-- End component {contentId} -->");
+                    }
                 }
                 catch (Exception exception)
                 {
@@ -1375,10 +1384,10 @@ ORDER BY id ASC");
             {
                 return null;
             }
-
             queryTemplate.GroupingSettings ??= new QueryGroupingSettings();
             query = await DoReplacesAsync(query, true, false, true, null, true, false, true, TemplateTypes.Query);
-            if (query.Contains("{filters}", StringComparison.OrdinalIgnoreCase))
+            
+         if (query.Contains("{filters}", StringComparison.OrdinalIgnoreCase))
             {
                 query = query.Replace("{filters}", (await filtersService.GetFilterQueryPartAsync()).JoinPart, StringComparison.OrdinalIgnoreCase);
             }

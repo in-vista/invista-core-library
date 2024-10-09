@@ -55,9 +55,16 @@ namespace GeeksCoreLibrary.Modules.Templates.Controllers
             this.gclSettings = gclSettings.Value;
         }
 
+        [Route("template_without_anti_forgery_token_check.gcl")]
+        [IgnoreAntiforgeryToken]
+        public async Task<IActionResult> TemplateWithoutAntiForgeryTokenCheck()
+        {
+            return await Template(true);
+        }
+
         [Route("template.gcl")]
         [Route("template.jcl")]
-        public async Task<IActionResult> Template()
+        public async Task<IActionResult> Template(bool calledWithoutAntiForgeryToken = false)
         {
             var error = "";
             var startTime = DateTime.Now;
@@ -87,6 +94,11 @@ namespace GeeksCoreLibrary.Modules.Templates.Controllers
                 var externalJavascript = new List<PageResourceModel>();
                 var externalCss = new List<PageResourceModel>();
                 var contentTemplate = await templatesService.GetTemplateAsync(templateId, templateName);
+
+                if (calledWithoutAntiForgeryToken && !contentTemplate.AllowCallWithoutAntiForgeryToken)
+                {
+                    return NotFound();
+                }
 
                 templateId = contentTemplate.Id;
                 templateVersion = contentTemplate.Version;
@@ -223,7 +235,16 @@ namespace GeeksCoreLibrary.Modules.Templates.Controllers
                     }
                     else
                     {
-                        return Content(newBodyHtml, "text/html");
+                        HttpContext.Response.ContentType ??= "text/html";
+
+                        if ((HttpContext.Response.Body.Length > 0) && string.IsNullOrEmpty(newBodyHtml)) // For example when the XML which is already in the response, added by the Account component in CXmlPunchOutLogin mode
+                        {
+                            return Ok();
+                        }
+                        else
+                        {
+                            return Content(newBodyHtml, HttpContext.Response.ContentType);    
+                        }
                     }
                 }
 

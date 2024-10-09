@@ -16,6 +16,7 @@ namespace GeeksCoreLibrary.Core.Helpers
         {
             "/webpage.gcl",
             "/template.gcl",
+            "/template_without_anti_forgery_token_check.gcl",
             "/wiser-image.gcl",
             "/wiser-file.gcl",
             "/webpage.jcl",

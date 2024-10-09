@@ -42,7 +42,7 @@ namespace GeeksCoreLibrary.Modules.Templates.Middlewares
             logger.LogDebug("Invoked OutputCachingMiddleware");
 
             // Don't even bother doing anything if it's not the correct route.
-            if (!context.Request.Method.Equals("GET") || context.Request.Path != "/template.gcl")
+            if (!context.Request.Method.Equals("GET") || (context.Request.Path != "/template.gcl" && context.Request.Path != "/template_without_anti_forgery_token_check.gcl"))
             {
                 await next.Invoke(context);
                 return;
