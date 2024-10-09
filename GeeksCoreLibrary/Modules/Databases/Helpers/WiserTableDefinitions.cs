@@ -267,7 +267,7 @@ public class WiserTableDefinitions
         new WiserTableDefinitionModel
         {
             Name = WiserTableNames.WiserTemplate,
-            LastUpdate = new DateTime(2024, 2, 19),
+            LastUpdate = new DateTime(2024, 10, 3),
             Columns = new List<ColumnSettingsModel>
             {
                 new("id", MySqlDbType.Int32, notNull: true, isPrimaryKey: true, autoIncrement: true),
@@ -323,7 +323,8 @@ public class WiserTableDefinitions
                 new("is_partial", MySqlDbType.Int16, 1, notNull: true, defaultValue: "0"),
                 new("widget_content", MySqlDbType.MediumText),
                 new("widget_location", MySqlDbType.Int16, 4, notNull: true, defaultValue: "1"),
-                new("is_dirty", MySqlDbType.Int16, 1, notNull: true, defaultValue: "0")
+                new("is_dirty", MySqlDbType.Int16, 1, notNull: true, defaultValue: "0"),
+                new("allow_call_without_anti_forgery_token", MySqlDbType.Int16, 1, notNull: true, defaultValue: "0"),
             },
             Indexes = new List<IndexSettingsModel>
             {

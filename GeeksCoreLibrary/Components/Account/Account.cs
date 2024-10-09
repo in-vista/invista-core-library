@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Data;
 using System.Globalization;
+using System.IO;
 using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
@@ -9,6 +10,10 @@ using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Web;
+using System.Xml.Linq;
+using System.Xml.Serialization;
+using System.Xml.XPath;
+using DocumentFormat.OpenXml.Wordprocessing;
 using GeeksCoreLibrary.Components.Account.Interfaces;
 using GeeksCoreLibrary.Components.Account.Models;
 using GeeksCoreLibrary.Core.Cms;
@@ -345,7 +350,7 @@ namespace GeeksCoreLibrary.Components.Account
                     throw new NotImplementedException($"Unknown or unsupported component mode '{Settings.ComponentMode}' in 'GenerateHtmlAsync'.");
             }
 
-            if (!String.IsNullOrWhiteSpace(Settings.TemplateJavaScript))
+            if (!String.IsNullOrWhiteSpace(Settings.TemplateJavaScript) && (Settings.ComponentMode != ComponentModes.CXmlPunchOutLogin))
             {
                 var javascript = Settings.TemplateJavaScript.Replace("{loginFieldName}", Settings.LoginFieldName, StringComparison.OrdinalIgnoreCase)
                     .Replace("{passwordFieldName}", Settings.PasswordFieldName, StringComparison.OrdinalIgnoreCase)
@@ -430,7 +435,7 @@ namespace GeeksCoreLibrary.Components.Account
 
                 if (Settings.EnableOciLogin && !String.IsNullOrWhiteSpace(ociHookUrl))
                 {
-                    HttpContextHelpers.WriteCookie(httpContext, Constants.OciHookUrlCookieName, ociHookUrl, isEssential: true);
+                    HttpContextHelpers.WriteCookie(httpContext, Constants.OciHookUrlCookieName, ociHookUrl, isEssential: true, httpOnly:false);
                     
                     // Write OCI session cookie, so multiple sessions (baskets) can exist of the same OCI user
                     if (string.IsNullOrEmpty(HttpContextHelpers.ReadCookie(httpContext,Constants.OciSessionCookieName)))
@@ -1160,19 +1165,23 @@ namespace GeeksCoreLibrary.Components.Account
         }
 
         /// <summary>
-        /// Handle everything for logging in for cXML punch out (OCI).
+        /// Handle everything for logging in for cXML punch out.
         /// </summary>
         /// <returns></returns>
-        private async Task HandleCXmlPunchOutLoginModeAsync()
+        public async Task HandleCXmlPunchOutLoginModeAsync()
         {
-            throw new NotImplementedException();
-            /*var httpContext = HttpContext;
+            var httpContext = HttpContext;
             if (httpContext == null)
             {
                 throw new Exception("No http context available.");
             }
+            if (httpContext.Request.Method != "POST")
+            {
+                throw new Exception("Only http POST method is allowed.");
+            }
 
             var request = httpContext.Request;
+            request.EnableBuffering();
             string requestBody;
             using (var streamReader = new StreamReader(request.Body))
             {
@@ -1183,35 +1192,70 @@ namespace GeeksCoreLibrary.Components.Account
             var xmlDocument = XDocument.Parse(requestBody);
             var punchOutRequest = xmlDocument.XPathSelectElement("/cXML/Request");
             var innerRequest = punchOutRequest?.Descendants()?.FirstOrDefault();
-            if (!String.Equals("PunchOutSetupRequest", innerRequest?.Name.ToString(), StringComparison.OrdinalIgnoreCase))
+            if (!string.Equals("PunchOutSetupRequest", innerRequest?.Name.ToString(), StringComparison.OrdinalIgnoreCase))
             {
                 return;
             }
 
-            var punchOutSessionPrefix = await objectsService.FindSystemObjectByDomainNameAsync("CXmlPunchOutSessionPrefix");
-            var hookUrl = HttpContextHelpers.GetRequestValue(httpContext, Settings.OciHookUrlKey);
-            var username = HttpContextHelpers.GetRequestValue(httpContext, Settings.OciUsernameKey);
-            var password = HttpContextHelpers.GetRequestValue(httpContext, Settings.OciPasswordKey);
-            if (String.IsNullOrWhiteSpace(hookUrl))
+            var hookUrl = innerRequest.XPathSelectElement("BrowserFormPost/URL").Value;
+            var userName = xmlDocument.XPathSelectElement("/cXML/Header/Sender/Credential/Identity").Value;
+            var password = xmlDocument.XPathSelectElement("/cXML/Header/Sender/Credential/SharedSecret").Value;
+
+            // Build CXml Response
+            var responseDoc = new CXmlPunchOutSetupResponseModel();
+
+            if (!string.IsNullOrEmpty(userName) && !string.IsNullOrEmpty(password))
             {
-                //hookUrl =
-            }*/
+                // Try to login user
+                var loginResult = await LoginUserAsync(0, userName, password, (int)ComponentModes.LoginSingleStep);
+                if (loginResult.Result == LoginResults.Success) 
+                {
+                    var buyerCookie = innerRequest.XPathSelectElement("BuyerCookie").Value;
+                    
+                    DatabaseConnection.ClearParameters();
+                    DatabaseConnection.AddParameter("user_id", loginResult.UserId); 
+                    DatabaseConnection.AddParameter("hook_url", hookUrl);
+                    DatabaseConnection.AddParameter("buyer_cookie", buyerCookie);
+                    DatabaseConnection.AddParameter("duns_from", xmlDocument.XPathSelectElement("/cXML/Header/From/Credential/Identity").Value);
+                    DatabaseConnection.AddParameter("duns_to", xmlDocument.XPathSelectElement("/cXML/Header/To/Credential/Identity").Value);
+                    DatabaseConnection.AddParameter("duns_sender", userName);
+                    var punchOutId = await DatabaseConnection.InsertOrUpdateRecordBasedOnParametersAsync("wiser_cxml_punch_out", 0UL);
+                    
+                    responseDoc.Response.Status.Code = 200;
+                    responseDoc.Response.Status.Text = "OK";
+                    responseDoc.Response.PunchOutSetupResponse.StartPage.URL = $"https://{httpContext.Request.Host}/?cxmlpunchout={punchOutId.ToString()}";
+                }
+                else
+                {
+                    responseDoc.Response.Status.Code = 401;
+                    responseDoc.Response.Status.Text = "Unauthorized";
+                    responseDoc.Response.Status.InnerText = "Incorrect combination of username and password.";
+                }
+            }
+            else
+            {
+                responseDoc.Response.Status.Code = 401;
+                responseDoc.Response.Status.Text = "Unauthorized";
+                responseDoc.Response.Status.InnerText = "Parameters username and password are necessary.";
+            }
+            
+            // Set XML answer to response
+            var serializer = new XmlSerializer(typeof(CXmlPunchOutSetupResponseModel));
+            await using (var stringWriter = new StringWriter())
+            {
+                serializer.Serialize(stringWriter, responseDoc);
+                httpContext.Response.Clear();
+                httpContext.Response.ContentType = "text/xml";
+                await httpContext.Response.WriteAsync(stringWriter.ToString());
+            }
         }
 
         /// <summary>
-        /// Handle everything for continuing a cXML punch out (OCI) session.
+        /// Handle everything for continuing a cXML punch out session.
         /// </summary>
         private Task HandleCXmlPunchOutContinueSessionModeAsync()
         {
             throw new NotImplementedException();
-            /*var httpContext = HttpContext;
-            if (httpContext == null)
-            {
-                throw new Exception("No http context available.");
-            }
-
-            var request = httpContext.Request;*/
-
         }
 
         /// <summary>
@@ -2068,7 +2112,7 @@ namespace GeeksCoreLibrary.Components.Account
         }
 
         /// <summary>
-        /// Saves a login attempt in the details of the user. This will use the query in <see cref="JsonFormatter.Settings.SaveLoginAttemptQuery"/>.
+        /// Saves a login attempt in the details of the user. This will use the query in <see cref="Settings.SaveLoginAttemptQuery"/>.
         /// </summary>
         /// <param name="success">Whether the login attempt was successful or not.</param>
         /// <param name="userId">The ID of the user that is attempting to login.</param>

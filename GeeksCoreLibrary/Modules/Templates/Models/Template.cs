@@ -194,5 +194,10 @@ namespace GeeksCoreLibrary.Modules.Templates.Models
         /// Gets or sets the version of the template that was loaded.
         /// </summary>
         public int Version { get; set; }
+        
+        /// <summary>
+        /// Gets or sets the 'allow call without anti forgery token' setting
+        /// </summary>
+        public bool AllowCallWithoutAntiForgeryToken { get; set; }
     }
 }

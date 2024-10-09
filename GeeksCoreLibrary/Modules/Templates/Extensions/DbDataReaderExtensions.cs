@@ -53,6 +53,7 @@ namespace GeeksCoreLibrary.Modules.Templates.Extensions
             template.CachingRegex = reader.GetStringHandleNull("cache_regex");
             template.IsPartial = reader.HasColumn("is_partial") && Convert.ToBoolean(reader.GetValue("is_partial"));
             template.Version = reader.GetInt32("version");
+            template.AllowCallWithoutAntiForgeryToken = reader.HasColumn("allow_call_without_anti_forgery_token") && Convert.ToBoolean(reader.GetValue("allow_call_without_anti_forgery_token"));
 
             if (!await reader.IsDBNullAsync("changed_on"))
             {
@@ -173,6 +174,11 @@ namespace GeeksCoreLibrary.Modules.Templates.Extensions
             if (reader.HasColumn("default_header_footer_regex"))
             {
                 template.DefaultHeaderFooterRegex = reader.GetStringHandleNull("default_header_footer_regex");
+            }
+            
+            if (reader.HasColumn("allow_call_without_anti_forgery_token"))
+            {
+                template.AllowCallWithoutAntiForgeryToken = Convert.ToBoolean(await reader.GetFieldValueAsync<object>("allow_call_without_anti_forgery_token"));
             }
 
             if (isQuery)

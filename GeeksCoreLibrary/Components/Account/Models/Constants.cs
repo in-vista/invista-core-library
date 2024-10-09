@@ -3,7 +3,7 @@
     public static class Constants
     {
         internal const string ComponentIdFormKey = "__account";
-
+        
         // Query column names.
         internal const string PasswordColumn = "password";
         internal const string LastLoginDateColumn = "lastLoginAttempt";
@@ -42,6 +42,9 @@
         public const string UserIdSessionKey = "AccountUserId";
 
         public const string UserDataCachingKey = "GCLAccountUser";
+        
+        // URL's
+        public const string CXmlPunchOutLoginUrl = "/cxml-punchout/";
 
         #region Default settings
 

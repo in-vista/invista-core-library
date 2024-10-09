@@ -430,8 +430,8 @@ namespace GeeksCoreLibrary.Components.Account.Models
         /// </summary>
         [CmsProperty(
             PrettyName = "Punch-Out session store table",
-            Description = "The data table name for the session variables for OCI cXML punch out to store in.",
-            DeveloperRemarks = "",
+            Description = "OBSOLETE: Isn't used anymore",
+            DeveloperRemarks = "OBSOLETE: Isn't used anymore",
             TabName = CmsAttributes.CmsTabName.DataSource,
             GroupName = CmsAttributes.CmsGroupName.CustomDatabase,
             TextEditorType = CmsAttributes.CmsTextEditorType.TextField,
@@ -445,8 +445,8 @@ namespace GeeksCoreLibrary.Components.Account.Models
         /// </summary>
         [CmsProperty(
             PrettyName = "Punch-Out session query string parameter",
-            Description = "The query string parameter name where the session token will be stored in.",
-            DeveloperRemarks = "For OCI.",
+            Description = "OBSOLETE: Isn't used anymore",
+            DeveloperRemarks = "OBSOLETE: Isn't used anymore",
             TabName = CmsAttributes.CmsTabName.DataSource,
             GroupName = CmsAttributes.CmsGroupName.CustomDatabase,
             TextEditorType = CmsAttributes.CmsTextEditorType.TextField,
