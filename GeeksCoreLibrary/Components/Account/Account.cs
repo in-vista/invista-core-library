@@ -442,7 +442,7 @@ namespace GeeksCoreLibrary.Components.Account
                     // Write OCI session cookie, so multiple sessions (baskets) can exist of the same OCI user
                     if (string.IsNullOrEmpty(HttpContextHelpers.ReadCookie(httpContext,Constants.OciSessionCookieName)))
                     {
-                        HttpContextHelpers.WriteCookie(httpContext, Constants.OciSessionCookieName, httpContext.Session.Id , isEssential: true);    
+                        HttpContextHelpers.WriteCookie(httpContext, Constants.OciSessionCookieName, httpContext.Session.Id + DateTime.Now.ToString("yyyyMMddHHmmss"), isEssential: true);    
                     }
                 }
 
