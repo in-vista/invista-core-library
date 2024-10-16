@@ -433,9 +433,11 @@ namespace GeeksCoreLibrary.Components.Account
                     await AccountsService.LogoutUserAsync(Settings, true);
                 }
 
-                if (Settings.EnableOciLogin && !String.IsNullOrWhiteSpace(ociHookUrl))
+                // If OCI login enabled and there is a hook URL, then it's OCI
+                // If OCI login enabled and Wiser login enabled, then it's cXML step 2
+                if (Settings.EnableOciLogin && (!String.IsNullOrWhiteSpace(ociHookUrl) || Settings.EnableWiserLogin))
                 {
-                    HttpContextHelpers.WriteCookie(httpContext, Constants.OciHookUrlCookieName, ociHookUrl, isEssential: true, httpOnly:false);
+                    HttpContextHelpers.WriteCookie(httpContext, Constants.OciHookUrlCookieName, ociHookUrl ?? "CXML", isEssential: true, httpOnly:false);
                     
                     // Write OCI session cookie, so multiple sessions (baskets) can exist of the same OCI user
                     if (string.IsNullOrEmpty(HttpContextHelpers.ReadCookie(httpContext,Constants.OciSessionCookieName)))
@@ -1223,7 +1225,10 @@ namespace GeeksCoreLibrary.Components.Account
                     
                     responseDoc.Response.Status.Code = 200;
                     responseDoc.Response.Status.Text = "OK";
-                    responseDoc.Response.PunchOutSetupResponse.StartPage.URL = $"https://{httpContext.Request.Host}/?cxmlpunchout={punchOutId.ToString()}";
+                    
+                    // ?cxmlpunchout={punchOutId.ToString()}";
+                    var url = Settings.RedirectAfterAction.TrimStart('/');
+                    responseDoc.Response.PunchOutSetupResponse.StartPage.URL = $"https://{httpContext.Request.Host}/{url}{(url.Contains('?') ? "&" : "?")}{Settings.WiserLoginUserIdKey}={loginResult.UserId.ToString().EncryptWithAesWithSalt(withDateTime: true).UrlEncode()}&{Settings.WiserLoginTokenKey}={Settings.WiserLoginToken}";
                 }
                 else
                 {
