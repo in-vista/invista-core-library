@@ -28,6 +28,8 @@
 
   <ItemGroup>
     <Folder Include="Modules\PostalServices\PostNL\Models\" />
+    <Folder Include="Modules\Soap\Exceptions\" />
+    <Folder Include="Modules\Soap\Services\" />
   </ItemGroup>
 
   <ItemGroup>
