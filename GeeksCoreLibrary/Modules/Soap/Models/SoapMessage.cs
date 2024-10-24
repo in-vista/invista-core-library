@@ -8,9 +8,9 @@ internal class SoapMessage
 
     private string encodingStyle;
 
-    private SoapElement header;
+    public SoapElement Header { get; internal set; }
 
-    private SoapElement body;
+    public SoapElement Body { get; internal set; }
 
     public SoapMessage(
         string schema = "http://www.w3.org/2003/05/soap-envelope",
@@ -27,11 +27,7 @@ internal class SoapMessage
         builder.Append("<?xml version=\"1.0\"?>");
         builder.Append($"<soap:Envelope xmlns:soap=\"{schema}\" soap:encodingStyle=\"{encodingStyle}\">");
 
-        if (header != null)
-            builder.Append(header);
-
-        if (body != null)
-            builder.Append(body);
+        
         
         builder.Append("</soap:Envelope>");
 
