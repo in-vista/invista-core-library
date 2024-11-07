@@ -413,19 +413,19 @@ VALUES (?newId, ?parentId, ?newOrderNumber, ?linkTypeNumber)");
 
                 duplicatedItemIds.Add(itemIdToDuplicate);
 
-                databaseConnection.AddParameter("itemId", itemIdToDuplicate);
-                databaseConnection.AddParameter("parentId", parentIdOfItemToDuplicate);
-                databaseConnection.AddParameter("username", username);
-
                 var tablePrefix = await wiserItemsService.GetTablePrefixForEntityAsync(entityTypeToDuplicate);
                 var useItemParentId = false;
                 var linkTablePrefix = "";
-                if (!String.IsNullOrWhiteSpace(entityTypeToDuplicate) && !String.IsNullOrWhiteSpace(parentEntityTypeInner))
+                if (!string.IsNullOrWhiteSpace(entityTypeToDuplicate) && !string.IsNullOrWhiteSpace(parentEntityTypeInner))
                 {
                     var linkTypeSettings = await wiserItemsService.GetLinkTypeSettingsAsync(0, entityTypeToDuplicate, parentEntityTypeInner);
                     useItemParentId = linkTypeSettings.UseItemParentId;
                     linkTablePrefix = wiserItemsService.GetTablePrefixForLink(linkTypeSettings);
                 }
+                
+                databaseConnection.AddParameter("itemId", itemIdToDuplicate);
+                databaseConnection.AddParameter("parentId", parentIdOfItemToDuplicate);
+                databaseConnection.AddParameter("username", username);
 
                 var addItemLinkQuery = useItemParentId ? "" : $@"#Duplicate item into current node
                                                                     SET @new_order = (SELECT IFNULL(MAX(ordering), 0) + 1 FROM {linkTablePrefix}{WiserTableNames.WiserItemLink} WHERE destination_item_id = ?parentId);
@@ -480,13 +480,14 @@ VALUES (?newId, ?parentId, ?newOrderNumber, ?linkTypeNumber)");
             // Function for duplicating all links of an item.
             async Task<bool> DuplicateLinksAsync(ulong oldItemId, ulong newItemId, int duplicationLevel, string entityTypeToDuplicate, string parentEntityTypeInner)
             {
-                databaseConnection.AddParameter("oldItemId", oldItemId);
                 var tablePrefix = await wiserItemsService.GetTablePrefixForEntityAsync(entityTypeToDuplicate);
                 var linkTablePrefix = "";
                 if (!String.IsNullOrWhiteSpace(entityTypeToDuplicate) && !String.IsNullOrWhiteSpace(parentEntityTypeInner))
                 {
                     linkTablePrefix = await wiserItemsService.GetTablePrefixForLinkAsync(0, entityTypeToDuplicate, parentEntityTypeInner);
                 }
+                
+                databaseConnection.AddParameter("oldItemId", oldItemId);
 
                 var query = $@"(
                                     SELECT 
