@@ -1647,7 +1647,8 @@ ORDER BY ORDINAL_POSITION ASC";
                 query = $@"SELECT
 	template.template_id,
 	template.template_type,
-	template.url_regex
+	template.url_regex,
+	template.allow_call_without_anti_forgery_token
 FROM {WiserTableNames.WiserTemplate} AS template
 LEFT JOIN {WiserTableNames.WiserTemplate} AS otherVersion ON otherVersion.template_id = template.template_id AND otherVersion.version > template.version
 LEFT JOIN {WiserTableNames.WiserTemplate} AS parent1 ON parent1.template_id = template.parent_id AND parent1.version = (SELECT MAX(version) FROM {WiserTableNames.WiserTemplate} WHERE template_id = template.parent_id)
@@ -1672,7 +1673,8 @@ ORDER BY parent5.ordering ASC,
 SELECT 
 	template.template_id,
 	template.template_type,
-	template.url_regex
+	template.url_regex,
+	template.allow_call_without_anti_forgery_token
 FROM {WiserTableNames.WiserTemplate} AS template
 LEFT JOIN {WiserTableNames.WiserTemplate} AS parent1 ON parent1.template_id = template.parent_id AND parent1.version = (SELECT MAX(version) FROM {WiserTableNames.WiserTemplate} WHERE template_id = template.parent_id)
 LEFT JOIN {WiserTableNames.WiserTemplate} AS parent2 ON parent2.template_id = parent1.parent_id AND parent2.version = (SELECT MAX(version) FROM {WiserTableNames.WiserTemplate} WHERE template_id = parent1.parent_id)
@@ -1700,10 +1702,11 @@ ORDER BY parent5.ordering ASC,
                 {
                     Id = dataRow.Field<int>("template_id"),
                     Type = dataRow.Field<TemplateTypes>("template_type"),
-                    UrlRegex = dataRow.Field<string>("url_regex")
+                    UrlRegex = dataRow.Field<string>("url_regex"),
+                    AllowCallWithoutAntiForgeryToken = dataRow.Field<bool>("allow_call_without_anti_forgery_token")
                 });
             }
-
+            
             return results;
         }
 
