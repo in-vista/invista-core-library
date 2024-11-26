@@ -915,7 +915,7 @@ namespace GeeksCoreLibrary.Modules.DataSelector.Services
         }
 
         /// <inheritdoc />
-        public async Task<(JArray Result, HttpStatusCode StatusCode, string Error)> GetJsonResponseAsync(DataSelectorRequestModel data, bool skipSecurity = false)
+        public async Task<(JToken Result, HttpStatusCode StatusCode, string Error)> GetJsonResponseAsync(DataSelectorRequestModel data, bool skipSecurity = false)
         {
             var (itemsRequest, statusCode, error) = await InitializeItemsRequestAsync(data, skipSecurity);
             if (statusCode != HttpStatusCode.OK)
@@ -1036,7 +1036,7 @@ namespace GeeksCoreLibrary.Modules.DataSelector.Services
                 return (null, statusCode, error);
             }
 
-            var excelFile = excelService.JsonArrayToExcel(jsonResult);
+            var excelFile = excelService.JsonArrayToExcel(jsonResult as JArray);
             return (new FileContentResult(excelFile, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"), HttpStatusCode.OK, String.Empty);
         }
 
