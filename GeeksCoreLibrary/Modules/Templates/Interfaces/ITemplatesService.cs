@@ -238,7 +238,7 @@ namespace GeeksCoreLibrary.Modules.Templates.Interfaces
         /// <param name="recursive">TODO</param>
         /// <param name="childItemsMustHaveId">Optional: Forces child items in an object to have a non-null value in the <c>id</c> column. This is for data selectors that have optional child items.</param>
         /// <returns>A <see cref="JArray"/> with the results of the query.</returns>
-        Task<JArray> GetJsonResponseFromQueryAsync(QueryTemplate queryTemplate, string encryptionKey = null, bool skipNullValues = false, bool allowValueDecryption = false, bool recursive = false, bool childItemsMustHaveId = false);
+        Task<JToken> GetJsonResponseFromQueryAsync(QueryTemplate queryTemplate, string encryptionKey = null, bool skipNullValues = false, bool allowValueDecryption = false, bool recursive = false, bool childItemsMustHaveId = false);
 
         /// <summary>
         /// Executes a query and converts the results into an JSON object.

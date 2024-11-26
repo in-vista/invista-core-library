@@ -1377,7 +1377,7 @@ ORDER BY id ASC");
         }
 
         /// <inheritdoc />
-        public async Task<JArray> GetJsonResponseFromQueryAsync(QueryTemplate queryTemplate, string encryptionKey = null, bool skipNullValues = false, bool allowValueDecryption = false, bool recursive = false, bool childItemsMustHaveId = false)
+        public async Task<JToken> GetJsonResponseFromQueryAsync(QueryTemplate queryTemplate, string encryptionKey = null, bool skipNullValues = false, bool allowValueDecryption = false, bool recursive = false, bool childItemsMustHaveId = false)
         {
             var query = queryTemplate?.Content;
             if (String.IsNullOrWhiteSpace(query))
@@ -1411,6 +1411,11 @@ ORDER BY id ASC");
             {
                 throw new NotImplementedException("Pusher messages not yet implemented");
             }
+            
+            // Return the first JSON object if specified to return as an object rather than as an array.
+            // If the template is expected to be returned as an object, check whether it is viable to do so and grab the first result as a JObject.
+            if (queryTemplate.GroupingSettings.ObjectInsteadOfArray && result is {} jsonResultArray)
+                return jsonResultArray.Count > 0 ? result[0] as JObject : null;
 
             return result;
         }
