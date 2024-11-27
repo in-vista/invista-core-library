@@ -36,6 +36,10 @@ public class RequestLoggingMiddleware
         GclSettings = gclSettings.Value;
     }
 
+    /// <summary>
+    /// Invoke the middleware.
+    /// Services are added here instead of the constructor, because the constructor of a middleware can only contain Singleton services.
+    /// </summary>
     public async Task Invoke(HttpContext context, IServiceProvider serviceProvider)
     {
         var databaseConnection = (IDatabaseConnection)serviceProvider.GetService(typeof(IDatabaseConnection));
@@ -195,6 +199,7 @@ public class RequestLoggingMiddleware
     /// <param name="databaseConnection">The <see cref="IDatabaseConnection"/> for writing the log to the database.</param>
     /// <param name="serviceProvider">Service provider to get other services you might need. Is not used in the base class, but you can use it in overrides.</param>
     /// <returns>The ID of the newly added row in the log table.</returns>
+    // ReSharper disable once UnusedParameter.Global
     protected virtual async Task<ulong> LogRequestAsync(HttpContext context, IDatabaseConnection databaseConnection, IServiceProvider serviceProvider)
     {
         try

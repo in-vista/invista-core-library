@@ -43,6 +43,8 @@ using GeeksCoreLibrary.Components.OrderProcess.Middlewares;
 using GeeksCoreLibrary.Components.OrderProcess.Services;
 using GeeksCoreLibrary.Components.ShoppingBasket.Interfaces;
 using GeeksCoreLibrary.Components.ShoppingBasket.Services;
+using GeeksCoreLibrary.Modules.Amazon.Interfaces;
+using GeeksCoreLibrary.Modules.Amazon.Services;
 using GeeksCoreLibrary.Modules.Barcodes.Interfaces;
 using GeeksCoreLibrary.Modules.Barcodes.Services;
 using GeeksCoreLibrary.Modules.Databases.Interfaces;
@@ -122,7 +124,13 @@ namespace GeeksCoreLibrary.Core.Extensions
                     ResponseWriter = UIResponseWriter.WriteHealthCheckUIResponse
                 });
 
-                endpoints.MapHealthChecks("/health/wts", new HealthCheckOptions()
+                endpoints.MapHealthChecks("/health/database", new HealthCheckOptions
+                {
+                    Predicate = healthCheck => healthCheck.Tags.Contains("Database"),
+                    ResponseWriter = UIResponseWriter.WriteHealthCheckUIResponse
+                });
+
+                endpoints.MapHealthChecks("/health/wts", new HealthCheckOptions
                 {
                     Predicate = healthCheck => healthCheck.Tags.Contains("WTS"),
                     ResponseWriter = UIResponseWriter.WriteHealthCheckUIResponse
@@ -224,11 +232,11 @@ namespace GeeksCoreLibrary.Core.Extensions
             if (isWeb)
             {
                 services.AddHealthChecks()
-                    .AddMySql(gclSettings.ConnectionString, name: "MySqlRead")
+                    .AddMySql(gclSettings.ConnectionString, name: "MySqlRead", tags: new []{"Database"})
                     .AddCheck<WtsHealthService>("WTS Health Check", HealthStatus.Degraded, new []{"WTS", "Wiser Task Scheduler"});
                 if (!String.IsNullOrWhiteSpace(gclSettings.ConnectionStringForWriting))
                 {
-                    services.AddHealthChecks().AddMySql(gclSettings.ConnectionString, name: "MySqlWrite");
+                    services.AddHealthChecks().AddMySql(gclSettings.ConnectionString, name: "MySqlWrite", tags: new []{"Database"});
                 }
 
                 // Set default settings for JSON.NET.
@@ -351,6 +359,7 @@ namespace GeeksCoreLibrary.Core.Extensions
             services.Decorate<IOrderProcessesService, CachedOrderProcessesService>();
             services.Decorate<IRolesService, CachedRolesService>();
             services.Decorate<IBarcodesService, CachedBarcodesService>();
+            services.Decorate<IAmazonS3Service, CachedAmazonS3Service>();
 
             if (gclSettings.UseLegacyWiser1TemplateModule)
             {

@@ -21,6 +21,7 @@ using GeeksCoreLibrary.Modules.Databases.Models;
 using GeeksCoreLibrary.Modules.Databases.Services;
 using GeeksCoreLibrary.Modules.DataSelector.Interfaces;
 using GeeksCoreLibrary.Modules.GclReplacements.Interfaces;
+using GeeksCoreLibrary.Modules.ItemFiles.Models;
 using GeeksCoreLibrary.Modules.Objects.Interfaces;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -4200,7 +4201,7 @@ LIMIT 1";
                             query += " FOR UPDATE";
                         }
 
-                        var dataTable = await databaseConnection.GetAsync(query);
+                        var dataTable = await databaseConnection.GetAsync(query, skipCache: true);
                         if (dataTable.Rows.Count > 0)
                         {
                             itemDetail.Id = dataTable.Rows[0].Field<ulong>("id");
@@ -4230,7 +4231,7 @@ SELECT LAST_INSERT_ID() AS newDetailId;";
 
                         if (!String.IsNullOrEmpty(query))
                         {
-                            var dataTable = await databaseConnection.GetAsync(query);
+                            var dataTable = await databaseConnection.GetAsync(query, skipCache: true, useWritingConnectionIfAvailable: true);
                             itemDetail.Id = Convert.ToUInt64(dataTable.Rows[0]["newDetailId"]);
                         }
                     }
