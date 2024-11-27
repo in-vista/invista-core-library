@@ -27,7 +27,8 @@ public static class HttpContextHelpers
         $"/{Components.OrderProcess.Models.Constants.DirectPaymentInPage}",
         $"/{Components.OrderProcess.Models.Constants.DirectPaymentOutPage}",
         "/health",
-        "/health/wts"
+        "/health/wts",
+        "/health/database"
     };
 
     /// <summary>
@@ -375,7 +376,8 @@ public static class HttpContextHelpers
 
         var result = new UriBuilder
         {
-            Host = httpContext.Request.Host.Host,
+            // When the host is empty, go back to localhost.
+            Host = String.IsNullOrWhiteSpace(httpContext.Request.Host.Host) ? "localhost" : httpContext.Request.Host.Host,
             Scheme = httpContext.Request.Scheme,
             Port = httpContext.Request.Host.Port ?? (httpContext.Request.IsHttps ? 443 : 80)
         };
