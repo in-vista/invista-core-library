@@ -34,6 +34,7 @@ using Microsoft.AspNetCore.Mvc.ViewFeatures;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Newtonsoft.Json.Linq;
+using Constants = GeeksCoreLibrary.Modules.Templates.Models.Constants;
 using Template = GeeksCoreLibrary.Modules.Templates.Models.Template;
 
 namespace GeeksCoreLibrary.Modules.Templates.Services
@@ -1393,7 +1394,7 @@ ORDER BY id ASC");
             
          if (query.Contains("{filters}", StringComparison.OrdinalIgnoreCase))
             {
-                query = query.Replace("{filters}", (await filtersService.GetFilterQueryPartAsync()).JoinPart, StringComparison.OrdinalIgnoreCase);
+                query = query.Replace("{filters}", (await filtersService.GetFilterQueryPartAsync()).JoinPart.ToString(), StringComparison.OrdinalIgnoreCase);
             }
 
             var pusherRegex = new Regex(@"PUSHER<channel\((.*?)\),event\((.*?)\),message\(((?s:.)*?)\)>", RegexOptions.Compiled, TimeSpan.FromMilliseconds(2000));
