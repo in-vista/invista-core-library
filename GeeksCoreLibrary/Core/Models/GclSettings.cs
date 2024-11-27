@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using GeeksCoreLibrary.Core.Enums;
 using GeeksCoreLibrary.Core.Interfaces;
 using GeeksCoreLibrary.Modules.Communication.Models;
@@ -114,14 +115,29 @@ namespace GeeksCoreLibrary.Core.Models
         public string DefaultEncryptionKeyTripleDes { get; set; }
 
         /// <summary>
-        /// Base URL of the PostNL api
+        /// Api key to use for the PostNL api
         /// </summary>
         public string PostNlShippingApiKey { get; set; }
 
         /// <summary>
-        /// Api key to use for the PostNL api
+        /// Base URL of the PostNL api
         /// </summary>
         public string PostNlApiBaseUrl { get; set; }
+        
+        /// <summary>
+        /// Base URL of the NE DistriService api
+        /// </summary>
+        public string NeDistriApiBaseUrl { get; set; }
+        
+        /// <summary>
+        /// Secret key to use for the NE DistriService api
+        /// </summary>
+        public string NeDistriSecretKey { get; set; }
+        
+        /// <summary>
+        /// Login name to use for the NE DistriService api
+        /// </summary>
+        public string NeDistriShippingLogin { get; set; }
 
         /// <summary>
         /// The encryption key the ShoppingBasketsService uses for AES encryption.
@@ -266,5 +282,10 @@ namespace GeeksCoreLibrary.Core.Models
         /// Settings for request logging.
         /// </summary>
         public RequestLoggingOptions RequestLoggingOptions { get; set; } = new();
+
+        /// <summary>
+        /// List of rules defining which cache-control headers to apply to specific file paths.
+        /// </summary>
+        public List<CacheControlRuleSettingsModel> CacheControlRules { get; set; } = new List<CacheControlRuleSettingsModel>();
     }
 }

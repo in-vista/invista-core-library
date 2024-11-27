@@ -105,6 +105,7 @@ namespace GeeksCoreLibrary.Core.Extensions
 
             builder.UseMiddleware<AddAntiForgeryMiddleware>();
             builder.UseMiddleware<OutputCachingMiddleware>();
+            builder.UseMiddleware<AddCacheHeaderValueMiddleware>();
             builder.UseStaticFiles();
 
             builder.UseRouting();
@@ -180,7 +181,8 @@ namespace GeeksCoreLibrary.Core.Extensions
                 }
                 catch (Exception exception)
                 {
-                    builder.ApplicationServices.GetService<ILogger>().LogError(exception, "Error while updating tables.");
+                    var logger = builder.ApplicationServices.GetService<ILogger>();
+                    logger?.LogError(exception, "Error while updating tables.");
                 }
             });
 
