@@ -3,5 +3,6 @@
 public enum EmailServiceProviders
 {
     Smtp,
-    SmtPeterRestApi
+    SmtPeterRestApi,
+    MailerSendRestApi
 }

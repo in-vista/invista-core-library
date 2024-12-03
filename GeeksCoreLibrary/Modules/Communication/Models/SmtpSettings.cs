@@ -1,4 +1,5 @@
 ﻿using GeeksCoreLibrary.Modules.Communication.Enums;
+using GeeksCoreLibrary.Modules.Communication.Models.MailerSend;
 using GeeksCoreLibrary.Modules.Communication.Models.SmtPeter;
 
 namespace GeeksCoreLibrary.Modules.Communication.Models
@@ -51,6 +52,11 @@ namespace GeeksCoreLibrary.Modules.Communication.Models
         /// <summary>
         /// Gets or sets extra settings for the SmtPeter Rest API.
         /// </summary>
-        public SmtPeterSettings SmtPeterSettings { get; set; }
+        public SmtPeterSettings SmtPeterSettings { get; set; }      
+        
+        /// <summary>
+        /// Gets or sets extra settings for the MailerSend Rest API.
+        /// </summary>
+        public MailerSendSettings MailerSendSettings { get; set; }
     }
 }

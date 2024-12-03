@@ -4,7 +4,9 @@ using System.Data;
 using System.IO;
 using System.Linq;
 using System.Net;
+using System.Net.Http;
 using System.Net.Http.Json;
+using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using System.Threading;
@@ -13,12 +15,14 @@ using System.Web;
 using CM.Text;
 using CM.Text.BusinessMessaging;
 using CM.Text.BusinessMessaging.Model;
+using DocumentFormat.OpenXml.Presentation;
 using GeeksCoreLibrary.Core.DependencyInjection.Interfaces;
 using GeeksCoreLibrary.Core.Interfaces;
 using GeeksCoreLibrary.Core.Models;
 using GeeksCoreLibrary.Modules.Communication.Enums;
 using GeeksCoreLibrary.Modules.Communication.Interfaces;
 using GeeksCoreLibrary.Modules.Communication.Models;
+using GeeksCoreLibrary.Modules.Communication.Models.MailerSend;
 using GeeksCoreLibrary.Modules.Communication.Models.SmtPeter;
 using GeeksCoreLibrary.Modules.Databases.Interfaces;
 using MailKit.Net.Smtp;
@@ -29,6 +33,7 @@ using RestSharp;
 using Newtonsoft.Json;
 using Twilio;
 using Twilio.Rest.Api.V2010.Account;
+using JsonSerializer = Newtonsoft.Json.JsonSerializer;
 
 namespace GeeksCoreLibrary.Modules.Communication.Services
 {
@@ -421,6 +426,9 @@ WHERE id = ?id";
                 case EmailServiceProviders.SmtPeterRestApi:
                     await SendSmtPeterEmailDirectlyAsync(communication, smtpSettings, attachments, timeout);
                     break;
+                case EmailServiceProviders.MailerSendRestApi:
+                    await SendMailerSendEmailDirectlyAsync(communication, smtpSettings, attachments, timeout);
+                    break;
                 default:
                     throw new ArgumentOutOfRangeException(nameof(smtpSettings.Provider), smtpSettings.Provider.ToString());
             }
@@ -548,6 +556,70 @@ WHERE id = ?id";
             cancellationTokenSource.CancelAfter(TimeSpan.FromMilliseconds(timeout));
             using var response = await httpClientService.Client.PostAsJsonAsync($"https://www.smtpeter.com/v1/send?access_token={smtpSettings.SmtPeterSettings.ApiAccessToken}", requestBody, new JsonSerializerOptions(JsonSerializerDefaults.Web), cancellationTokenSource.Token);
             communication.StatusMessage = await response.Content.ReadAsStringAsync(cancellationTokenSource.Token);
+
+            if (response.IsSuccessStatusCode)
+            {
+                return;
+            }
+
+            // If request was not success throw the body as an exception.
+            throw new Exception(communication.StatusMessage);
+        }
+        
+         /// <summary>
+        /// Send the email directly using the SmtPeter Rest API.
+        /// </summary>
+        /// <param name="communication">The <see cref="SingleCommunicationModel"/> object to use as the basis to send the email.</param>
+        /// <param name="smtpSettings">The SMTP settings to use.</param>
+        /// <param name="attachments">The attachments to send with the email.</param>
+        /// <param name="timeout">The timeout in milliseconds before it's considered to take too long. The default timeout equals to 2 minutes. This is the same default timeout that MailKit uses.</param>
+        private async Task SendMailerSendEmailDirectlyAsync(SingleCommunicationModel communication, SmtpSettings smtpSettings, List<(string FileName, byte[] FileBytes)> attachments, int timeout)
+        {
+            var requestBody = new MailerSendRequestModel()
+            {
+                From = !String.IsNullOrWhiteSpace(communication.Sender) ? new MailerSendContactModel() { Email = communication.Sender, Name = communication.SenderName} : new MailerSendContactModel() { Email = smtpSettings.SenderEmailAddress, Name = smtpSettings.SenderName},
+                ReplyTo = new MailerSendContactModel() { Email = communication.ReplyTo, Name = communication.ReplyToName},
+                To = communication.Receivers.Select(receiver => new MailerSendContactModel{ Email = receiver.Address, Name = receiver.DisplayName}).ToList(),
+                Cc = communication.Cc.Select(receiver => new MailerSendContactModel{ Email = receiver}).ToList(),
+                Bcc = communication.Bcc.Select(receiver => new MailerSendContactModel{ Email = receiver}).ToList(),
+                Subject = communication.Subject,
+                Html = communication.Content,
+                Settings = new MailerSendSettingsModel()
+                {
+                    TrackClicks = false,
+                    TrackContent = false,
+                    TrackOpens = false
+                }
+            };
+
+            if (attachments != null && attachments.Any())
+            {
+                requestBody.Attachments = attachments.Select(attachment => new MailerSendAttachmentModel
+                        { Content = Convert.ToBase64String(attachment.FileBytes), FileName = attachment.FileName, Disposition = "attachment"})
+                    .ToList();
+            }
+            else
+            {
+                requestBody.Attachments = new List<MailerSendAttachmentModel>();
+            }
+
+            using var cancellationTokenSource = new CancellationTokenSource();
+            cancellationTokenSource.CancelAfter(TimeSpan.FromMilliseconds(timeout));
+
+            var request = new HttpRequestMessage(HttpMethod.Post, "https://api.mailersend.com/v1/email")
+            {
+                Content = new StringContent(System.Text.Json.JsonSerializer.Serialize(requestBody, new JsonSerializerOptions(JsonSerializerDefaults.Web)), Encoding.UTF8, "application/json")
+            };
+            request.Headers.Add("Authorization", $"Bearer {smtpSettings.MailerSendSettings.ApiAccessToken}");
+            
+            using var response = await httpClientService.Client.SendAsync(request, cancellationTokenSource.Token);
+            communication.StatusMessage = $"{response.StatusCode}: {response.Headers.GetValues("x-message-id").FirstOrDefault()}";
+
+            var responseBody = await response.Content.ReadAsStringAsync(cancellationTokenSource.Token);
+            if (!string.IsNullOrEmpty(responseBody))
+            {
+                communication.StatusMessage = $"{communication.StatusMessage} - {responseBody}";
+            }
 
             if (response.IsSuccessStatusCode)
             {
