@@ -595,7 +595,7 @@ WHERE id = ?id";
             if (attachments != null && attachments.Any())
             {
                 requestBody.Attachments = attachments.Select(attachment => new MailerSendAttachmentModel
-                        { Content = Convert.ToBase64String(attachment.FileBytes), FileName = attachment.FileName, Disposition = "attachment"})
+                        { Content = Convert.ToBase64String(attachment.FileBytes), FileName = attachment.FileName.ToLower(), Id = attachment.FileName.ToLower(), Disposition = "attachment"})
                     .ToList();
             }
             else
@@ -606,14 +606,27 @@ WHERE id = ?id";
             using var cancellationTokenSource = new CancellationTokenSource();
             cancellationTokenSource.CancelAfter(TimeSpan.FromMilliseconds(timeout));
 
+            // Keys must be lower case
+            var settings = new JsonSerializerSettings();
+            settings.ContractResolver = new LowercaseContractResolver();
+            var content = JsonConvert.SerializeObject(requestBody, Formatting.Indented, settings);
+            
             var request = new HttpRequestMessage(HttpMethod.Post, "https://api.mailersend.com/v1/email")
             {
-                Content = new StringContent(System.Text.Json.JsonSerializer.Serialize(requestBody, new JsonSerializerOptions(JsonSerializerDefaults.Web)), Encoding.UTF8, "application/json")
+                Content = new StringContent(content, Encoding.UTF8, "application/json")
             };
+            
             request.Headers.Add("Authorization", $"Bearer {smtpSettings.MailerSendSettings.ApiAccessToken}");
             
             using var response = await httpClientService.Client.SendAsync(request, cancellationTokenSource.Token);
-            communication.StatusMessage = $"{response.StatusCode}: {response.Headers.GetValues("x-message-id").FirstOrDefault()}";
+            if (response.Headers.Contains("x-message-id"))
+            {
+                communication.StatusMessage = $"{response.StatusCode}: {response.Headers.GetValues("x-message-id").FirstOrDefault()}";    
+            }
+            else
+            {
+                communication.StatusMessage = $"{response.StatusCode}: No x-messsage-id known";
+            }
 
             var responseBody = await response.Content.ReadAsStringAsync(cancellationTokenSource.Token);
             if (!string.IsNullOrEmpty(responseBody))

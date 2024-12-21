@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Newtonsoft.Json.Serialization;
 
 namespace GeeksCoreLibrary.Modules.Communication.Models.MailerSend;
 
@@ -75,4 +76,13 @@ public class MailerSendSettingsModel
     public bool TrackClicks { get; set; }
     public bool TrackOpens { get; set; }
     public bool TrackContent  { get; set; }
+}
+
+// All keys must be lower case to MailerSend API
+public class LowercaseContractResolver : DefaultContractResolver
+{
+    protected override string ResolvePropertyName(string propertyName)
+    {
+        return propertyName.ToLower();
+    }
 }
