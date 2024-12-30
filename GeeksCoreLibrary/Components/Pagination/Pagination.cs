@@ -174,7 +174,11 @@ namespace GeeksCoreLibrary.Components.Pagination
                 currentPage = 1U;
             }
 
-            var lastPageNumber = Convert.ToUInt32(Math.Ceiling(Convert.ToDecimal(totalItemCount) / Convert.ToDecimal(Settings.ItemsPerPage)));
+            string itemsPerPageQuery = HttpContextHelpers.GetRequestValue(HttpContext, Settings.ItemsPerPageVariableName);
+            if(!uint.TryParse(itemsPerPageQuery, out uint itemsPerPage) || string.IsNullOrEmpty(itemsPerPageQuery))
+                itemsPerPage = Settings.ItemsPerPage;
+
+            var lastPageNumber = Convert.ToUInt32(Math.Ceiling(Convert.ToDecimal(totalItemCount) / Convert.ToDecimal(itemsPerPage)));
 
             if (Settings.AddPreviousAndNextLinkRelationTags)
             {
@@ -209,7 +213,7 @@ namespace GeeksCoreLibrary.Components.Pagination
             }
 
             var resultHtml = new StringBuilder();
-            resultHtml.Append(await CreatePaginationHtml(currentPage, lastPageNumber));
+            resultHtml.Append(await CreatePaginationHtml(currentPage, lastPageNumber, itemsPerPage));
             return new HtmlString(resultHtml.ToString());
         }
 
@@ -218,8 +222,9 @@ namespace GeeksCoreLibrary.Components.Pagination
         /// </summary>
         /// <param name="currentPage">The current page being viewed.</param>
         /// <param name="lastPageNumber">The last page number, or total amount of pages.</param>
+        /// <param name="itemsPerPage">The amount of items that are shown on the page.</param>
         /// <returns>The complete pagination HTML as a string.</returns>
-        private async Task<string> CreatePaginationHtml(uint currentPage, uint lastPageNumber)
+        private async Task<string> CreatePaginationHtml(uint currentPage, uint lastPageNumber, uint itemsPerPage)
         {
             var paginationHtml = new StringBuilder();
 
@@ -373,8 +378,8 @@ namespace GeeksCoreLibrary.Components.Pagination
 
             var replaceData = new Dictionary<string, string>
             {
-                ["firstitemnr"] = (totalItemCount < (currentPage - 1) * Settings.ItemsPerPage + 1 ? totalItemCount : (currentPage - 1) * Settings.ItemsPerPage + 1).ToString(),
-                ["lastitemnr"] = (totalItemCount > currentPage * Settings.ItemsPerPage ? currentPage * Settings.ItemsPerPage : totalItemCount).ToString(),
+                ["firstitemnr"] = (totalItemCount < (currentPage - 1) * itemsPerPage + 1 ? totalItemCount : (currentPage - 1) * itemsPerPage + 1).ToString(),
+                ["lastitemnr"] = (totalItemCount > currentPage * itemsPerPage ? currentPage * itemsPerPage : totalItemCount).ToString(),
                 ["totalitems"] = totalItemCount.ToString(),
                 ["totalitemnrs"] = totalItemCount.ToString() // Legacy support.
             };
@@ -418,7 +423,14 @@ namespace GeeksCoreLibrary.Components.Pagination
         /// <returns>The URL for the given page number.</returns>
         private string ParseLinkFormat(uint pageNumber, bool absoluteUrl = false)
         {
-            var link = Settings.LinkFormat.Replace("{pnr}", pageNumber.ToString()).Replace("{variablename}", Settings.PageNumberVariableName);
+            string itemsPerPageQuery = HttpContextHelpers.GetRequestValue(HttpContext, Settings.ItemsPerPageVariableName);
+            if(!uint.TryParse(itemsPerPageQuery, out uint itemsPerPage) || string.IsNullOrEmpty(itemsPerPageQuery))
+                itemsPerPage = Settings.ItemsPerPage;
+            
+            var link = Settings.LinkFormat
+                .Replace("{pnr}", pageNumber.ToString())
+                .Replace("{pagecount}", itemsPerPage.ToString())
+                .Replace("{variablename}", Settings.PageNumberVariableName);
 
             var originalQueryString = HttpContextHelpers.GetOriginalRequestUri(HttpContext)?.Query;
             if (Settings.AddPageQueryStringToLinkFormat)

@@ -311,6 +311,7 @@ namespace GeeksCoreLibrary.Components.Pagination.Models
                                 <ul>
                                     <li><strong>{variablename}:</strong> The page variable name.</li>
                                     <li><strong>{pnr}:</strong> The page number that this URL will link to.</li>
+                                    <li><strong>{pagecount}:</strong> The current amount of items per page.</li>
                                 </ul>",
             TabName = CmsAttributes.CmsTabName.Layout,
             GroupName = CmsAttributes.CmsGroupName.Templates,
@@ -341,6 +342,15 @@ namespace GeeksCoreLibrary.Components.Pagination.Models
             DisplayOrder = 10
         )]
         public string PageNumberVariableName { get; set; }
+        
+        [CmsProperty(
+            PrettyName = "Items per page variable name",
+            Description = "The name of the query string variable where the amount of items per page will be stored in.",
+            TabName = CmsAttributes.CmsTabName.Developer,
+            GroupName = CmsAttributes.CmsGroupName.Basic,
+            DisplayOrder = 20
+        )]
+        public string ItemsPerPageVariableName { get; set; }
 
         #endregion
     }
