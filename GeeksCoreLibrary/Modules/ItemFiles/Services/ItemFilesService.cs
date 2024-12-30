@@ -53,14 +53,14 @@ namespace GeeksCoreLibrary.Modules.ItemFiles.Services
         }
 
         /// <inheritdoc />
-        public async Task<(byte[] FileBytes, DateTime LastModified)> GetWiserItemImageAsync(ulong itemId, string propertyName, int preferredWidth, int preferredHeight, string filename, int fileNumber, ResizeModes resizeMode = ResizeModes.Normal, AnchorPositions anchorPosition = AnchorPositions.Center, string encryptedItemId = null, string entityType = null)
+        public async Task<(byte[] FileBytes, DateTime LastModified)> GetWiserItemImageAsync(ulong itemId, string propertyName, int preferredWidth, int preferredHeight, string filename, int fileNumber, ResizeModes resizeMode = ResizeModes.Normal, AnchorPositions anchorPosition = AnchorPositions.Center, string encryptedItemId = null, string entityType = null, string tablePrefixParameter = null)
         {
             if (!TryGetFinalId(itemId, encryptedItemId, out var finalItemId))
             {
                 return (null, DateTime.MinValue);
             }
 
-            var tablePrefix = await wiserItemsService.GetTablePrefixForEntityAsync(entityType);
+            var tablePrefix = string.IsNullOrEmpty(tablePrefixParameter) ? await wiserItemsService.GetTablePrefixForEntityAsync(entityType) : $"{tablePrefixParameter}_";
             if (fileNumber < 1)
             {
                 fileNumber = 1;
@@ -139,14 +139,14 @@ namespace GeeksCoreLibrary.Modules.ItemFiles.Services
         }
 
         /// <inheritdoc />
-        public async Task<(byte[] FileBytes, DateTime LastModified)> GetWiserDirectImageAsync(ulong itemId, int preferredWidth, int preferredHeight, string filename, ResizeModes resizeMode = ResizeModes.Normal, AnchorPositions anchorPosition = AnchorPositions.Center, string encryptedItemId = null, string entityType = null)
+        public async Task<(byte[] FileBytes, DateTime LastModified)> GetWiserDirectImageAsync(ulong itemId, int preferredWidth, int preferredHeight, string filename, ResizeModes resizeMode = ResizeModes.Normal, AnchorPositions anchorPosition = AnchorPositions.Center, string encryptedItemId = null, string entityType = null, string tablePrefixParameter = null)
         {
             if (!TryGetFinalId(itemId, encryptedItemId, out var finalItemId))
             {
                 return (null, DateTime.MinValue);
             }
 
-            var tablePrefix = await wiserItemsService.GetTablePrefixForEntityAsync(entityType);
+            var tablePrefix = string.IsNullOrEmpty(tablePrefixParameter) ? await wiserItemsService.GetTablePrefixForEntityAsync(entityType) : $"{tablePrefixParameter}_";
 
             databaseConnection.ClearParameters();
             databaseConnection.AddParameter("fileId", finalItemId);
