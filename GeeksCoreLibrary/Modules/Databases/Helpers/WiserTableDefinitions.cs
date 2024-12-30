@@ -4,6 +4,7 @@ using GeeksCoreLibrary.Core.Models;
 using GeeksCoreLibrary.Modules.Databases.Enums;
 using GeeksCoreLibrary.Modules.Databases.Models;
 using MySqlConnector;
+using Constants = GeeksCoreLibrary.Modules.Databases.Models.Constants;
 
 namespace GeeksCoreLibrary.Modules.Databases.Helpers;
 
@@ -64,8 +65,6 @@ public class WiserTableDefinitions
                 new("groupname", MySqlDbType.VarChar, 100, notNull: true, defaultValue: ""),
                 new("key", MySqlDbType.VarChar, 100, notNull: true, defaultValue: ""),
                 new("value", MySqlDbType.VarChar, 1000, notNull: true, defaultValue: ""),
-                new("value_as_int", MySqlDbType.Int64, isVirtual: true, virtualType: VirtualTypes.Virtual, virtualExpression: "CAST(`value` AS SIGNED)"),
-                new("value_as_decimal", MySqlDbType.Decimal, 65, 30, isVirtual: true, virtualType: VirtualTypes.Virtual, virtualExpression: "CAST(`value` AS DECIMAL(65,30))"),
                 new("long_value", MySqlDbType.MediumText)
             },
             Indexes = new List<IndexSettingsModel>
@@ -90,8 +89,6 @@ public class WiserTableDefinitions
                 new("groupname", MySqlDbType.VarChar, 100, notNull: true, defaultValue: "", comment: "optionele groepering van items, zoals een 'specs' tabel"),
                 new("key", MySqlDbType.VarChar, 100, notNull: true, defaultValue: ""),
                 new("value", MySqlDbType.VarChar, 1000, notNull: true, defaultValue: ""),
-                new("value_as_int", MySqlDbType.Int64, isVirtual: true, virtualType: VirtualTypes.Virtual, virtualExpression: "CAST(`value` AS SIGNED)"),
-                new("value_as_decimal", MySqlDbType.Decimal, 65, 30, isVirtual: true, virtualType: VirtualTypes.Virtual, virtualExpression: "CAST(`value` AS DECIMAL(65,30))"),
                 new("long_value", MySqlDbType.MediumText, comment: "Voor waardes die niet in 'value' passen, zoals van HTMLeditors")
             },
             Indexes = new List<IndexSettingsModel>
@@ -741,7 +738,7 @@ public class WiserTableDefinitions
         new WiserTableDefinitionModel
         {
             Name = WiserTableNames.WiserBranchesQueue,
-            LastUpdate = new DateTime(2024, 3, 20),
+            LastUpdate = new DateTime(2024, 11, 20),
             Columns = new List<ColumnSettingsModel>
             {
                 new("id", MySqlDbType.Int32, notNull: true, isPrimaryKey: true, autoIncrement: true),
@@ -758,7 +755,9 @@ public class WiserTableDefinitions
                 new("success", MySqlDbType.Int16),
                 new("errors", MySqlDbType.MediumText),
                 new("total_items", MySqlDbType.Int32),
-                new("items_processed", MySqlDbType.Int32)
+                new("items_processed", MySqlDbType.Int32),
+                new("is_template", MySqlDbType.Int16, notNull: true, defaultValue: "0"),
+                new("is_for_automatic_deploy", MySqlDbType.Int16, notNull: true, defaultValue: "0")
             },
             Indexes = new List<IndexSettingsModel>
             {

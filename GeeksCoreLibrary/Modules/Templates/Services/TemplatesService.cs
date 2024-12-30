@@ -4,7 +4,6 @@ using System.Data;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
-using System.Net;
 using System.Text;
 using System.Text.Encodings.Web;
 using System.Text.RegularExpressions;
@@ -14,6 +13,7 @@ using GeeksCoreLibrary.Components.Filter.Interfaces;
 using GeeksCoreLibrary.Core.Enums;
 using GeeksCoreLibrary.Core.Extensions;
 using GeeksCoreLibrary.Core.Helpers;
+using GeeksCoreLibrary.Core.Interfaces;
 using GeeksCoreLibrary.Core.Models;
 using GeeksCoreLibrary.Modules.Databases.Interfaces;
 using GeeksCoreLibrary.Modules.GclReplacements.Interfaces;
@@ -34,6 +34,7 @@ using Microsoft.AspNetCore.Mvc.ViewFeatures;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Newtonsoft.Json.Linq;
+using Constants = GeeksCoreLibrary.Modules.Templates.Models.Constants;
 using Template = GeeksCoreLibrary.Modules.Templates.Models.Template;
 
 namespace GeeksCoreLibrary.Modules.Templates.Services
@@ -59,6 +60,7 @@ namespace GeeksCoreLibrary.Modules.Templates.Services
         private readonly IAccountsService accountsService;
         private readonly IDatabaseHelpersService databaseHelpersService;
         private readonly IReplacementsMediator replacementsMediator;
+        private readonly IHttpClientService httpClientService;
 
         /// <summary>
         /// Initializes a new instance of <see cref="TemplatesService"/>.
@@ -73,6 +75,7 @@ namespace GeeksCoreLibrary.Modules.Templates.Services
             IAccountsService accountsService,
             IDatabaseHelpersService databaseHelpersService,
             IReplacementsMediator replacementsMediator,
+            IHttpClientService httpClientService,
             IHttpContextAccessor httpContextAccessor = null,
             IActionContextAccessor actionContextAccessor = null,
             IViewComponentHelper viewComponentHelper = null,
@@ -94,10 +97,11 @@ namespace GeeksCoreLibrary.Modules.Templates.Services
             this.accountsService = accountsService;
             this.databaseHelpersService = databaseHelpersService;
             this.replacementsMediator = replacementsMediator;
+            this.httpClientService = httpClientService;
         }
 
         /// <inheritdoc />
-        public async Task<Template> GetTemplateAsync(int id = 0, string name = "", TemplateTypes? type = null, int parentId = 0, string parentName = "", bool includeContent = true)
+        public async Task<Template> GetTemplateAsync(int id = 0, string name = "", TemplateTypes? type = null, int parentId = 0, string parentName = "", bool includeContent = true, bool skipPermissions = false)
         {
             if (id <= 0 && String.IsNullOrEmpty(name))
             {
@@ -232,18 +236,102 @@ ORDER BY parent5.ordering ASC, parent4.ordering ASC, parent3.ordering ASC, paren
             }
 
             // Check login requirement.
-            if (!result.Type.InList(TemplateTypes.Html, TemplateTypes.Query) || !result.LoginRequired)
+            if (skipPermissions || !result.LoginRequired || !result.Type.InList(TemplateTypes.Html, TemplateTypes.Query))
             {
                 // No login required; return template.
                 return result;
             }
 
+            return await CheckTemplatePermissionsAsync(result);
+        }
+
+        /// <inheritdoc />
+        public async Task<Template> GetTemplatePermissionSettingsAsync(int id = 0, string name = "", int parentId = 0, string parentName = "")
+        {
+            if (id <= 0 && String.IsNullOrEmpty(name))
+            {
+                throw new ArgumentNullException($"One of the parameters {nameof(id)} or {nameof(name)} must contain a value");
+            }
+
+            var joinPart = "";
+            var whereClause = new List<string>();
+            if (gclSettings.Environment == Environments.Development)
+            {
+                joinPart = $" JOIN (SELECT template_id, MAX(version) AS maxVersion FROM {WiserTableNames.WiserTemplate} GROUP BY template_id) AS maxVersion ON template.template_id = maxVersion.template_id AND template.version = maxVersion.maxVersion";
+            }
+            else
+            {
+                whereClause.Add($"(template.published_environment & {(int)gclSettings.Environment}) = {(int)gclSettings.Environment}");
+            }
+
+            if (id > 0)
+            {
+                databaseConnection.AddParameter("id", id);
+                whereClause.Add("template.template_id = ?id");
+            }
+            else
+            {
+                databaseConnection.AddParameter("name", name);
+                whereClause.Add("template.template_name = ?name");
+            }
+
+            if (parentId > 0)
+            {
+                databaseConnection.AddParameter("parentId", parentId);
+                joinPart += $" JOIN {WiserTableNames.WiserTemplate} AS parent1 ON parent1.template_id = template.parent_id AND parent1.version = (SELECT MAX(version) FROM {WiserTableNames.WiserTemplate} WHERE template_id = template.parent_id)";
+                whereClause.Add("template.parent_id = ?parentId");
+            }
+            else if (!String.IsNullOrWhiteSpace(parentName))
+            {
+                databaseConnection.AddParameter("parentName", parentName);
+                joinPart += $" JOIN {WiserTableNames.WiserTemplate} AS parent1 ON parent1.template_id = template.parent_id AND parent1.version = (SELECT MAX(version) FROM {WiserTableNames.WiserTemplate} WHERE template_id = template.parent_id)";
+                whereClause.Add("parent1.template_name = ?parentName");
+            }
+
+            whereClause.Add("template.removed = 0");
+
+            var query = $@"SELECT
+                            template.template_name,
+                            template.template_id,
+                            template.login_required,
+                            template.login_role,
+                            template.login_redirect_url,
+                            template.template_type
+                        FROM {WiserTableNames.WiserTemplate} AS template
+                        {joinPart}
+
+                        WHERE {String.Join(" AND ", whereClause)}
+                        GROUP BY template.template_id
+                        LIMIT 1";
+
+            var dataTable = await databaseConnection.GetAsync(query);
+            var result = dataTable.Rows.Count == 0 ? new Template() : new Template
+            {
+                Id = dataTable.Rows[0].Field<int>("template_id"),
+                Name = dataTable.Rows[0].Field<string>("template_name"),
+                LoginRequired = dataTable.Rows[0].Field<bool>("login_required"),
+                LoginRoles = dataTable.Rows[0].Field<string>("login_role")?.Split(",", StringSplitOptions.RemoveEmptyEntries).Select(i => Convert.ToInt32(i)).ToList(),
+                LoginRedirectUrl = dataTable.Rows[0].Field<string>("login_redirect_url"),
+                Type = dataTable.Rows[0].Field<TemplateTypes>("template_type")
+            };
+
+            return result;
+        }
+
+        /// <inheritdocs />
+        public async Task<Template> CheckTemplatePermissionsAsync(Template template)
+        {
+            if (!template.LoginRequired)
+            {
+                return template;
+            }
+            
             var emptyTemplate = new Template
             {
-                Type = result.Type,
+                Type = template.Type,
                 LoginRequired = true,
-                LoginRedirectUrl = result.LoginRedirectUrl,
-                LoginRoles = result.LoginRoles
+                LoginRedirectUrl = template.LoginRedirectUrl,
+                LoginRoles = template.LoginRoles
             };
 
             if (httpContextAccessor?.HttpContext == null)
@@ -255,12 +343,12 @@ ORDER BY parent5.ordering ASC, parent4.ordering ASC, parent3.ordering ASC, paren
             // Check current login, and match user's roles against required roles of the template.
             var userData = await accountsService.GetUserDataFromCookieAsync();
 
-            if (userData is not {UserId: > 0} || (result.LoginRoles != null && result.LoginRoles.Any() && userData.Roles != null && !userData.Roles.Any(role => result.LoginRoles.Contains(role.Id))))
+            if (userData is not {UserId: > 0} || (template.LoginRoles != null && template.LoginRoles.Any() && userData.Roles != null && !userData.Roles.Any(role => template.LoginRoles.Contains(role.Id))))
             {
                 return emptyTemplate;
             }
 
-            return result;
+            return template;
         }
 
         /// <inheritdoc />
@@ -789,7 +877,6 @@ ORDER BY parent5.ordering ASC, parent4.ordering ASC, parent3.ordering ASC, paren
             }
 
             var resultBuilder = new StringBuilder();
-            using var webClient = new WebClient();
             foreach (var fileName in enumerable.Where(fileName => !String.IsNullOrWhiteSpace(fileName)))
             {
                 var extension = Path.GetExtension(fileName).ToLowerInvariant();
@@ -808,7 +895,9 @@ ORDER BY parent5.ordering ASC, parent4.ordering ASC, parent3.ordering ASC, paren
                 var fileLocation = Path.Combine(localDirectory, fileName);
                 if (!File.Exists(fileLocation))
                 {
-                    await webClient.DownloadFileTaskAsync(new Uri($"https://app.wiser.nl/{directory}/cdn/{fileName}"), fileLocation);
+                    await using var readStream = await httpClientService.Client.GetStreamAsync(new Uri($"https://app.wiser.nl/{directory}/cdn/{fileName}"));
+                    await using var writeStream = File.Create(fileLocation);
+                    await readStream.CopyToAsync(writeStream);
                 }
 
                 resultBuilder.AppendLine(await File.ReadAllTextAsync(fileLocation));
@@ -1377,7 +1466,7 @@ ORDER BY id ASC");
         }
 
         /// <inheritdoc />
-        public async Task<JArray> GetJsonResponseFromQueryAsync(QueryTemplate queryTemplate, string encryptionKey = null, bool skipNullValues = false, bool allowValueDecryption = false, bool recursive = false, bool childItemsMustHaveId = false)
+        public async Task<JToken> GetJsonResponseFromQueryAsync(QueryTemplate queryTemplate, string encryptionKey = null, bool skipNullValues = false, bool allowValueDecryption = false, bool recursive = false, bool childItemsMustHaveId = false)
         {
             var query = queryTemplate?.Content;
             if (String.IsNullOrWhiteSpace(query))
@@ -1389,7 +1478,7 @@ ORDER BY id ASC");
             
          if (query.Contains("{filters}", StringComparison.OrdinalIgnoreCase))
             {
-                query = query.Replace("{filters}", (await filtersService.GetFilterQueryPartAsync()).JoinPart, StringComparison.OrdinalIgnoreCase);
+                query = query.Replace("{filters}", (await filtersService.GetFilterQueryPartAsync()).JoinPart.ToString(), StringComparison.OrdinalIgnoreCase);
             }
 
             var pusherRegex = new Regex(@"PUSHER<channel\((.*?)\),event\((.*?)\),message\(((?s:.)*?)\)>", RegexOptions.Compiled, TimeSpan.FromMilliseconds(2000));
@@ -1411,6 +1500,11 @@ ORDER BY id ASC");
             {
                 throw new NotImplementedException("Pusher messages not yet implemented");
             }
+            
+            // Return the first JSON object if specified to return as an object rather than as an array.
+            // If the template is expected to be returned as an object, check whether it is viable to do so and grab the first result as a JObject.
+            if (queryTemplate.GroupingSettings.ObjectInsteadOfArray && result is {} jsonResultArray)
+                return jsonResultArray.Count > 0 ? result[0] as JObject : null;
 
             return result;
         }
@@ -1623,6 +1717,13 @@ ORDER BY ORDINAL_POSITION ASC";
                 cacheFileName.Append($"_{userData.MainUserId}");
             }
 
+            var permissionTemplate = await GetTemplatePermissionSettingsAsync(contentTemplate.Id);
+            permissionTemplate =  await CheckTemplatePermissionsAsync(permissionTemplate);
+            if (permissionTemplate.LoginRequired)
+            {
+                cacheFileName.Append($"_permission-{permissionTemplate.Id > 0}");
+            }
+
             if (String.IsNullOrEmpty(extension))
             {
                 return cacheFileName.ToString();
@@ -1647,7 +1748,8 @@ ORDER BY ORDINAL_POSITION ASC";
                 query = $@"SELECT
 	template.template_id,
 	template.template_type,
-	template.url_regex
+	template.url_regex,
+	template.allow_call_without_anti_forgery_token
 FROM {WiserTableNames.WiserTemplate} AS template
 LEFT JOIN {WiserTableNames.WiserTemplate} AS otherVersion ON otherVersion.template_id = template.template_id AND otherVersion.version > template.version
 LEFT JOIN {WiserTableNames.WiserTemplate} AS parent1 ON parent1.template_id = template.parent_id AND parent1.version = (SELECT MAX(version) FROM {WiserTableNames.WiserTemplate} WHERE template_id = template.parent_id)
@@ -1672,7 +1774,8 @@ ORDER BY parent5.ordering ASC,
 SELECT 
 	template.template_id,
 	template.template_type,
-	template.url_regex
+	template.url_regex,
+	template.allow_call_without_anti_forgery_token
 FROM {WiserTableNames.WiserTemplate} AS template
 LEFT JOIN {WiserTableNames.WiserTemplate} AS parent1 ON parent1.template_id = template.parent_id AND parent1.version = (SELECT MAX(version) FROM {WiserTableNames.WiserTemplate} WHERE template_id = template.parent_id)
 LEFT JOIN {WiserTableNames.WiserTemplate} AS parent2 ON parent2.template_id = parent1.parent_id AND parent2.version = (SELECT MAX(version) FROM {WiserTableNames.WiserTemplate} WHERE template_id = parent1.parent_id)
@@ -1700,10 +1803,11 @@ ORDER BY parent5.ordering ASC,
                 {
                     Id = dataRow.Field<int>("template_id"),
                     Type = dataRow.Field<TemplateTypes>("template_type"),
-                    UrlRegex = dataRow.Field<string>("url_regex")
+                    UrlRegex = dataRow.Field<string>("url_regex"),
+                    AllowCallWithoutAntiForgeryToken = dataRow.Field<bool>("allow_call_without_anti_forgery_token")
                 });
             }
-
+            
             return results;
         }
 

@@ -4,7 +4,6 @@ using System.Data;
 using System.Globalization;
 using System.Linq;
 using System.Net;
-using System.Security.Claims;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
@@ -915,7 +914,7 @@ namespace GeeksCoreLibrary.Modules.DataSelector.Services
         }
 
         /// <inheritdoc />
-        public async Task<(JArray Result, HttpStatusCode StatusCode, string Error)> GetJsonResponseAsync(DataSelectorRequestModel data, bool skipSecurity = false)
+        public async Task<(JToken Result, HttpStatusCode StatusCode, string Error)> GetJsonResponseAsync(DataSelectorRequestModel data, bool skipSecurity = false)
         {
             var (itemsRequest, statusCode, error) = await InitializeItemsRequestAsync(data, skipSecurity);
             if (statusCode != HttpStatusCode.OK)
@@ -1036,7 +1035,7 @@ namespace GeeksCoreLibrary.Modules.DataSelector.Services
                 return (null, statusCode, error);
             }
 
-            var excelFile = excelService.JsonArrayToExcel(jsonResult);
+            var excelFile = excelService.JsonArrayToExcel(jsonResult as JArray);
             return (new FileContentResult(excelFile, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"), HttpStatusCode.OK, String.Empty);
         }
 
@@ -1587,7 +1586,7 @@ namespace GeeksCoreLibrary.Modules.DataSelector.Services
                     }
                     else
                     {
-                        joinDetailOn = linkSettingsForUp is {UseParentItemId: true}
+                        joinDetailOn = linkSettingsForDown is {UseParentItemId: true}
                             ? $"`{previousLevelTableAlias}`.id"
                             : $"`{tableName}`.item_id";
                     }

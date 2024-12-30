@@ -6,19 +6,23 @@ using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Net.Http.Json;
+using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Web;
 using CM.Text;
 using CM.Text.BusinessMessaging;
 using CM.Text.BusinessMessaging.Model;
+using DocumentFormat.OpenXml.Presentation;
 using GeeksCoreLibrary.Core.DependencyInjection.Interfaces;
 using GeeksCoreLibrary.Core.Interfaces;
 using GeeksCoreLibrary.Core.Models;
 using GeeksCoreLibrary.Modules.Communication.Enums;
 using GeeksCoreLibrary.Modules.Communication.Interfaces;
 using GeeksCoreLibrary.Modules.Communication.Models;
+using GeeksCoreLibrary.Modules.Communication.Models.MailerSend;
 using GeeksCoreLibrary.Modules.Communication.Models.SmtPeter;
 using GeeksCoreLibrary.Modules.Databases.Interfaces;
 using MailKit.Net.Smtp;
@@ -29,6 +33,7 @@ using RestSharp;
 using Newtonsoft.Json;
 using Twilio;
 using Twilio.Rest.Api.V2010.Account;
+using JsonSerializer = Newtonsoft.Json.JsonSerializer;
 
 namespace GeeksCoreLibrary.Modules.Communication.Services
 {
@@ -40,17 +45,19 @@ namespace GeeksCoreLibrary.Modules.Communication.Services
         private readonly IWiserItemsService wiserItemsService;
         private readonly IDatabaseConnection databaseConnection;
         private readonly IDatabaseHelpersService databaseHelpersService;
+        private readonly IHttpClientService httpClientService;
 
         /// <summary>
         /// Creates a new instance of <see cref="CommunicationsService"/>.
         /// </summary>
-        public CommunicationsService(IOptions<GclSettings> gclSettings, ILogger<CommunicationsService> logger, IWiserItemsService wiserItemsService, IDatabaseConnection databaseConnection, IDatabaseHelpersService databaseHelpersService)
+        public CommunicationsService(IOptions<GclSettings> gclSettings, ILogger<CommunicationsService> logger, IWiserItemsService wiserItemsService, IDatabaseConnection databaseConnection, IDatabaseHelpersService databaseHelpersService, IHttpClientService httpClientService)
         {
             this.gclSettings = gclSettings.Value;
             this.logger = logger;
             this.wiserItemsService = wiserItemsService;
             this.databaseConnection = databaseConnection;
             this.databaseHelpersService = databaseHelpersService;
+            this.httpClientService = httpClientService;
         }
 
         /// <inheritdoc />
@@ -275,8 +282,8 @@ WHERE id = ?id";
         public async Task<int> SendEmailAsync(string receiver, string subject, string body, string receiverName = null, string cc = null, string bcc = null, string replyTo = null, string replyToName = null, string sender = null, string senderName = null, DateTime? sendDate = null, List<ulong> attachments = null)
         {
             var receivers = new List<CommunicationReceiverModel>();
-            var receiverAddresses = receiver.Split(';');
-            var receiverNames = (receiverName ?? "").Split(";");
+            var receiverAddresses = receiver.Split(';', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
+            var receiverNames = (receiverName ?? "").Split(";", StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
             for (var i = 0; i < receiverAddresses.Length; i++)
             {
                 var receiverModel = new CommunicationReceiverModel { Address = receiverAddresses[i] };
@@ -291,13 +298,13 @@ WHERE id = ?id";
             var bccAddresses = new List<string>();
             if (!String.IsNullOrWhiteSpace(bcc))
             {
-                bccAddresses.AddRange(bcc.Split(new[] { ',', ';' }, StringSplitOptions.RemoveEmptyEntries));
+                bccAddresses.AddRange(bcc.Split(new[] { ',', ';' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
             }
 
             var ccAddresses = new List<string>();
             if (!String.IsNullOrWhiteSpace(cc))
             {
-                ccAddresses.AddRange(cc.Split(new[] { ',', ';' }, StringSplitOptions.RemoveEmptyEntries));
+                ccAddresses.AddRange(cc.Split(new[] { ',', ';' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
             }
 
             return await SendEmailAsync(receivers, subject, body, ccAddresses, bccAddresses, replyTo, replyToName, sender, senderName, sendDate, attachments);
@@ -418,6 +425,9 @@ WHERE id = ?id";
                     break;
                 case EmailServiceProviders.SmtPeterRestApi:
                     await SendSmtPeterEmailDirectlyAsync(communication, smtpSettings, attachments, timeout);
+                    break;
+                case EmailServiceProviders.MailerSendRestApi:
+                    await SendMailerSendEmailDirectlyAsync(communication, smtpSettings, attachments, timeout);
                     break;
                 default:
                     throw new ArgumentOutOfRangeException(nameof(smtpSettings.Provider), smtpSettings.Provider.ToString());
@@ -542,18 +552,95 @@ WHERE id = ?id";
                 }
             }
 
-            using var client = new HttpClient();
-            client.Timeout = TimeSpan.FromMilliseconds(timeout);
-            using var response = await client.PostAsJsonAsync($"https://www.smtpeter.com/v1/send?access_token={smtpSettings.SmtPeterSettings.ApiAccessToken}", requestBody, new JsonSerializerOptions(JsonSerializerDefaults.Web));
-            communication.StatusMessage = await response.Content.ReadAsStringAsync();
-            
+            using var cancellationTokenSource = new CancellationTokenSource();
+            cancellationTokenSource.CancelAfter(TimeSpan.FromMilliseconds(timeout));
+            using var response = await httpClientService.Client.PostAsJsonAsync($"https://www.smtpeter.com/v1/send?access_token={smtpSettings.SmtPeterSettings.ApiAccessToken}", requestBody, new JsonSerializerOptions(JsonSerializerDefaults.Web), cancellationTokenSource.Token);
+            communication.StatusMessage = await response.Content.ReadAsStringAsync(cancellationTokenSource.Token);
+
             if (response.IsSuccessStatusCode)
             {
                 return;
             }
 
             // If request was not success throw the body as an exception.
-            throw new Exception(await response.Content.ReadAsStringAsync());
+            throw new Exception(communication.StatusMessage);
+        }
+        
+         /// <summary>
+        /// Send the email directly using the SmtPeter Rest API.
+        /// </summary>
+        /// <param name="communication">The <see cref="SingleCommunicationModel"/> object to use as the basis to send the email.</param>
+        /// <param name="smtpSettings">The SMTP settings to use.</param>
+        /// <param name="attachments">The attachments to send with the email.</param>
+        /// <param name="timeout">The timeout in milliseconds before it's considered to take too long. The default timeout equals to 2 minutes. This is the same default timeout that MailKit uses.</param>
+        private async Task SendMailerSendEmailDirectlyAsync(SingleCommunicationModel communication, SmtpSettings smtpSettings, List<(string FileName, byte[] FileBytes)> attachments, int timeout)
+        {
+            var requestBody = new MailerSendRequestModel()
+            {
+                From = !String.IsNullOrWhiteSpace(communication.Sender) ? new MailerSendContactModel() { Email = communication.Sender, Name = communication.SenderName} : new MailerSendContactModel() { Email = smtpSettings.SenderEmailAddress, Name = smtpSettings.SenderName},
+                ReplyTo = new MailerSendContactModel() { Email = communication.ReplyTo, Name = communication.ReplyToName},
+                To = communication.Receivers.Select(receiver => new MailerSendContactModel{ Email = receiver.Address, Name = receiver.DisplayName}).ToList(),
+                Cc = communication.Cc.Select(receiver => new MailerSendContactModel{ Email = receiver}).ToList(),
+                Bcc = communication.Bcc.Select(receiver => new MailerSendContactModel{ Email = receiver}).ToList(),
+                Subject = communication.Subject,
+                Html = communication.Content,
+                Settings = new MailerSendSettingsModel()
+                {
+                    TrackClicks = false,
+                    TrackContent = false,
+                    TrackOpens = false
+                }
+            };
+
+            if (attachments != null && attachments.Any())
+            {
+                requestBody.Attachments = attachments.Select(attachment => new MailerSendAttachmentModel
+                        { Content = Convert.ToBase64String(attachment.FileBytes), FileName = attachment.FileName.ToLower(), Id = attachment.FileName.ToLower(), Disposition = "attachment"})
+                    .ToList();
+            }
+            else
+            {
+                requestBody.Attachments = new List<MailerSendAttachmentModel>();
+            }
+
+            using var cancellationTokenSource = new CancellationTokenSource();
+            cancellationTokenSource.CancelAfter(TimeSpan.FromMilliseconds(timeout));
+
+            // Keys must be lower case
+            var settings = new JsonSerializerSettings();
+            settings.ContractResolver = new LowercaseContractResolver();
+            var content = JsonConvert.SerializeObject(requestBody, Formatting.Indented, settings);
+            
+            var request = new HttpRequestMessage(HttpMethod.Post, "https://api.mailersend.com/v1/email")
+            {
+                Content = new StringContent(content, Encoding.UTF8, "application/json")
+            };
+            
+            request.Headers.Add("Authorization", $"Bearer {smtpSettings.MailerSendSettings.ApiAccessToken}");
+            
+            using var response = await httpClientService.Client.SendAsync(request, cancellationTokenSource.Token);
+            if (response.Headers.Contains("x-message-id"))
+            {
+                communication.StatusMessage = $"{response.StatusCode}: {response.Headers.GetValues("x-message-id").FirstOrDefault()}";    
+            }
+            else
+            {
+                communication.StatusMessage = $"{response.StatusCode}: No x-messsage-id known";
+            }
+
+            var responseBody = await response.Content.ReadAsStringAsync(cancellationTokenSource.Token);
+            if (!string.IsNullOrEmpty(responseBody))
+            {
+                communication.StatusMessage = $"{communication.StatusMessage} - {responseBody}";
+            }
+
+            if (response.IsSuccessStatusCode)
+            {
+                return;
+            }
+
+            // If request was not success throw the body as an exception.
+            throw new Exception(communication.StatusMessage);
         }
 
         private async Task<List<(string FileName, byte[] FileBytes)>> GetAttachmentsAsync(SingleCommunicationModel communication)
@@ -572,26 +659,26 @@ WHERE id = ?id";
                 attachments.Add((communication.UploadedFileName, communication.UploadedFile));
             }
 
-            using var webClient = new WebClient();
             if (communication.AttachmentUrls?.Count > 0)
             {
                 foreach (var attachmentUrl in communication.AttachmentUrls)
                 {
-                    var data = await webClient.DownloadDataTaskAsync(attachmentUrl);
+                    var data = await httpClientService.Client.GetAsync(attachmentUrl);
                     var uri = new Uri(attachmentUrl);
                     var fileName = Path.GetFileName(uri.AbsolutePath);
-                    if (webClient.ResponseHeaders?["Content-Disposition"] != null)
+
+                    if (data.Headers.Contains("Content-Disposition") && data.Headers.GetValues("Content-Disposition").Any())
                     {
                         // Extract the filename from the Content-Disposition header
-                        if (ContentDisposition.TryParse(webClient.ResponseHeaders["Content-Disposition"], out var contentDisposition))
+                        if (ContentDisposition.TryParse(data.Headers.GetValues("Content-Disposition").First(), out var contentDisposition))
                         {
                             fileName = Path.GetFileName(contentDisposition.FileName);
                         }
                     }
 
                     fileName = HttpUtility.UrlDecode(fileName);
-                    attachments.Add((fileName, data));
-                    webClient.ResponseHeaders?.Clear();
+                    attachments.Add((fileName, await data.Content.ReadAsByteArrayAsync()));
+                    data.Headers.Clear();
                 }
             }
 
@@ -606,7 +693,7 @@ WHERE id = ?id";
                 byte[] fileBytes;
                 if (!String.IsNullOrWhiteSpace(wiserItemFile.ContentUrl))
                 {
-                    fileBytes = await webClient.DownloadDataTaskAsync(wiserItemFile.ContentUrl);
+                    fileBytes = await httpClientService.Client.GetByteArrayAsync(wiserItemFile.ContentUrl);
                 }
                 else
                 {
@@ -622,7 +709,7 @@ WHERE id = ?id";
         public async Task<int> SendSmsAsync(string receiver, string body, string sender = null, string senderName = null, DateTime? sendDate = null)
         {
             var receivers = new List<CommunicationReceiverModel>();
-            var receiverAddresses = receiver.Split(';');
+            var receiverAddresses = receiver.Split(';', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
             foreach (var receiverAddress in receiverAddresses)
             {
                 var receiverModel = new CommunicationReceiverModel { Address = receiverAddress };
@@ -765,7 +852,7 @@ WHERE id = ?id";
         public async Task<int> SendWhatsAppAsync(string receiver, string body, string sender = null, string senderName = null, DateTime? sendDate = null, List<string> attachments = null)
         {
             var receivers = new List<CommunicationReceiverModel>();
-            var receiverAddresses = receiver.Split(';');
+            var receiverAddresses = receiver.Split(';', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
             foreach (var receiverAddress in receiverAddresses)
             {
                 var receiverModel = new CommunicationReceiverModel { Address = receiverAddress };
@@ -881,7 +968,7 @@ WHERE id = ?id";
             }
             else if (!receiverPhoneNumber.StartsWith("00"))
             {
-            throw new ArgumentException("Phone number is missing the country code.");
+                throw new ArgumentException("Phone number is missing the country code.");
             }
 
             // Now "sanitize" the phone number by removing all non-digit characters.
@@ -900,96 +987,94 @@ WHERE id = ?id";
             {
                 return;
             }
-            else
+
+            var metaConnection = new RestClient();
+            var request = new RestRequest(resource, Method.Post);
+            request.AddHeader("Authorization", $"Bearer {apiToken}");
+
+            request.AddJsonBody(new WhatsAppSendMessageRequestModel
             {
-                var metaConnection = new RestClient();
-                var request = new RestRequest(resource, Method.Post);
-                request.AddHeader("Authorization", $"Bearer {apiToken}");
-
-                request.AddJsonBody(new WhatsAppSendMessageRequestModel
+                MessagingProduct = "whatsapp",
+                RecipientType = "individual",
+                Receiver = receiverPhoneNumber,
+                TypeMessage = "text",
+                Body = new WhatsappBodyContentModel
                 {
-                    MessagingProduct = "whatsapp",
-                    RecipientType = "individual",
-                    Receiver = receiverPhoneNumber,
-                    TypeMessage = "text",
-                    Body = new WhatsappBodyContentModel
-                    {
-                        PreviewUrl = false,
-                        BodyContent = communication.Content
-                    }
-                });
+                    PreviewUrl = false,
+                    BodyContent = communication.Content
+                }
+            });
 
-                var response = await metaConnection.ExecuteAsync(request);
+            var response = await metaConnection.ExecuteAsync(request);
 
-                foreach (var url in communication.AttachmentUrls)
+            foreach (var url in communication.AttachmentUrls)
+            {
+                var typeUrl = "";
+                switch (url)
                 {
-                    var typeUrl = "";
-                    switch (url)
-                    {
-                        case string a when a.Contains(".jpeg"):
-                        case string b when b.Contains(".png"):
-                        case string c when c.Contains(".jpg"):
-                            typeUrl = "image";
-                            break;
-                        case string d when d.Contains(".pdf"):
-                        case string e when e.Contains(".csv"):
-                        case string f when f.Contains(".txt"):
-                        case string g when g.Contains(".xls"):
-                        case string h when h.Contains(".xlsx"):
-                        case string i when i.Contains(".doc"):
-                        case string j when j.Contains(".docx"):
-                        case string k when k.Contains(".pptx"):
-                        case string l when l.Contains(".ppt"):
-                        case string m when m.Contains(".xml"):
-                            typeUrl = "document";
-                            break;
-                        case string n when n.Contains(".mp3"):
-                            typeUrl = "audio";
-                            break;
-                        case string o when o.Contains(".mp4"):
-                            typeUrl = "video";
-                            break;
-                    }
+                    case string a when a.Contains(".jpeg"):
+                    case string b when b.Contains(".png"):
+                    case string c when c.Contains(".jpg"):
+                        typeUrl = "image";
+                        break;
+                    case string d when d.Contains(".pdf"):
+                    case string e when e.Contains(".csv"):
+                    case string f when f.Contains(".txt"):
+                    case string g when g.Contains(".xls"):
+                    case string h when h.Contains(".xlsx"):
+                    case string i when i.Contains(".doc"):
+                    case string j when j.Contains(".docx"):
+                    case string k when k.Contains(".pptx"):
+                    case string l when l.Contains(".ppt"):
+                    case string m when m.Contains(".xml"):
+                        typeUrl = "document";
+                        break;
+                    case string n when n.Contains(".mp3"):
+                        typeUrl = "audio";
+                        break;
+                    case string o when o.Contains(".mp4"):
+                        typeUrl = "video";
+                        break;
+                }
 
-                    if (!String.IsNullOrEmpty(typeUrl))
+                if (!String.IsNullOrEmpty(typeUrl))
+                {
+                    request = new RestRequest(resource, Method.Post);
+                    request.AddHeader("Authorization", $"Bearer {apiToken}");
+                    request.AddJsonBody(new WhatsAppSendMessageRequestModel
                     {
-                        request = new RestRequest(resource, Method.Post);
-                        request.AddHeader("Authorization", $"Bearer {apiToken}");
-                        request.AddJsonBody(new WhatsAppSendMessageRequestModel
-                        {
-                            MessagingProduct = "whatsapp",
-                            RecipientType = "individual",
-                            Receiver = receiverPhoneNumber,
-                            TypeMessage = typeUrl,
-                            TypeUrlImage = typeUrl != "image" ? null : new AttachmentUrlsModel
+                        MessagingProduct = "whatsapp",
+                        RecipientType = "individual",
+                        Receiver = receiverPhoneNumber,
+                        TypeMessage = typeUrl,
+                        TypeUrlImage = typeUrl != "image" ? null : new AttachmentUrlsModel
                             { Url = url },
-                            TypeUrlDocument = typeUrl != "document" ? null : new AttachmentUrlsModel
+                        TypeUrlDocument = typeUrl != "document" ? null : new AttachmentUrlsModel
                             { Url = url },
-                            TypeUrlAudio = typeUrl != "audio" ? null : new AttachmentUrlsModel
+                        TypeUrlAudio = typeUrl != "audio" ? null : new AttachmentUrlsModel
                             { Url = url},
-                            TypeUrlVideo = typeUrl != "video" ? null : new AttachmentUrlsModel
+                        TypeUrlVideo = typeUrl != "video" ? null : new AttachmentUrlsModel
                             { Url = url }
-                        });
+                    });
 
-                        response = await metaConnection.ExecuteAsync(request);
-                    }
-
-                    if (response.StatusCode == HttpStatusCode.OK)
-                    {
-                        return;
-                    }
-
-                    // If request (image/document/audio/video) was not success throw the status message as an exception.
-                    throw new Exception($"image/document/audio/video has not been sent... {response.ErrorMessage}");
+                    response = await metaConnection.ExecuteAsync(request);
                 }
 
                 if (response.StatusCode == HttpStatusCode.OK)
                 {
                     return;
                 }
-                //If request (communication.Content) was not success throw the status message as an exception.
-                throw new Exception($"message content has not been sent... {response.ErrorMessage}");
-             }
+
+                // If request (image/document/audio/video) was not success throw the status message as an exception.
+                throw new Exception($"image/document/audio/video has not been sent... {response.ErrorMessage}");
+            }
+
+            if (response.StatusCode == HttpStatusCode.OK)
+            {
+                return;
+            }
+            //If request (communication.Content) was not success throw the status message as an exception.
+            throw new Exception($"message content has not been sent... {response.ErrorMessage}");
         }
 
         /// <summary>
@@ -1086,7 +1171,7 @@ WHERE id = ?id";
             var receivers = dataRow.Field<string>("receiver_list");
             if (!String.IsNullOrWhiteSpace(receivers))
             {
-                result.ReceiversList = receivers.Split(";", StringSplitOptions.TrimEntries & StringSplitOptions.RemoveEmptyEntries).ToList();
+                result.ReceiversList = receivers.Split(";", StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries).ToList();
             }
 
             return result;

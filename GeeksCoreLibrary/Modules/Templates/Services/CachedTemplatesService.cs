@@ -28,6 +28,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
+using Constants = GeeksCoreLibrary.Modules.Templates.Models.Constants;
 
 namespace GeeksCoreLibrary.Modules.Templates.Services
 {
@@ -71,7 +72,7 @@ namespace GeeksCoreLibrary.Modules.Templates.Services
         }
 
         /// <inheritdoc />
-        public async Task<Template> GetTemplateAsync(int id = 0, string name = "", TemplateTypes? type = null, int parentId = 0, string parentName = "", bool includeContent = true)
+        public async Task<Template> GetTemplateAsync(int id = 0, string name = "", TemplateTypes? type = null, int parentId = 0, string parentName = "", bool includeContent = true, bool skipPermissions = false)
         {
             if (id <= 0 && String.IsNullOrEmpty(name))
             {
@@ -172,10 +173,13 @@ namespace GeeksCoreLibrary.Modules.Templates.Services
                 async cacheEntry =>
                 {
                     cacheEntry.AbsoluteExpirationRelativeToNow = gclSettings.DefaultTemplateCacheDuration;
-                    return await templatesService.GetTemplateAsync(id, name, type, parentId, parentName, !foundInOutputCache);
+                    return await templatesService.GetTemplateAsync(id, name, type, parentId, parentName, !foundInOutputCache, skipPermissions: true);
                 },
                 cacheService.CreateMemoryCacheEntryOptions(CacheAreas.Templates));
 
+            // We skip permissions in the cached result and check it here to make sure we always check the current permission status
+            template = await templatesService.CheckTemplatePermissionsAsync(template);
+            
             // Check if a login is required (only for HTML and query templates.
             if (template.Type.InList(TemplateTypes.Html, TemplateTypes.Query) && template.LoginRequired && template.Id == 0)
             {
@@ -668,7 +672,7 @@ namespace GeeksCoreLibrary.Modules.Templates.Services
         }
 
         /// <inheritdoc />
-        public async Task<JArray> GetJsonResponseFromQueryAsync(QueryTemplate queryTemplate, string encryptionKey = null, bool skipNullValues = false, bool allowValueDecryption = false, bool recursive = false, bool childItemsMustHaveId = false)
+        public async Task<JToken> GetJsonResponseFromQueryAsync(QueryTemplate queryTemplate, string encryptionKey = null, bool skipNullValues = false, bool allowValueDecryption = false, bool recursive = false, bool childItemsMustHaveId = false)
         {
             return await templatesService.GetJsonResponseFromQueryAsync(queryTemplate, encryptionKey, skipNullValues, allowValueDecryption, recursive, childItemsMustHaveId);
         }
@@ -770,6 +774,24 @@ namespace GeeksCoreLibrary.Modules.Templates.Services
                     return await templatesService.GetPageWidgetsAsync(service, templateId, includeGlobalSnippets);
                 },
                 cacheService.CreateMemoryCacheEntryOptions(CacheAreas.Templates));
+        }
+
+        /// <inheritdoc />
+        public async Task<Template> CheckTemplatePermissionsAsync(Template template)
+        {
+            return await templatesService.CheckTemplatePermissionsAsync(template);
+        }
+
+        /// <inheritdoc />
+        public async Task<Template> GetTemplatePermissionSettingsAsync(int id = 0, string name = "", int parentId = 0, string parentName = "")
+        {
+            var cacheName = $"TemplatePermissionSettings_{id}_{name}_{parentId}_{parentName}_{branchesService.GetDatabaseNameFromCookie()}";
+            return await cache.GetOrAddAsync(cacheName,
+                async cacheEntry =>
+                {
+                    cacheEntry.AbsoluteExpirationRelativeToNow = gclSettings.DefaultTemplateCacheDuration;
+                    return await templatesService.GetTemplatePermissionSettingsAsync(id, name, parentId, parentName);
+                });
         }
     }
 }

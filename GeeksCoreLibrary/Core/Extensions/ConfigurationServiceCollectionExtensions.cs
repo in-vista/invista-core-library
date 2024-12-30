@@ -9,6 +9,7 @@ using GeeksCoreLibrary.Core.Interfaces;
 using GeeksCoreLibrary.Core.Middlewares;
 using GeeksCoreLibrary.Core.Models;
 using GeeksCoreLibrary.Core.Services;
+using GeeksCoreLibrary.Modules.HealthChecks.Services;
 using GeeksCoreLibrary.Modules.ItemFiles.Interfaces;
 using GeeksCoreLibrary.Modules.ItemFiles.Services;
 using GeeksCoreLibrary.Modules.Languages.Interfaces;
@@ -43,11 +44,12 @@ using GeeksCoreLibrary.Components.OrderProcess.Middlewares;
 using GeeksCoreLibrary.Components.OrderProcess.Services;
 using GeeksCoreLibrary.Components.ShoppingBasket.Interfaces;
 using GeeksCoreLibrary.Components.ShoppingBasket.Services;
+using GeeksCoreLibrary.Modules.Amazon.Interfaces;
+using GeeksCoreLibrary.Modules.Amazon.Services;
 using GeeksCoreLibrary.Modules.Barcodes.Interfaces;
 using GeeksCoreLibrary.Modules.Barcodes.Services;
 using GeeksCoreLibrary.Modules.Databases.Interfaces;
 using GeeksCoreLibrary.Modules.Databases.Services;
-using GeeksCoreLibrary.Modules.HealthChecks.Services;
 using GeeksCoreLibrary.Modules.ItemFiles.Middlewares;
 using JetBrains.Annotations;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
@@ -105,6 +107,7 @@ namespace GeeksCoreLibrary.Core.Extensions
 
             builder.UseMiddleware<AddAntiForgeryMiddleware>();
             builder.UseMiddleware<OutputCachingMiddleware>();
+            builder.UseMiddleware<AddCacheHeaderValueMiddleware>();
             builder.UseStaticFiles();
 
             builder.UseRouting();
@@ -121,7 +124,13 @@ namespace GeeksCoreLibrary.Core.Extensions
                     ResponseWriter = UIResponseWriter.WriteHealthCheckUIResponse
                 });
 
-                endpoints.MapHealthChecks("/health/wts", new HealthCheckOptions()
+                endpoints.MapHealthChecks("/health/database", new HealthCheckOptions
+                {
+                    Predicate = healthCheck => healthCheck.Tags.Contains("Database"),
+                    ResponseWriter = UIResponseWriter.WriteHealthCheckUIResponse
+                });
+
+                endpoints.MapHealthChecks("/health/wts", new HealthCheckOptions
                 {
                     Predicate = healthCheck => healthCheck.Tags.Contains("WTS"),
                     ResponseWriter = UIResponseWriter.WriteHealthCheckUIResponse
@@ -129,10 +138,8 @@ namespace GeeksCoreLibrary.Core.Extensions
             });
 
             builder.HandleStartupFunctions();
-
             return builder;
         }
-
         /// <summary>
         /// Handle and execute some functions that are needed to be done during startup of the application.
         /// Don't call this method if you're already calling UseGclMiddleware, because this is called inside that.
@@ -149,7 +156,6 @@ namespace GeeksCoreLibrary.Core.Extensions
                 {
                     using var scope = builder.ApplicationServices.CreateScope();
                     var databaseHelpersService = scope.ServiceProvider.GetRequiredService<IDatabaseHelpersService>();
-
                     var gclSettings = scope.ServiceProvider.GetRequiredService<IOptions<GclSettings>>();
                     var tablesToUpdate = new List<string>
                     {
@@ -180,7 +186,8 @@ namespace GeeksCoreLibrary.Core.Extensions
                 }
                 catch (Exception exception)
                 {
-                    builder.ApplicationServices.GetService<ILogger>().LogError(exception, "Error while updating tables.");
+                    var logger = builder.ApplicationServices.GetService<ILogger>();
+                    logger?.LogError(exception, "Error while updating tables.");
                 }
             });
 
@@ -222,11 +229,12 @@ namespace GeeksCoreLibrary.Core.Extensions
             if (isWeb)
             {
                 services.AddHealthChecks()
-                    .AddMySql(gclSettings.ConnectionString, name: "MySqlRead")
-                    .AddCheck<WtsHealthService>("WTS Health Check", HealthStatus.Degraded, new []{"WTS", "Wiser Task Scheduler"});
+                    .AddMySql(gclSettings.ConnectionString, name: "MySqlRead", tags: new []{"Database"})
+                    .AddCheck<WtsHealthService>("WTS Health Check", HealthStatus.Degraded, new []{"WTS", "Wiser Task Scheduler"})
+                    .AddCheck<DatabaseHealthService>("Database Health Check", tags: new[]{ "Database" });
                 if (!String.IsNullOrWhiteSpace(gclSettings.ConnectionStringForWriting))
                 {
-                    services.AddHealthChecks().AddMySql(gclSettings.ConnectionString, name: "MySqlWrite");
+                    services.AddHealthChecks().AddMySql(gclSettings.ConnectionString, name: "MySqlWrite", tags: new []{"Database"});
                 }
 
                 // Set default settings for JSON.NET.
@@ -282,7 +290,10 @@ namespace GeeksCoreLibrary.Core.Extensions
             // Enable session.
             if (isWeb)
             {
-                services.AddSession(options => { options.IdleTimeout = TimeSpan.FromMinutes(30); });
+                services.AddSession(options =>
+                {
+                    options.IdleTimeout = TimeSpan.FromMinutes(30);
+                });
             }
 
             // Manual additions.
@@ -349,6 +360,7 @@ namespace GeeksCoreLibrary.Core.Extensions
             services.Decorate<IOrderProcessesService, CachedOrderProcessesService>();
             services.Decorate<IRolesService, CachedRolesService>();
             services.Decorate<IBarcodesService, CachedBarcodesService>();
+            services.Decorate<IAmazonS3Service, CachedAmazonS3Service>();
 
             if (gclSettings.UseLegacyWiser1TemplateModule)
             {

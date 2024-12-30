@@ -21,8 +21,9 @@ namespace GeeksCoreLibrary.Modules.Templates.Interfaces
         /// <param name="parentId">Optional: The ID of the parent of the template to get.</param>
         /// <param name="parentName">Optional: The name of the parent of template to get.</param>
         /// <param name="includeContent">Optional: Whether or not to include the contents of the template. Default value is <see langword="true"/>.</param>
+        /// <param name="skipPermissions">Optional: Whether to skip the check if the user has the permissions to see the template</param>
         /// <returns></returns>
-        Task<Template> GetTemplateAsync(int id = 0, string name = "", TemplateTypes? type = null, int parentId = 0, string parentName = "", bool includeContent = true);
+        Task<Template> GetTemplateAsync(int id = 0, string name = "", TemplateTypes? type = null, int parentId = 0, string parentName = "", bool includeContent = true, bool skipPermissions = false);
 
         /// <summary>
         /// Get only the contents and ID of a template. Must supply either an ID or a name.
@@ -238,7 +239,7 @@ namespace GeeksCoreLibrary.Modules.Templates.Interfaces
         /// <param name="recursive">TODO</param>
         /// <param name="childItemsMustHaveId">Optional: Forces child items in an object to have a non-null value in the <c>id</c> column. This is for data selectors that have optional child items.</param>
         /// <returns>A <see cref="JArray"/> with the results of the query.</returns>
-        Task<JArray> GetJsonResponseFromQueryAsync(QueryTemplate queryTemplate, string encryptionKey = null, bool skipNullValues = false, bool allowValueDecryption = false, bool recursive = false, bool childItemsMustHaveId = false);
+        Task<JToken> GetJsonResponseFromQueryAsync(QueryTemplate queryTemplate, string encryptionKey = null, bool skipNullValues = false, bool allowValueDecryption = false, bool recursive = false, bool childItemsMustHaveId = false);
 
         /// <summary>
         /// Executes a query and converts the results into an JSON object.
@@ -353,5 +354,24 @@ namespace GeeksCoreLibrary.Modules.Templates.Interfaces
         /// <param name="includeGlobalSnippets">Optional: Whether to include global snippets that are added for all pages. Default is <see langword="true"/>.</param>
         /// <returns>A list of HTML snippets for the given template, in the order that they should be added to the page.</returns>
         Task<List<PageWidgetModel>> GetPageWidgetsAsync(ITemplatesService templatesService, int templateId, bool includeGlobalSnippets = true);
+
+        /// <summary>
+        /// Checks the permissions of the template and returns an empty template with Id 0 if user does not have permission
+        /// This result and check is the same GetTemplateAsync does if permissions are not skipped
+        /// </summary>
+        /// <param name="template">The template to check permissions on.</param>
+        /// <remarks>You can GetTemplatePermissionSettingsAsync to get a template model with only the relevant properties filled.</remarks>
+        /// <returns>Returns the given template if user has permissions or empty template with Id 0 if they do not.</returns>
+        Task<Template> CheckTemplatePermissionsAsync(Template template);
+
+        /// <summary>
+        /// Gets a template model with only the permissions settings filled
+        /// </summary>
+        /// <param name="id">Optional: The ID of the template.</param>
+        /// <param name="name">Optional: The name of the template.</param>
+        /// <param name="parentId">Optional: The ID of the parent directory, in case you only want to search in a specific directory when looking up a template by name.</param>
+        /// <param name="parentName">Optional: The ID of the parent directory, in case you only want to search in a specific directory when looking up a template by name.</param>
+        /// <returns>Template model with only the permissions settings filled</returns>
+        Task<Template> GetTemplatePermissionSettingsAsync(int id = 0, string name = "", int parentId = 0, string parentName = "");
     }
 }

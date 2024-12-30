@@ -52,7 +52,7 @@ namespace GeeksCoreLibrary.Modules.DataSelector.Interfaces
         /// </summary>
         /// <param name="data">The <see cref="DataSelectorRequestModel"/> with the settings of the data selector.</param>
         /// <param name="skipSecurity">Skip the security if the data selector is not set to insecure loading, when loading from a secure location.</param>
-        Task<(JArray Result, HttpStatusCode StatusCode, string Error)> GetJsonResponseAsync(DataSelectorRequestModel data, bool skipSecurity = false);
+        Task<(JToken Result, HttpStatusCode StatusCode, string Error)> GetJsonResponseAsync(DataSelectorRequestModel data, bool skipSecurity = false);
 
         /// <summary>
         /// Executes the data selector query and creates an Excel document from the result.
