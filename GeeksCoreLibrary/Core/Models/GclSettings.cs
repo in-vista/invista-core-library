@@ -298,5 +298,10 @@ namespace GeeksCoreLibrary.Core.Models
         /// The settings for the Amazon Web Services.
         /// </summary>
         public AwsSettings AwsSettings { get; set; }
+        
+        /// <summary>
+        /// The API key used to use Topol's mail editor.
+        /// </summary>
+        public string TopolApiKey { get; set; }
     }
 }
