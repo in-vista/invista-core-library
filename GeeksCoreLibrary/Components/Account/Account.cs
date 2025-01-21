@@ -434,12 +434,14 @@ namespace GeeksCoreLibrary.Components.Account
                 // If OCI login enabled and Wiser login enabled, then it's cXML step 2
                 if (Settings.EnableOciLogin && (!String.IsNullOrWhiteSpace(ociHookUrl) || Settings.EnableWiserLogin))
                 {
-                    HttpContextHelpers.WriteCookie(httpContext, Constants.OciHookUrlCookieName, ociHookUrl ?? "CXML", isEssential: true, httpOnly:false);
+                    var amountOfDaysToRememberCookie = AccountsService.GetAmountOfDaysToRememberCookie(Settings);
+                    var offset = (amountOfDaysToRememberCookie ?? 0) <= 0 ? (DateTimeOffset?) null : DateTimeOffset.Now.AddDays(amountOfDaysToRememberCookie.Value);
+                    HttpContextHelpers.WriteCookie(httpContext, Constants.OciHookUrlCookieName, ociHookUrl ?? "CXML", offset, isEssential: true, httpOnly:false);
                     
                     // Write OCI session cookie, so multiple sessions (baskets) can exist of the same OCI user
                     if (string.IsNullOrEmpty(HttpContextHelpers.ReadCookie(httpContext,Constants.OciSessionCookieName)))
                     {
-                        HttpContextHelpers.WriteCookie(httpContext, Constants.OciSessionCookieName, httpContext.Session.Id + DateTime.Now.ToString("yyyyMMddHHmmss"), isEssential: true);    
+                        HttpContextHelpers.WriteCookie(httpContext, Constants.OciSessionCookieName, httpContext.Session.Id + DateTime.Now.ToString("yyyyMMddHHmmss"), offset, isEssential: true);    
                     }
                 }
 
