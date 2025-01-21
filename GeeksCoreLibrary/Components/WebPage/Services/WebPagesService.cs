@@ -51,7 +51,7 @@ namespace GeeksCoreLibrary.Components.WebPage.Services
             for (var i = 1; i <= 5; i++)
             {
                 queryBuilder.AppendLine($"LEFT JOIN {WiserTableNames.WiserItemLink} AS link{i} ON link{i}.item_id = {(i == 1 ? "webPage.id" : $"parent{i - 1}.id")} And link{i}.type = 1");
-                queryBuilder.AppendLine($"LEFT JOIN {WiserTableNames.WiserItem} AS parent{i} ON parent{i}.id = link{i}.destination_item_id And parent{i}.published_environment >= ?publishedEnvironment");
+                queryBuilder.AppendLine($"LEFT JOIN {WiserTableNames.WiserItem} AS parent{i} ON parent{i}.id = IFNULL(link{i}.destination_item_id,{(i == 1 ? "webPage.parent_item_id" : $"parent{i - 1}.parent_item_id")}) And parent{i}.published_environment >= ?publishedEnvironment");
                 queryBuilder.AppendLine($"LEFT JOIN {WiserTableNames.WiserItemDetail} AS parentTitleSeo{i} ON parentTitleSeo{i}.item_id = parent{i}.id And parentTitleSeo{i}.`key` = '{CoreConstants.SeoTitlePropertyName}'");
             }
 
@@ -72,8 +72,9 @@ namespace GeeksCoreLibrary.Components.WebPage.Services
                 Id: firstRow.Field<ulong>("id"),
                 Title: firstRow.Field<string>("name"),
                 FixedUrl: fixedUrl,
-                Path: firstRow.Field<string>("path")?.Split('/').ToList(),
-                Parents: firstRow.Field<string>("parents")?.Split('/').Select(UInt64.Parse).ToList()
+                Path: firstRow.Field<string>("path")?.Split('/', StringSplitOptions.RemoveEmptyEntries).ToList(),
+                Parents: firstRow.Field<string>("parents")?.Split('/', StringSplitOptions.RemoveEmptyEntries)
+                    .Select(UInt64.Parse).ToList()
             );
         }
 
