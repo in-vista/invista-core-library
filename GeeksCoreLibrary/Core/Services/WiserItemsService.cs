@@ -3826,6 +3826,7 @@ WHERE {String.Join(" AND ", where)}";
                         break;
                     case "textbox":
                     case "htmleditor":
+                    case "mail-editor":
                         optionsModel.ColumnSettings.Type = MySqlDbType.MediumText;
                         break;
                     case "checkbox":
