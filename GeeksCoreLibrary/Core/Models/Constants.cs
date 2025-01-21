@@ -6,6 +6,7 @@ public class Constants
     public const string FieldTypeKey = "_fieldType";
     public const string SaveSeoValueKey = "_alsoSaveSeoValue";
     public const string ReadOnlyKey = "_readOnly";
+    public const string EnableAggregationKey = "_enableAggregation";
     public const string SecurityMethodKey = "securityMethod";
     public const string SecurityKeyKey = "securityKey";
     public const string CultureKey = "culture";

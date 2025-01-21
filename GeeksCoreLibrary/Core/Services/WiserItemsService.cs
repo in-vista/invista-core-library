@@ -254,11 +254,35 @@ namespace GeeksCoreLibrary.Core.Services
                     databaseConnection.AddParameter("saveHistoryGcl", saveHistory); // This is used in triggers.
                     databaseConnection.AddParameter("performParentUpdate", false); // This is used in triggers. (always set this to false since the wiseritem service takes care of the parent updates in this case)
 
+                    //Aggregated fields must be saved directly on creation
+                    var fieldsWithAggregatedTrue = entityTypeSettings.FieldOptions
+                        .Where(kv => kv.Value.TryGetValue(Constants.EnableAggregationKey, out var value) && value is true)
+                        .ToList();
+                    var additionalAggregatedColumns = string.Join(", ", fieldsWithAggregatedTrue.Select(kv => $"{kv.Key}"));
+                    var additionalAggregatedColumnParameterNames = string.Join(", ", fieldsWithAggregatedTrue.Select(kv => $"?{kv.Key}"));
+                    foreach (var fieldToAggregate in fieldsWithAggregatedTrue)
+                    {
+                        var keyParts = fieldToAggregate.Key.Split('_', 2);
+                        if (keyParts.Length < 2) continue;  // Safety check in case of unexpected key format
+                        var propertyName = keyParts[0];
+                        var languageCode = keyParts[1];
+                        var itemDetail = wiserItem.Details.FirstOrDefault(detail => 
+                            string.Equals(detail.Key, propertyName, StringComparison.OrdinalIgnoreCase) && 
+                            string.Equals(detail.LanguageCode ?? "", languageCode ?? "", StringComparison.OrdinalIgnoreCase));
+                        databaseConnection.AddParameter(fieldToAggregate.Key, itemDetail.Value);
+                    }
+                    
+                    //And those fields can be left out of the update (because the update function is often called after the create function, for example at the Save function.
+                    //So remove from the details of this item, because we don't want anything to do with them anymore.
+                    //TODO: check if this is the way to go, because we now change the object, maybe we should just add a property to set this information?
+                    var aggregatedKeys = new HashSet<string>(fieldsWithAggregatedTrue.Select(kv => kv.Key));
+                    wiserItem.Details.RemoveAll(itemDetail => aggregatedKeys.Contains($"{itemDetail.Key}_{itemDetail.LanguageCode}"));
+                    
                     var query = $@"SET @saveHistory = ?saveHistoryGcl;
 SET @_userId = ?userId;
 SET @saveHistory = ?saveHistoryGcl;
-INSERT INTO {tablePrefix}{WiserTableNames.WiserItem} ({(wiserItem.Id > 0 ? "id," : "")} moduleid, title, entity_type, added_by, published_environment, json, json_last_processed_date)
-VALUES ({(wiserItem.Id > 0 ? "?id," : "")} ?moduleId, ?title, ?entityType, ?username, ?publishedEnvironment, ?json, ?jsonLastProcessedDate);
+INSERT INTO {tablePrefix}{WiserTableNames.WiserItem} ({(wiserItem.Id > 0 ? "id," : "")} moduleid, title, entity_type, added_by, published_environment, json, json_last_processed_date{(string.IsNullOrEmpty(additionalAggregatedColumns) ? "" : ", ")}{additionalAggregatedColumns})
+VALUES ({(wiserItem.Id > 0 ? "?id," : "")} ?moduleId, ?title, ?entityType, ?username, ?publishedEnvironment, ?json, ?jsonLastProcessedDate{(string.IsNullOrEmpty(additionalAggregatedColumnParameterNames) ? "" : ", ")}{additionalAggregatedColumnParameterNames});
 SELECT {(wiserItem.Id > 0 ? "?id" : "LAST_INSERT_ID()")} AS newId;";
                     var queryResult = await databaseConnection.GetAsync(query, true);
 
