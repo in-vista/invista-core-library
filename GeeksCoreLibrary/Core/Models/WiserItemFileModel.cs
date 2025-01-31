@@ -25,6 +25,8 @@ namespace GeeksCoreLibrary.Core.Models
 
         public string FileName { get; set; }
 
+        public bool StoreAsSeo { get; set; } = true;
+
         public string Extension { get; set; }
 
         public string Title { get; set; }
