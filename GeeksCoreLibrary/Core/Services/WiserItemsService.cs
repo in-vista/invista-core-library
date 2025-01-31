@@ -3381,6 +3381,11 @@ WHERE {String.Join(" AND ", where)}";
                     }
                 }
             }
+            
+            // Check whether to store the file name as an SEO title.
+            string fileName = wiserItemFile.FileName;
+            if(wiserItemFile.StoreAsSeo)
+                fileName = Path.GetFileNameWithoutExtension(fileName).ConvertToSeo() + Path.GetExtension(fileName)?.ToLowerInvariant();
 
             databaseConnection.AddParameter("itemId", wiserItemFile.ItemId);
             databaseConnection.AddParameter("itemLinkId", wiserItemFile.ItemLinkId);
@@ -3389,7 +3394,7 @@ WHERE {String.Join(" AND ", where)}";
             databaseConnection.AddParameter("contentUrl", wiserItemFile.ContentUrl);
             databaseConnection.AddParameter("width", wiserItemFile.Width);
             databaseConnection.AddParameter("height", wiserItemFile.Height);
-            databaseConnection.AddParameter("fileName", Path.GetFileNameWithoutExtension(wiserItemFile.FileName).ConvertToSeo() + Path.GetExtension(wiserItemFile.FileName)?.ToLowerInvariant());
+            databaseConnection.AddParameter("fileName", fileName);
             databaseConnection.AddParameter("extension", wiserItemFile.Extension);
             databaseConnection.AddParameter("title", wiserItemFile.Title);
             databaseConnection.AddParameter("propertyName", wiserItemFile.PropertyName);
