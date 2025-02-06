@@ -25,6 +25,7 @@ using GeeksCoreLibrary.Modules.Communication.Models;
 using GeeksCoreLibrary.Modules.Communication.Models.MailerSend;
 using GeeksCoreLibrary.Modules.Communication.Models.SmtPeter;
 using GeeksCoreLibrary.Modules.Databases.Interfaces;
+using JetBrains.Annotations;
 using MailKit.Net.Smtp;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -415,25 +416,22 @@ WHERE id = ?id";
         /// <inheritdoc />
         public async Task SendEmailDirectlyAsync(SingleCommunicationModel communication, SmtpSettings smtpSettings, int timeout = 120_000)
         {
-            // Build attachments list.
-            var attachments = await GetAttachmentsAsync(communication);
-
             switch (smtpSettings.Provider)
             {
                 case EmailServiceProviders.Smtp:
-                    await SendSmtpEmailDirectlyAsync(communication, smtpSettings, attachments, timeout);
+                    await SendSmtpEmailDirectlyAsync(communication, smtpSettings, await GetAttachmentsAsync(communication), timeout);
                     break;
                 case EmailServiceProviders.SmtPeterRestApi:
-                    await SendSmtPeterEmailDirectlyAsync(communication, smtpSettings, attachments, timeout);
+                    await SendSmtPeterEmailDirectlyAsync(communication, smtpSettings, await GetAttachmentsAsync(communication), timeout);
                     break;
                 case EmailServiceProviders.MailerSendRestApi:
-                    await SendMailerSendEmailDirectlyAsync(communication, smtpSettings, attachments, timeout);
+                    await SendMailerSendEmailDirectlyAsync(communication, smtpSettings, timeout);
                     break;
                 default:
                     throw new ArgumentOutOfRangeException(nameof(smtpSettings.Provider), smtpSettings.Provider.ToString());
             }
         }
-
+        
         /// <summary>
         /// Send the email directly using an SMTP server.
         /// </summary>
@@ -566,14 +564,72 @@ WHERE id = ?id";
             throw new Exception(communication.StatusMessage);
         }
         
-         /// <summary>
-        /// Send the email directly using the SmtPeter Rest API.
+        /// <summary>
+        /// Send the email directly using the MailerSend Rest API.
         /// </summary>
         /// <param name="communication">The <see cref="SingleCommunicationModel"/> object to use as the basis to send the email.</param>
         /// <param name="smtpSettings">The SMTP settings to use.</param>
-        /// <param name="attachments">The attachments to send with the email.</param>
         /// <param name="timeout">The timeout in milliseconds before it's considered to take too long. The default timeout equals to 2 minutes. This is the same default timeout that MailKit uses.</param>
-        private async Task SendMailerSendEmailDirectlyAsync(SingleCommunicationModel communication, SmtpSettings smtpSettings, List<(string FileName, byte[] FileBytes)> attachments, int timeout)
+        private async Task SendMailerSendEmailDirectlyAsync(SingleCommunicationModel communication, SmtpSettings smtpSettings, int timeout = 120_000)
+        {
+            var mailerSendRequest = await MakeMailerSendRequestBySingleCommunicationAsync(communication, smtpSettings);
+            communication.StatusMessage = await SendRequestToMailerSendApiAsync(mailerSendRequest, smtpSettings, timeout);
+        }
+        
+        /// <inheritdoc />
+        public async Task<string> SendRequestToMailerSendApiAsync(object mailerSendRequest, SmtpSettings smtpSettings, int timeout = 120_000)
+        {
+            var endpoint = mailerSendRequest switch
+            {
+                MailerSendRequestModel => "email",
+                List<MailerSendRequestModel> => "bulk-email",
+                _ => throw new Exception(
+                    "SendRequestToMailerSendApi doesn't support other types then MailerSendRequestModel or List<MailerSendRequestModel>")
+            };
+
+            var statusMessage = "";
+            using var cancellationTokenSource = new CancellationTokenSource();
+            cancellationTokenSource.CancelAfter(TimeSpan.FromMilliseconds(timeout));
+
+            // Keys must be lowered case
+            var settings = new JsonSerializerSettings();
+            settings.ContractResolver = new LowercaseContractResolver();
+            var content = JsonConvert.SerializeObject(mailerSendRequest, Formatting.Indented, settings);
+            
+            var request = new HttpRequestMessage(HttpMethod.Post, $"https://api.mailersend.com/v1/{endpoint}")
+            {
+                Content = new StringContent(content, Encoding.UTF8, "application/json")
+            };
+            
+            request.Headers.Add("Authorization", $"Bearer {smtpSettings.MailerSendSettings.ApiAccessToken}");
+            
+            using var response = await httpClientService.Client.SendAsync(request, cancellationTokenSource.Token);
+            if (response.Headers.Contains("x-message-id"))
+            {
+                statusMessage = $"{response.StatusCode}: {response.Headers.GetValues("x-message-id").FirstOrDefault()}";    
+            }
+            else
+            {
+                statusMessage = $"{response.StatusCode}: No x-messsage-id known";
+            }
+
+            var responseBody = await response.Content.ReadAsStringAsync(cancellationTokenSource.Token);
+            if (!string.IsNullOrEmpty(responseBody))
+            {
+                statusMessage = $"{statusMessage} - {responseBody}";
+            }
+
+            if (response.IsSuccessStatusCode)
+            {
+                return statusMessage;
+            }
+
+            // If request was not success throw the body as an exception.
+            throw new Exception(statusMessage);
+        }
+
+        /// <inheritdoc />
+        public async Task<MailerSendRequestModel> MakeMailerSendRequestBySingleCommunicationAsync(SingleCommunicationModel communication, SmtpSettings smtpSettings)
         {
             var requestBody = new MailerSendRequestModel()
             {
@@ -592,6 +648,7 @@ WHERE id = ?id";
                 }
             };
 
+            var attachments = await GetAttachmentsAsync(communication);
             if (attachments != null && attachments.Any())
             {
                 requestBody.Attachments = attachments.Select(attachment => new MailerSendAttachmentModel
@@ -603,44 +660,7 @@ WHERE id = ?id";
                 requestBody.Attachments = new List<MailerSendAttachmentModel>();
             }
 
-            using var cancellationTokenSource = new CancellationTokenSource();
-            cancellationTokenSource.CancelAfter(TimeSpan.FromMilliseconds(timeout));
-
-            // Keys must be lower case
-            var settings = new JsonSerializerSettings();
-            settings.ContractResolver = new LowercaseContractResolver();
-            var content = JsonConvert.SerializeObject(requestBody, Formatting.Indented, settings);
-            
-            var request = new HttpRequestMessage(HttpMethod.Post, "https://api.mailersend.com/v1/email")
-            {
-                Content = new StringContent(content, Encoding.UTF8, "application/json")
-            };
-            
-            request.Headers.Add("Authorization", $"Bearer {smtpSettings.MailerSendSettings.ApiAccessToken}");
-            
-            using var response = await httpClientService.Client.SendAsync(request, cancellationTokenSource.Token);
-            if (response.Headers.Contains("x-message-id"))
-            {
-                communication.StatusMessage = $"{response.StatusCode}: {response.Headers.GetValues("x-message-id").FirstOrDefault()}";    
-            }
-            else
-            {
-                communication.StatusMessage = $"{response.StatusCode}: No x-messsage-id known";
-            }
-
-            var responseBody = await response.Content.ReadAsStringAsync(cancellationTokenSource.Token);
-            if (!string.IsNullOrEmpty(responseBody))
-            {
-                communication.StatusMessage = $"{communication.StatusMessage} - {responseBody}";
-            }
-
-            if (response.IsSuccessStatusCode)
-            {
-                return;
-            }
-
-            // If request was not success throw the body as an exception.
-            throw new Exception(communication.StatusMessage);
+            return requestBody;
         }
 
         private async Task<List<(string FileName, byte[] FileBytes)>> GetAttachmentsAsync(SingleCommunicationModel communication)
