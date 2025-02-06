@@ -133,5 +133,10 @@ namespace GeeksCoreLibrary.Modules.Communication.Models
         /// Is <see langword="null"/> if no attempts have been made yet.
         /// </summary>
         public DateTime? LastAttempt { get; set; }
+        
+        /// <summary>
+        /// Gets or sets the provider to handle the communication.
+        /// </summary>
+        public string Provider { get; set; }
     }
 }

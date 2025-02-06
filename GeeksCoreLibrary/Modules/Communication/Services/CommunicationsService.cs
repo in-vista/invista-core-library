@@ -15,7 +15,6 @@ using System.Web;
 using CM.Text;
 using CM.Text.BusinessMessaging;
 using CM.Text.BusinessMessaging.Model;
-using DocumentFormat.OpenXml.Presentation;
 using GeeksCoreLibrary.Core.DependencyInjection.Interfaces;
 using GeeksCoreLibrary.Core.Interfaces;
 using GeeksCoreLibrary.Core.Models;
@@ -25,7 +24,6 @@ using GeeksCoreLibrary.Modules.Communication.Models;
 using GeeksCoreLibrary.Modules.Communication.Models.MailerSend;
 using GeeksCoreLibrary.Modules.Communication.Models.SmtPeter;
 using GeeksCoreLibrary.Modules.Databases.Interfaces;
-using JetBrains.Annotations;
 using MailKit.Net.Smtp;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -34,7 +32,6 @@ using RestSharp;
 using Newtonsoft.Json;
 using Twilio;
 using Twilio.Rest.Api.V2010.Account;
-using JsonSerializer = Newtonsoft.Json.JsonSerializer;
 
 namespace GeeksCoreLibrary.Modules.Communication.Services
 {
@@ -766,13 +763,39 @@ WHERE id = ?id";
         {
             foreach (var receiver in communication.Receivers)
             {
-                switch (smsSettings.Provider)
+                var provider = communication.Provider switch
+                {
+                    "cm" => SmsServiceProviders.Cm,
+                    "spryng" => SmsServiceProviders.Spryng,
+                    "twilio" => SmsServiceProviders.Twilio,
+                    _ => smsSettings.Provider
+                };
+
+                // Use other credentials if not the default provider is used
+                if (provider != smsSettings.Provider)
+                {
+                    var providerSettings = smsSettings.Providers.FirstOrDefault(p => p.Provider == provider);
+                    if (providerSettings != null)
+                    {
+                        smsSettings.ProviderId = providerSettings.ProviderId;
+                        smsSettings.AuthenticationToken = providerSettings.AuthenticationToken;
+                    }
+                    else
+                    {
+                        throw new Exception($"Provider {communication.Provider} not configured.");
+                    }
+                }
+
+                switch (provider)
                 {
                     case SmsServiceProviders.Twilio:
                         await SendTwilioSmsDirectlyAsync(communication, smsSettings, receiver.Address);
                         break;
                     case SmsServiceProviders.Cm:
                         await SendCmSmsDirectlyAsync(communication, smsSettings, receiver.Address);
+                        break;
+                    case SmsServiceProviders.Spryng:
+                        await SendSpryngSmsDirectlyAsync(communication, smsSettings, receiver.Address);
                         break;
                     default:
                         throw new ArgumentOutOfRangeException(nameof(smsSettings.Provider), smsSettings.Provider.ToString());
@@ -783,7 +806,7 @@ WHERE id = ?id";
         /// <summary>
         /// Send a text message using Twilio.
         /// </summary>
-        /// <param name="communication">The <see cref="SingleCommunicationModel"/> object to use as the basis to send the email.</param>
+        /// <param name="communication">The <see cref="SingleCommunicationModel"/> object to use as the basis to send the sms.</param>
         /// <param name="smsSettings">The sms settings to use.</param>
         /// <param name="receiverPhoneNumber">The phone number to send the text message to.</param>
         private async Task SendTwilioSmsDirectlyAsync(SingleCommunicationModel communication, SmsSettings smsSettings, string receiverPhoneNumber)
@@ -829,7 +852,7 @@ WHERE id = ?id";
         /// <summary>
         /// Send a text message using CM.
         /// </summary>
-        /// <param name="communication">The <see cref="SingleCommunicationModel"/> object to use as the basis to send the email.</param>
+        /// <param name="communication">The <see cref="SingleCommunicationModel"/> object to use as the basis to send the sms.</param>
         /// <param name="smsSettings">The text message settings to use.</param>
         /// <param name="receiverPhoneNumber">The phone number to send the text message to.</param>
         private async Task SendCmSmsDirectlyAsync(SingleCommunicationModel communication, SmsSettings smsSettings, string receiverPhoneNumber)
@@ -866,6 +889,79 @@ WHERE id = ?id";
 
             // If request was not success throw the status message as an exception.
             throw new Exception(response.statusMessage);
+        }
+        
+        /// <summary>
+        /// Send a text message using Spryng.
+        /// </summary>
+        /// <param name="communication">The <see cref="SingleCommunicationModel"/> object to use as the basis to send the sms.</param>
+        /// <param name="smsSettings">The text message settings to use.</param>
+        /// <param name="receiverPhoneNumber">The phone number to send the text message to.</param>
+        private async Task SendSpryngSmsDirectlyAsync(SingleCommunicationModel communication, SmsSettings smsSettings, string receiverPhoneNumber)
+        {
+            // Format the receiver phone number
+            if (receiverPhoneNumber.StartsWith("+"))
+            {
+                // Phone number looks something like "+31612345678".
+                receiverPhoneNumber = receiverPhoneNumber[1..];
+            }
+            else if (receiverPhoneNumber.StartsWith("00"))
+            {
+                // Phone number looks something like "0031612345678".
+                receiverPhoneNumber = receiverPhoneNumber[2..];
+            }
+            else
+            {
+                throw new ArgumentException("Phone number is missing the country code.");
+            }
+
+            // Now "sanitize" the phone number by removing all non-digit characters.
+            receiverPhoneNumber = Regex.Replace(receiverPhoneNumber, @"\D+", "");
+            
+            // Set the sender
+            var senderName = communication.SenderName ?? smsSettings.SenderName;
+            if (Regex.IsMatch(senderName, "^\\d+$") && senderName.Length > 17)
+            {
+                senderName = senderName.Substring(0, 17);
+            }
+            else if (senderName.Length > 11)
+            {
+                senderName = senderName.Split(' ')[0].Substring(0, Math.Min(11, senderName.Split(' ')[0].Length));
+            }
+
+            // Send the SMS via the Spryng REST API            
+            var options = new RestClientOptions("https://rest.spryngsms.com")
+            {
+                Timeout = TimeSpan.FromSeconds(30)
+            };
+            var client = new RestClient(options);
+            var request = new RestRequest("/v1/messages", Method.Post);
+            request.AddHeader("Accept", "application/json");
+            request.AddHeader("Authorization", $"Bearer {smsSettings.AuthenticationToken}");
+            request.AddHeader("Content-Type", "application/json");
+            var body = $$"""
+                         {
+                             "body": "{{communication.Content}}",
+                             "encoding": "auto",
+                             "route": "{{(string.IsNullOrEmpty(smsSettings.ProviderId) ? "business" : smsSettings.ProviderId)}}",
+                             "originator": "{{senderName}}",
+                             "recipients": [
+                                 "{{receiverPhoneNumber}}"
+                             ]
+                         }
+                         """;
+            
+            request.AddStringBody(body, DataFormat.Json);
+            var response = await client.ExecuteAsync(request);
+            Console.WriteLine(response.Content);
+            
+            if (response.StatusCode == HttpStatusCode.OK)
+            {
+                return;
+            }
+
+            // If request was not success throw the status message as an exception.
+            throw new Exception($"{response.StatusCode}: {response.StatusDescription}");
         }
 
         /// <inheritdoc />

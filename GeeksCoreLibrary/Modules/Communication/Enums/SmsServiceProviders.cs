@@ -4,5 +4,6 @@ public enum SmsServiceProviders
 {
     Twilio,
     Cm,
-    Meta
+    Meta,
+    Spryng
 }
