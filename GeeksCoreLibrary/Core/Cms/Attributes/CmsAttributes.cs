@@ -23,8 +23,8 @@ namespace GeeksCoreLibrary.Core.Cms.Attributes
             [CmsEnum(PrettyName = "Data handling")]
             DataHandling,
             Handling,
-            Wiser,
-            [CmsEnum(PrettyName = "Wiser 2")]
+            Coder,
+            [CmsEnum(PrettyName = "Coder 2")]
             Wiser2,
             [CmsEnum(PrettyName = "Custom database")]
             CustomDatabase,

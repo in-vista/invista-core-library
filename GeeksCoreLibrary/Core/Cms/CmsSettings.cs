@@ -19,7 +19,7 @@ namespace GeeksCoreLibrary.Core.Cms
         /// </summary>
         [CmsProperty(
             PrettyName = "Description",
-            Description = "A description that describes the component for use in Wiser. If the component cannot be rendered, this description will be visible in the trace/logs for better identification which component failed to render.",
+            Description = "A description that describes the component for use in Coder. If the component cannot be rendered, this description will be visible in the trace/logs for better identification which component failed to render.",
             DeveloperRemarks = "This field is required.",
             HideInCms = true
         )]
@@ -35,7 +35,7 @@ namespace GeeksCoreLibrary.Core.Cms
         [CmsProperty(
             PrettyName = "User needs to be logged in",
             Description = "If set to true, this component will only be rendered if the user is logged in.",
-            DeveloperRemarks = "This only works for Wiser 2 customers using the Account component.",
+            DeveloperRemarks = "This only works for Coder 2 customers using the Account component.",
             TabName = CmsAttributes.CmsTabName.Behavior,
             GroupName = CmsAttributes.CmsGroupName.Common,
             DisplayOrder = 10
