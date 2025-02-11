@@ -1212,8 +1212,8 @@ namespace GeeksCoreLibrary.Components.Account.Models
             PrettyName = "Cookie name",
             Description = "Set cookie name if multiple account components with different accounts are used on the same page.",
             TabName = CmsAttributes.CmsTabName.Developer,
-            GroupName = CmsAttributes.CmsGroupName.Advanced,
-            DisplayOrder = 5,
+            GroupName = CmsAttributes.CmsGroupName.Cookies,
+            DisplayOrder = 10,
             ComponentMode = "LoginSingleStep,LoginMultipleSteps"
         )]
         public string CookieName { get; set; }
@@ -1227,7 +1227,7 @@ namespace GeeksCoreLibrary.Components.Account.Models
             DeveloperRemarks = "The cookie that is used in this component will always be deleted, not matter what you enter here.",
             TabName = CmsAttributes.CmsTabName.Developer,
             GroupName = CmsAttributes.CmsGroupName.Cookies,
-            DisplayOrder = 10,
+            DisplayOrder = 11,
             ComponentMode = "LoginSingleStep,LoginMultipleSteps"
         )]
         public string CookiesToDeleteAfterLogout { get; set; }
@@ -1241,7 +1241,7 @@ namespace GeeksCoreLibrary.Components.Account.Models
             DeveloperRemarks = "",
             TabName = CmsAttributes.CmsTabName.Developer,
             GroupName = CmsAttributes.CmsGroupName.Cookies,
-            DisplayOrder = 11,
+            DisplayOrder = 12,
             ComponentMode = "LoginSingleStep,LoginMultipleSteps"
         )]
         public string SessionKeysToDeleteAfterLogout { get; set; }
@@ -1255,7 +1255,7 @@ namespace GeeksCoreLibrary.Components.Account.Models
             DeveloperRemarks = "The cookies will be fetched from a given query and sent back in the response header.",
             TabName = CmsAttributes.CmsTabName.Developer,
             GroupName = CmsAttributes.CmsGroupName.Cookies,
-            DisplayOrder = 12,
+            DisplayOrder = 13,
             ComponentMode = "LoginSingleStep,LoginMultipleSteps"
         )]
         public bool WriteCookiesAfterLogin { get; set; }
@@ -1270,7 +1270,7 @@ namespace GeeksCoreLibrary.Components.Account.Models
             TabName = CmsAttributes.CmsTabName.Developer,
             GroupName = CmsAttributes.CmsGroupName.Cookies,
             TextEditorType = CmsAttributes.CmsTextEditorType.QueryEditor,
-            DisplayOrder = 13,
+            DisplayOrder = 14,
             ComponentMode = "LoginSingleStep,LoginMultipleSteps"
         )]
         public string WriteCookiesQuery { get; set; }
