@@ -1212,8 +1212,8 @@ namespace GeeksCoreLibrary.Components.Account.Models
             PrettyName = "Cookie name",
             Description = "Set cookie name if multiple account components with different accounts are used on the same page.",
             TabName = CmsAttributes.CmsTabName.Developer,
-            GroupName = CmsAttributes.CmsGroupName.Advanced,
-            DisplayOrder = 5,
+            GroupName = CmsAttributes.CmsGroupName.Cookies,
+            DisplayOrder = 10,
             ComponentMode = "LoginSingleStep,LoginMultipleSteps"
         )]
         public string CookieName { get; set; }
@@ -1226,8 +1226,8 @@ namespace GeeksCoreLibrary.Components.Account.Models
             Description = "You can enter a comma separated list of cookie names to delete after the user logs out.",
             DeveloperRemarks = "The cookie that is used in this component will always be deleted, not matter what you enter here.",
             TabName = CmsAttributes.CmsTabName.Developer,
-            GroupName = CmsAttributes.CmsGroupName.Advanced,
-            DisplayOrder = 10,
+            GroupName = CmsAttributes.CmsGroupName.Cookies,
+            DisplayOrder = 11,
             ComponentMode = "LoginSingleStep,LoginMultipleSteps"
         )]
         public string CookiesToDeleteAfterLogout { get; set; }
@@ -1240,12 +1240,41 @@ namespace GeeksCoreLibrary.Components.Account.Models
             Description = "You can enter a comma separated list of session keys to delete after the user logs out.",
             DeveloperRemarks = "",
             TabName = CmsAttributes.CmsTabName.Developer,
-            GroupName = CmsAttributes.CmsGroupName.Advanced,
-            DisplayOrder = 20,
+            GroupName = CmsAttributes.CmsGroupName.Cookies,
+            DisplayOrder = 12,
             ComponentMode = "LoginSingleStep,LoginMultipleSteps"
         )]
         public string SessionKeysToDeleteAfterLogout { get; set; }
-
+        
+        /// <summary>
+        /// Whether to write cookies after a succesful login.
+        /// </summary>
+        [CmsProperty(
+            PrettyName = "Write cookies after login",
+            Description = "Whether to write cookies after a succesful login.",
+            DeveloperRemarks = "The cookies will be fetched from a given query and sent back in the response header.",
+            TabName = CmsAttributes.CmsTabName.Developer,
+            GroupName = CmsAttributes.CmsGroupName.Cookies,
+            DisplayOrder = 13,
+            ComponentMode = "LoginSingleStep,LoginMultipleSteps"
+        )]
+        public bool WriteCookiesAfterLogin { get; set; }
+        
+        /// <summary>
+        /// Whether to write cookies after a succesful login.
+        /// </summary>
+        [CmsProperty(
+            PrettyName = "Write cookies query",
+            Description = "The query to fetch the key-value pairs from to write to the cookies after a login.",
+            DeveloperRemarks = "The query has to return the columns `key` and `value`, representing a cookie entry.",
+            TabName = CmsAttributes.CmsTabName.Developer,
+            GroupName = CmsAttributes.CmsGroupName.Cookies,
+            TextEditorType = CmsAttributes.CmsTextEditorType.QueryEditor,
+            DisplayOrder = 14,
+            ComponentMode = "LoginSingleStep,LoginMultipleSteps"
+        )]
+        public string WriteCookiesQuery { get; set; }
+        
         #endregion
     }
 }

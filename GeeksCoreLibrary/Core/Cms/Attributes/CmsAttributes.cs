@@ -65,7 +65,8 @@ namespace GeeksCoreLibrary.Core.Cms.Attributes
             Obsolete,
             [CmsEnum(PrettyName = "Sessions / Cookies")]
             SessionCookie,
-            Search
+            Search,
+            Cookies
         }
 
         /// <summary>
