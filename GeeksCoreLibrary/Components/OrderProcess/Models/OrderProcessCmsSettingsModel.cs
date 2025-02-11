@@ -14,7 +14,7 @@ namespace GeeksCoreLibrary.Components.OrderProcess.Models
         /// </summary>
         [CmsProperty(
             PrettyName = "Order process item ID",
-            Description = "The Wiser item ID of the order process that should be retrieved.",
+            Description = "The Coder item ID of the order process that should be retrieved.",
             DeveloperRemarks = "",
             TabName = CmsAttributes.CmsTabName.DataSource,
             GroupName = CmsAttributes.CmsGroupName.Basic,
@@ -48,14 +48,14 @@ namespace GeeksCoreLibrary.Components.OrderProcess.Models
             PrettyName = "Template step",
             Description = @"The template for a step in the order process. You can use the following variables here:
 <ul>
-    <li><strong>{id}</strong> The ID of the Wiser item with the settings for the step.</li>
-    <li><strong>{title}</strong> The title of the Wiser item with the settings for the step.</li>
+    <li><strong>{id}</strong> The ID of the Coder item with the settings for the step.</li>
+    <li><strong>{title}</strong> The title of the Coder item with the settings for the step.</li>
     <li><strong>{error}</strong> If any error occurred in this step, this will be replaced by the value of 'TemplateStepError', otherwise it will be replaced by an empty string. If this variable is not found in the template and an error occurs, then only the contents of 'TemplateStepError' wil be shown (which means that no fields will be visible on the page).</li>
-    <li><strong>{header}</strong> The header of the step, which can be edited by the customer in the Wiser item for the step.</li>
+    <li><strong>{header}</strong> The header of the step, which can be edited by the customer in the Coder item for the step.</li>
     <li><strong>{groups}</strong> The groups of this step, will be replaced by TemplateGroup for each step.</li>
-    <li><strong>{footer}</strong> The footer of the step, which can be edited by the customer in the Wiser item for the step.</li>
+    <li><strong>{footer}</strong> The footer of the step, which can be edited by the customer in the Coder item for the step.</li>
     <li><strong>{activeStep}</strong> The number of the active step.</li>
-    <li><strong>{confirmButtonText}</strong> The text for the button to go to the next step. This will be retrieved from the translations module from Wiser.</li>
+    <li><strong>{confirmButtonText}</strong> The text for the button to go to the next step. This will be retrieved from the translations module from Coder.</li>
     <li><strong>{previousStepLinkText}</strong> The text on the link to go back to the previous step.</li>
     <li><strong>{previousStepUrl}</strong> The URL of the previous step.</li>
     <li><strong>{type}</strong> The type of step. Can be 'GroupsAndFields', 'Summary', 'OrderConfirmation' or 'orderPending'.</li>
@@ -94,11 +94,11 @@ namespace GeeksCoreLibrary.Components.OrderProcess.Models
             PrettyName = "Template fields group",
             Description = @"The template for a group of fields in the order process. You can use the following variables here:
 <ul>
-    <li><strong>{id}</strong> The ID of the Wiser item with the settings for the group.</li>
-    <li><strong>{title}</strong> The title of the Wiser item with the settings for the group.</li>
-    <li><strong>{header}</strong> The header of the group, which can be edited by the customer in the Wiser item for the group.</li>
+    <li><strong>{id}</strong> The ID of the Coder item with the settings for the group.</li>
+    <li><strong>{title}</strong> The title of the Coder item with the settings for the group.</li>
+    <li><strong>{header}</strong> The header of the group, which can be edited by the customer in the Coder item for the group.</li>
     <li><strong>{fields}</strong> The fields of this group, will be replaced by the templates for the different fields.</li>
-    <li><strong>{footer}</strong> The footer of the group, which can be edited by the customer in the Wiser item for the group.</li>
+    <li><strong>{footer}</strong> The footer of the group, which can be edited by the customer in the Coder item for the group.</li>
 </ul>",
             DeveloperRemarks = "",
             TabName = CmsAttributes.CmsTabName.Layout,
@@ -116,12 +116,12 @@ namespace GeeksCoreLibrary.Components.OrderProcess.Models
             PrettyName = "Template payment methods group",
             Description = @"The template for a group of payment methods in the order process. You can use the following variables here:
 <ul>
-    <li><strong>{id}</strong> The ID of the Wiser item with the settings for the group.</li>
-    <li><strong>{title}</strong> The title of the Wiser item with the settings for the group.</li>
-    <li><strong>{header}</strong> The header of the group, which can be edited by the customer in the Wiser item for the group.</li>
+    <li><strong>{id}</strong> The ID of the Coder item with the settings for the group.</li>
+    <li><strong>{title}</strong> The title of the Coder item with the settings for the group.</li>
+    <li><strong>{header}</strong> The header of the group, which can be edited by the customer in the Coder item for the group.</li>
     <li><strong>{paymentMethods}</strong> The fields of this group, will be replaced by the templates for the different fields.</li>
-    <li><strong>{footer}</strong> The footer of the group, which can be edited by the customer in the Wiser item for the group.</li>
-    <li><strong>{groupClass}</strong> Any extra CSS classes for the group, which can be edited by the customer in the Wiser item for the group.</li>
+    <li><strong>{footer}</strong> The footer of the group, which can be edited by the customer in the Coder item for the group.</li>
+    <li><strong>{groupClass}</strong> Any extra CSS classes for the group, which can be edited by the customer in the Coder item for the group.</li>
 </ul>",
             DeveloperRemarks = "",
             TabName = CmsAttributes.CmsTabName.Layout,
@@ -152,8 +152,8 @@ namespace GeeksCoreLibrary.Components.OrderProcess.Models
             PrettyName = "Template input field",
             Description = @"The template for a normal input field in the order process. You can use the following variables here:
 <ul>
-    <li><strong>{id}</strong> The ID of the Wiser item with the settings for the field.</li>
-    <li><strong>{title}</strong> The title of the Wiser item with the settings for the field.</li>
+    <li><strong>{id}</strong> The ID of the Coder item with the settings for the field.</li>
+    <li><strong>{title}</strong> The title of the Coder item with the settings for the field.</li>
     <li><strong>{error}</strong> If a validation error occurred with this field, this variable will be replaced by the value of 'TemplateFieldError', otherwise it will be replaced by an empty string.</li>
     <li><strong>{errorClass}</strong> If a validation error occurred with this field, this variable will be replaced by the literal text 'error', otherwise it will be replaced by en empty string.</li>
     <li><strong>{fieldId}</strong> The ID of the field as it's set in the settings for the field. This value should be used in the 'name' and 'id' attributes of the input and the 'for' attribute of the label.</li>
@@ -163,8 +163,8 @@ namespace GeeksCoreLibrary.Components.OrderProcess.Models
     <li><strong>{required}</strong> This will be replaced with the 'required' attribute if the field is required, or with an empty string if it isn't.</li>
     <li><strong>{pattern}</strong> The regex validation pattern for the field. This will be replaced with the entire attribute (pattern='the pattern') if there is a pattern, or with an empty string if there isn't.</li>
     <li><strong>{value}</strong> The current value of the field, retrieved from the basket or logged in user, or POST variables.</li>
-    <li><strong>{fieldClass}</strong> Any extra CSS classes that are set in the settings of the a field in Wiser.</li>
-    <li><strong>{tabIndex}</strong> The tabindex attribute with the value that is set in the settings of this field in Wiser. If no tab index has been set in Wiser, this will be replaced by an empty string.</li>
+    <li><strong>{fieldClass}</strong> Any extra CSS classes that are set in the settings of the a field in Coder.</li>
+    <li><strong>{tabIndex}</strong> The tabindex attribute with the value that is set in the settings of this field in Coder. If no tab index has been set in Coder, this will be replaced by an empty string.</li>
 </ul>",
             DeveloperRemarks = "",
             TabName = CmsAttributes.CmsTabName.Layout,
@@ -182,8 +182,8 @@ namespace GeeksCoreLibrary.Components.OrderProcess.Models
             PrettyName = "Template textarea field",
             Description = @"The template for a textarea field in the order process. You can use the following variables here:
 <ul>
-    <li><strong>{id}</strong> The ID of the Wiser item with the settings for the field.</li>
-    <li><strong>{title}</strong> The title of the Wiser item with the settings for the field.</li>
+    <li><strong>{id}</strong> The ID of the Coder item with the settings for the field.</li>
+    <li><strong>{title}</strong> The title of the Coder item with the settings for the field.</li>
     <li><strong>{error}</strong> If a validation error occurred with this field, this variable will be replaced by the value of 'TemplateFieldError', otherwise it will be replaced by an empty string.</li>
     <li><strong>{errorClass}</strong> If a validation error occurred with this field, this variable will be replaced by the literal text 'error', otherwise it will be replaced by en empty string.</li>
     <li><strong>{fieldId}</strong> The ID of the field as it's set in the settings for the field. This value should be used in the 'name' and 'id' attributes of the input and the 'for' attribute of the label.</li>
@@ -192,8 +192,8 @@ namespace GeeksCoreLibrary.Components.OrderProcess.Models
     <li><strong>{required}</strong> This will be replaced with the 'required' attribute if the field is required, or with an empty string if it isn't.</li>
     <li><strong>{pattern}</strong> The regex validation pattern for the field. This will be replaced with the entire attribute (pattern='the pattern') if there is a pattern, or with an empty string if there isn't.</li>
     <li><strong>{value}</strong> The current value of the field, retrieved from the basket or logged in user, or POST variables.</li>
-    <li><strong>{fieldClass}</strong> Any extra CSS classes that are set in the settings of the a field in Wiser.</li>
-    <li><strong>{tabIndex}</strong> The tabindex attribute with the value that is set in the settings of this field in Wiser. If no tab index has been set in Wiser, this will be replaced by an empty string.</li>
+    <li><strong>{fieldClass}</strong> Any extra CSS classes that are set in the settings of the a field in Coder.</li>
+    <li><strong>{tabIndex}</strong> The tabindex attribute with the value that is set in the settings of this field in Coder. If no tab index has been set in Coder, this will be replaced by an empty string.</li>
 </ul>",
             DeveloperRemarks = "",
             TabName = CmsAttributes.CmsTabName.Layout,
@@ -211,8 +211,8 @@ namespace GeeksCoreLibrary.Components.OrderProcess.Models
             PrettyName = "Template radio button field",
             Description = @"The template for a radio button field in the order process. You can use the following variables here:
 <ul>
-    <li><strong>{id}</strong> The ID of the Wiser item with the settings for the field.</li>
-    <li><strong>{title}</strong> The title of the Wiser item with the settings for the field.</li>
+    <li><strong>{id}</strong> The ID of the Coder item with the settings for the field.</li>
+    <li><strong>{title}</strong> The title of the Coder item with the settings for the field.</li>
     <li><strong>{error}</strong> If a validation error occurred with this field, this variable will be replaced by the value of 'TemplateFieldError', otherwise it will be replaced by an empty string.</li>
     <li><strong>{errorClass}</strong> If a validation error occurred with this field, this variable will be replaced by the literal text 'error', otherwise it will be replaced by en empty string.</li>
     <li><strong>{fieldId}</strong> The ID of the field as it's set in the settings for the field. This value should be used in the 'name' and 'id' attributes of the input and the 'for' attribute of the label.</li>
@@ -220,7 +220,7 @@ namespace GeeksCoreLibrary.Components.OrderProcess.Models
     <li><strong>{placeholder}</strong> The placeholder for the field, should be used in the 'placeholder' attribute of the input.</li>
     <li><strong>{value}</strong> The current value of the field, retrieved from the basket or logged in user, or POST variables.</li>
     <li><strong>{options}</strong> The options for the radio button.</li>
-    <li><strong>{fieldClass}</strong> Any extra CSS classes that are set in the settings of the a field in Wiser.</li>
+    <li><strong>{fieldClass}</strong> Any extra CSS classes that are set in the settings of the a field in Coder.</li>
 </ul>",
             DeveloperRemarks = "",
             TabName = CmsAttributes.CmsTabName.Layout,
@@ -243,7 +243,7 @@ namespace GeeksCoreLibrary.Components.OrderProcess.Models
     <li><strong>{checked}</strong> Whether this option should be checked, retrieved from the basket or logged in user, or POST variables. This will be replaced with the 'checked' attribute if it should, or an empty string if it shouldn't.</li>
     <li><strong>{optionText}</strong> The text for the option that the user should see.</li>
     <li><strong>{optionValue}</strong> The value of the option that should be saved to database.</li>
-    <li><strong>{tabIndex}</strong> The tabindex attribute with the value that is set in the settings of this field in Wiser. If no tab index has been set in Wiser, this will be replaced by an empty string.</li>
+    <li><strong>{tabIndex}</strong> The tabindex attribute with the value that is set in the settings of this field in Coder. If no tab index has been set in Coder, this will be replaced by an empty string.</li>
 </ul>",
             DeveloperRemarks = "",
             TabName = CmsAttributes.CmsTabName.Layout,
@@ -261,8 +261,8 @@ namespace GeeksCoreLibrary.Components.OrderProcess.Models
             PrettyName = "Template select field",
             Description = @"The template for a select / combobox field in the order process. You can use the following variables here:
 <ul>
-    <li><strong>{id}</strong> The ID of the Wiser item with the settings for the field.</li>
-    <li><strong>{title}</strong> The title of the Wiser item with the settings for the field.</li>
+    <li><strong>{id}</strong> The ID of the Coder item with the settings for the field.</li>
+    <li><strong>{title}</strong> The title of the Coder item with the settings for the field.</li>
     <li><strong>{error}</strong> If a validation error occurred with this field, this variable will be replaced by the value of 'TemplateFieldError', otherwise it will be replaced by an empty string.</li>
     <li><strong>{errorClass}</strong> If a validation error occurred with this field, this variable will be replaced by the literal text 'error', otherwise it will be replaced by en empty string.</li>
     <li><strong>{fieldId}</strong> The ID of the field as it's set in the settings for the field. This value should be used in the 'name' and 'id' attributes of the input and the 'for' attribute of the label.</li>
@@ -270,8 +270,8 @@ namespace GeeksCoreLibrary.Components.OrderProcess.Models
     <li><strong>{label}</strong> The label for this field.</li>
     <li><strong>{value}</strong> The current value of the field, retrieved from the basket or logged in user, or POST variables.</li>
     <li><strong>{options}</strong> The options for the radio button.</li>
-    <li><strong>{fieldClass}</strong> Any extra CSS classes that are set in the settings of the a field in Wiser.</li>
-    <li><strong>{tabIndex}</strong> The tabindex attribute with the value that is set in the settings of this field in Wiser. If no tab index has been set in Wiser, this will be replaced by an empty string.</li>
+    <li><strong>{fieldClass}</strong> Any extra CSS classes that are set in the settings of the a field in Coder.</li>
+    <li><strong>{tabIndex}</strong> The tabindex attribute with the value that is set in the settings of this field in Coder. If no tab index has been set in Coder, this will be replaced by an empty string.</li>
 </ul>",
             DeveloperRemarks = "",
             TabName = CmsAttributes.CmsTabName.Layout,
@@ -311,16 +311,16 @@ namespace GeeksCoreLibrary.Components.OrderProcess.Models
             PrettyName = "Template checkbox field",
             Description = @"The template for a checkbox field in the order process. You can use the following variables here:
 <ul>
-    <li><strong>{id}</strong> The ID of the Wiser item with the settings for the field.</li>
-    <li><strong>{title}</strong> The title of the Wiser item with the settings for the field.</li>
+    <li><strong>{id}</strong> The ID of the Coder item with the settings for the field.</li>
+    <li><strong>{title}</strong> The title of the Coder item with the settings for the field.</li>
     <li><strong>{error}</strong> If a validation error occurred with this field, this variable will be replaced by the value of 'TemplateFieldError', otherwise it will be replaced by an empty string.</li>
     <li><strong>{errorClass}</strong> If a validation error occurred with this field, this variable will be replaced by the literal text 'error', otherwise it will be replaced by en empty string.</li>
     <li><strong>{fieldId}</strong> The ID of the field as it's set in the settings for the field. This value should be used in the 'name' and 'id' attributes of the input and the 'for' attribute of the label.</li>
     <li><strong>{label}</strong> The label for this field.</li>
     <li><strong>{required}</strong> This will be replaced with the 'required' attribute if the field is required, or with an empty string if it isn't.</li>
     <li><strong>{checked}</strong> Whether this option should be checked, retrieved from the basket or logged in user, or POST variables. This will be replaced with the 'checked' attribute if it should, or an empty string if it shouldn't.</li>
-    <li><strong>{fieldClass}</strong> Any extra CSS classes that are set in the settings of the a field in Wiser.</li>
-    <li><strong>{tabIndex}</strong> The tabindex attribute with the value that is set in the settings of this field in Wiser. If no tab index has been set in Wiser, this will be replaced by an empty string.</li>
+    <li><strong>{fieldClass}</strong> Any extra CSS classes that are set in the settings of the a field in Coder.</li>
+    <li><strong>{tabIndex}</strong> The tabindex attribute with the value that is set in the settings of this field in Coder. If no tab index has been set in Coder, this will be replaced by an empty string.</li>
 </ul>",
             DeveloperRemarks = "",
             TabName = CmsAttributes.CmsTabName.Layout,
@@ -376,7 +376,7 @@ namespace GeeksCoreLibrary.Components.OrderProcess.Models
 <ul>
     <li><strong>{id}</strong> The ID of the payment method.</li>
     <li><strong>{title}</strong> This name of the payment method.</li>
-    <li><strong>{logoPropertyName}</strong> The name of the field in wiser where the logo is saved for the payment method.</li>
+    <li><strong>{logoPropertyName}</strong> The name of the field in Coder where the logo is saved for the payment method.</li>
     <li><strong>{paymentMethodFieldName}</strong> The name of the input element for the selected payment method. Don't use any other name, otherwise the GCL will not know which payment method the user selected and throw an exception.</li>
 </ul>",
             DeveloperRemarks = "",

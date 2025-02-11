@@ -45,7 +45,7 @@ namespace GeeksCoreLibrary.Components.WebPage.Models
 
         [CmsProperty(
             PrettyName = "Page item ID",
-            Description = "The Wiser item ID of the web page that should be retrieved.",
+            Description = "The Coder item ID of the web page that should be retrieved.",
             DeveloperRemarks = "",
             TabName = CmsAttributes.CmsTabName.DataSource,
             GroupName = CmsAttributes.CmsGroupName.Basic,

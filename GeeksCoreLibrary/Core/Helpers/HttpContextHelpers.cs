@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.RegularExpressions;
 using GeeksCoreLibrary.Core.Models;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -443,10 +444,8 @@ public static class HttpContextHelpers
     public static void Return404(HttpContext httpContext)
     {
         // when 404 is thrown in wiser loading of template is aborted.
-        if (httpContext.Request.Host.ToString().Contains("wiser.nl", StringComparison.OrdinalIgnoreCase))
-        {
+        if (new Regex(@"(wiser|coder)\.nl", RegexOptions.IgnoreCase).IsMatch(httpContext.Request.Host.ToString()))
             return;
-        }
 
         httpContext.Response.StatusCode = 404;
     }

@@ -44,7 +44,7 @@ namespace GeeksCoreLibrary.Modules.ItemFiles.Controllers
                 return NotFound();
             }
 
-            logger.LogDebug($"Get image from Wiser, itemId: '{itemId}', propertyName: '{propertyName}', preferredWidth: '{preferredWidth}', preferredHeight: '{preferredHeight}', filename: '{fileName}', resizeMode: '{resizeMode:G}', anchorPosition: '{anchorPosition}', fileNumber: '{fileNumber}'");
+            logger.LogDebug($"Get image from Coder, itemId: '{itemId}', propertyName: '{propertyName}', preferredWidth: '{preferredWidth}', preferredHeight: '{preferredHeight}', filename: '{fileName}', resizeMode: '{resizeMode:G}', anchorPosition: '{anchorPosition}', fileNumber: '{fileNumber}'");
 
             byte[] fileBytes;
             DateTime lastModified;
@@ -87,7 +87,7 @@ namespace GeeksCoreLibrary.Modules.ItemFiles.Controllers
                 return NotFound();
             }
             
-            logger.LogDebug($"Get file from Wiser, itemId: '{itemId}', propertyName: '{propertyName}', filename: '{filename}', fileNumber: '{fileNumber}'");
+            logger.LogDebug($"Get file from Coder, itemId: '{itemId}', propertyName: '{propertyName}', filename: '{filename}', fileNumber: '{fileNumber}'");
             byte[] fileBytes;
             DateTime lastModified;
 
