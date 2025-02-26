@@ -283,8 +283,8 @@ SELECT {(wiserItem.Id > 0 ? "?id" : "LAST_INSERT_ID()")} AS newId;";
                     {
                         destinationEntityType = queryResult.Rows[0].Field<string>("entity_type");
                     }
-
-                    var linkTypeSettings = await wiserItemsService.GetLinkTypeSettingsAsync(0, wiserItem.EntityType, destinationEntityType);
+                    
+                    var linkTypeSettings = await wiserItemsService.GetLinkTypeSettingsAsync(linkTypeNumber>1 ? linkTypeNumber : 0, wiserItem.EntityType, linkTypeNumber <= 1 ? destinationEntityType : "");
                     if (linkTypeSettings is {UseItemParentId: true})
                     {
                         // Save parent ID in parent_item_id column of wiser_item.
