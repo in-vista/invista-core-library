@@ -2259,7 +2259,7 @@ WHERE `order`.entity_type IN ('{OrderProcess.Models.Constants.OrderEntityType}',
                 addToBasketQuery = await objectsService.FindSystemObjectByDomainNameAsync("W2CHECKOUT_FreeActionProductQuery");
                 if (String.IsNullOrWhiteSpace(addToBasketQuery))
                 {
-                    logger.LogWarning("Free action product error: No query set for adding free products! Set one up in the settings module in Wiser.");
+                    logger.LogWarning("Free action product error: No query set for adding free products! Set one up in the settings module in Coder.");
                     return;
                 }
             }

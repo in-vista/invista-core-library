@@ -111,7 +111,7 @@ AND (`value` = ?gcl_original OR long_value = ?gcl_original)");
 
             languageCode = await GetDefaultWiserLanguage();
             CurrentLanguageCode = languageCode;
-            logger.LogDebug($"LanguageCode determined by Wiser 2 default language: {languageCode}");
+            logger.LogDebug($"LanguageCode determined by Coder 2 default language: {languageCode}");
             return languageCode;
         }
 

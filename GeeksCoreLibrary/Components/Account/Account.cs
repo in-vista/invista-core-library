@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Data;
+using System.Data.Common;
 using System.Globalization;
 using System.IO;
 using System.Linq;
@@ -585,6 +586,7 @@ namespace GeeksCoreLibrary.Components.Account
 
                             if (done)
                             {
+                                // Perform a redirect after a succesful login attempt.
                                 await DoRedirect(response);
                             }
 
@@ -1890,16 +1892,64 @@ namespace GeeksCoreLibrary.Components.Account
 
             // Everything succeeded, so generate a cookie for the user and reset any failed login attempts.
             var amountOfDaysToRememberCookie = AccountsService.GetAmountOfDaysToRememberCookie(Settings);
-            var cookieValue = await AccountsService.GenerateNewCookieTokenAsync(loggedInUserId, mainUserId, !amountOfDaysToRememberCookie.HasValue || amountOfDaysToRememberCookie.Value <= 0 ? 0 : amountOfDaysToRememberCookie.Value, Settings.EntityType, Settings.SubAccountEntityType, role);
+            var accountCookieValue = await AccountsService.GenerateNewCookieTokenAsync(loggedInUserId, mainUserId, !amountOfDaysToRememberCookie.HasValue || amountOfDaysToRememberCookie.Value <= 0 ? 0 : amountOfDaysToRememberCookie.Value, Settings.EntityType, Settings.SubAccountEntityType, role);
             if (decryptedUserId == 0)
             {
                 await AccountsService.SaveGoogleClientIdAsync(loggedInUserId, Settings);
             }
 
-            var offset = (amountOfDaysToRememberCookie ?? 0) <= 0 ? (DateTimeOffset?)null : DateTimeOffset.Now.AddDays(amountOfDaysToRememberCookie.Value);
-            HttpContextHelpers.WriteCookie(HttpContext, Settings.CookieName, cookieValue, offset, isEssential: true);
+            var accountCookieOffset = (amountOfDaysToRememberCookie ?? 0) <= 0 ? (DateTimeOffset?)null : DateTimeOffset.Now.AddDays(amountOfDaysToRememberCookie.Value);
+            HttpContextHelpers.WriteCookie(HttpContext, Settings.CookieName, accountCookieValue, accountCookieOffset, isEssential: true);
             // Save the cookie in the HttpContext.Items, so that we can use it in the rest of the request, because we can't read the cookie from the response.
-            HttpContext.Items[Settings.CookieName] = cookieValue;
+            HttpContext.Items[Settings.CookieName] = accountCookieValue;
+            
+            // If enabled, write custom cookies after a succesful login attempt.
+            if (Settings.WriteCookiesAfterLogin)
+            {
+                // Retrieve the write cookie query.
+                string writeCookiesQuery = Settings.WriteCookiesQuery;
+                
+                // Set up replacement data for the write cookie query.
+                Dictionary<string, object> writeCookieReplacementData =
+                    new Dictionary<string, object>
+                    {
+                        { "userId", decryptedUserId }
+                    };
+                
+                // Apply replacements and evaluate the query.
+                writeCookiesQuery = StringReplacementsService.DoReplacements(writeCookiesQuery, writeCookieReplacementData, forQuery: true);
+                writeCookiesQuery = StringReplacementsService.DoHttpRequestReplacements(writeCookiesQuery, true);
+                writeCookiesQuery = StringReplacementsService.EvaluateTemplate(writeCookiesQuery);
+                
+                // Execute the query and get a reader.
+                DbDataReader cookiesReader = await DatabaseConnection.GetReaderAsync(writeCookiesQuery);
+                
+                // Read over all cookie entries and write them as a cookie in the response header.
+                while (await cookiesReader.ReadAsync())
+                {
+                    const string keyName = "key";
+                    const string valueName = "value";
+                    const string expiresAtName = "expires_at";
+                    const string httpOnlyName = "http_only";
+                    const string secureName = "secure";
+
+                    if (!cookiesReader.HasColumn(keyName) || !cookiesReader.HasColumn(valueName))
+                        continue;
+
+                    string cookieKey = cookiesReader.GetString(keyName);
+                    string cookieValue = cookiesReader.GetValue(valueName).ToString();
+                    DateTimeOffset? offset = cookiesReader.HasColumn(expiresAtName)
+                        ? cookiesReader.GetDateTime(cookiesReader.GetOrdinal(expiresAtName))
+                        : accountCookieOffset;
+                    bool httpOnly = cookiesReader.HasColumn(httpOnlyName) && cookiesReader.GetBoolean(httpOnlyName);
+                    bool secure = cookiesReader.HasColumn(secureName) && cookiesReader.GetBoolean(secureName);
+                    
+                    HttpContextHelpers.WriteCookie(HttpContext, cookieKey, cookieValue, offset, isEssential: true, httpOnly: httpOnly, secure: secure);
+                }
+                
+                // Close the cookies reader.
+                await cookiesReader.CloseAsync();
+            }
 
             if (decryptedUserId == 0)
             {
