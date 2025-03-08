@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Threading.Tasks;
 using GeeksCoreLibrary.Modules.Communication.Enums;
 using GeeksCoreLibrary.Modules.Communication.Models;
+using GeeksCoreLibrary.Modules.Communication.Models.MailerSend;
 
 namespace GeeksCoreLibrary.Modules.Communication.Interfaces
 {
@@ -178,5 +179,20 @@ namespace GeeksCoreLibrary.Modules.Communication.Interfaces
         /// <param name="smsSettings">The sms settings to use.</param>
         /// <returns></returns>
         Task SendWhatsAppDirectlyAsync(SingleCommunicationModel communication, SmsSettings smsSettings);
+
+        /// <summary>
+        ///  Make MailerSend request model instance by an instance of the SingleCommunication model
+        /// </summary>
+        /// <param name="communication">The <see cref="SingleCommunicationModel"/> object to use as the basis to send the email.</param>
+        /// <param name="smtpSettings">The SMTP settings to use.</param>
+        Task<MailerSendRequestModel> MakeMailerSendRequestBySingleCommunicationAsync(SingleCommunicationModel communication, SmtpSettings smtpSettings);
+        
+        /// <summary>
+        /// Send the email directly using the MailerSend Rest API.
+        /// </summary>
+        /// <param name="mailerSendRequest">A single instance of the MailerSendRequestModel or a list of instances of the MailerSendRequestModel</param>
+        /// <param name="smtpSettings">The SMTP settings to use.</param>
+        /// <param name="timeout">The timeout in milliseconds before it's considered to take too long. The default timeout equals to 2 minutes. This is the same default timeout that MailKit uses.</param>
+        Task<string> SendRequestToMailerSendApiAsync(object mailerSendRequest, SmtpSettings smtpSettings, int timeout = 120_000);
     }
 }

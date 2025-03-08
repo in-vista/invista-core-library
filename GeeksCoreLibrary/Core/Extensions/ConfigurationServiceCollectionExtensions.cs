@@ -230,7 +230,7 @@ namespace GeeksCoreLibrary.Core.Extensions
             {
                 services.AddHealthChecks()
                     .AddMySql(gclSettings.ConnectionString, name: "MySqlRead", tags: new []{"Database"})
-                    .AddCheck<WtsHealthService>("WTS Health Check", HealthStatus.Degraded, new []{"WTS", "Wiser Task Scheduler"})
+                    .AddCheck<WtsHealthService>("WTS Health Check", HealthStatus.Degraded, new []{"WTS", "Coder Task Scheduler"})
                     .AddCheck<DatabaseHealthService>("Database Health Check", tags: new[]{ "Database" });
                 if (!String.IsNullOrWhiteSpace(gclSettings.ConnectionStringForWriting))
                 {

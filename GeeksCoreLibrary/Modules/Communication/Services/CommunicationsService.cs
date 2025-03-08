@@ -15,7 +15,6 @@ using System.Web;
 using CM.Text;
 using CM.Text.BusinessMessaging;
 using CM.Text.BusinessMessaging.Model;
-using DocumentFormat.OpenXml.Presentation;
 using GeeksCoreLibrary.Core.DependencyInjection.Interfaces;
 using GeeksCoreLibrary.Core.Interfaces;
 using GeeksCoreLibrary.Core.Models;
@@ -33,7 +32,6 @@ using RestSharp;
 using Newtonsoft.Json;
 using Twilio;
 using Twilio.Rest.Api.V2010.Account;
-using JsonSerializer = Newtonsoft.Json.JsonSerializer;
 
 namespace GeeksCoreLibrary.Modules.Communication.Services
 {
@@ -415,25 +413,22 @@ WHERE id = ?id";
         /// <inheritdoc />
         public async Task SendEmailDirectlyAsync(SingleCommunicationModel communication, SmtpSettings smtpSettings, int timeout = 120_000)
         {
-            // Build attachments list.
-            var attachments = await GetAttachmentsAsync(communication);
-
             switch (smtpSettings.Provider)
             {
                 case EmailServiceProviders.Smtp:
-                    await SendSmtpEmailDirectlyAsync(communication, smtpSettings, attachments, timeout);
+                    await SendSmtpEmailDirectlyAsync(communication, smtpSettings, await GetAttachmentsAsync(communication), timeout);
                     break;
                 case EmailServiceProviders.SmtPeterRestApi:
-                    await SendSmtPeterEmailDirectlyAsync(communication, smtpSettings, attachments, timeout);
+                    await SendSmtPeterEmailDirectlyAsync(communication, smtpSettings, await GetAttachmentsAsync(communication), timeout);
                     break;
                 case EmailServiceProviders.MailerSendRestApi:
-                    await SendMailerSendEmailDirectlyAsync(communication, smtpSettings, attachments, timeout);
+                    await SendMailerSendEmailDirectlyAsync(communication, smtpSettings, timeout);
                     break;
                 default:
                     throw new ArgumentOutOfRangeException(nameof(smtpSettings.Provider), smtpSettings.Provider.ToString());
             }
         }
-
+        
         /// <summary>
         /// Send the email directly using an SMTP server.
         /// </summary>
@@ -566,14 +561,72 @@ WHERE id = ?id";
             throw new Exception(communication.StatusMessage);
         }
         
-         /// <summary>
-        /// Send the email directly using the SmtPeter Rest API.
+        /// <summary>
+        /// Send the email directly using the MailerSend Rest API.
         /// </summary>
         /// <param name="communication">The <see cref="SingleCommunicationModel"/> object to use as the basis to send the email.</param>
         /// <param name="smtpSettings">The SMTP settings to use.</param>
-        /// <param name="attachments">The attachments to send with the email.</param>
         /// <param name="timeout">The timeout in milliseconds before it's considered to take too long. The default timeout equals to 2 minutes. This is the same default timeout that MailKit uses.</param>
-        private async Task SendMailerSendEmailDirectlyAsync(SingleCommunicationModel communication, SmtpSettings smtpSettings, List<(string FileName, byte[] FileBytes)> attachments, int timeout)
+        private async Task SendMailerSendEmailDirectlyAsync(SingleCommunicationModel communication, SmtpSettings smtpSettings, int timeout = 120_000)
+        {
+            var mailerSendRequest = await MakeMailerSendRequestBySingleCommunicationAsync(communication, smtpSettings);
+            communication.StatusMessage = await SendRequestToMailerSendApiAsync(mailerSendRequest, smtpSettings, timeout);
+        }
+        
+        /// <inheritdoc />
+        public async Task<string> SendRequestToMailerSendApiAsync(object mailerSendRequest, SmtpSettings smtpSettings, int timeout = 120_000)
+        {
+            var endpoint = mailerSendRequest switch
+            {
+                MailerSendRequestModel => "email",
+                List<MailerSendRequestModel> => "bulk-email",
+                _ => throw new Exception(
+                    "SendRequestToMailerSendApi doesn't support other types then MailerSendRequestModel or List<MailerSendRequestModel>")
+            };
+
+            var statusMessage = "";
+            using var cancellationTokenSource = new CancellationTokenSource();
+            cancellationTokenSource.CancelAfter(TimeSpan.FromMilliseconds(timeout));
+
+            // Keys must be lowered case
+            var settings = new JsonSerializerSettings();
+            settings.ContractResolver = new LowercaseContractResolver();
+            var content = JsonConvert.SerializeObject(mailerSendRequest, Formatting.Indented, settings);
+            
+            var request = new HttpRequestMessage(HttpMethod.Post, $"https://api.mailersend.com/v1/{endpoint}")
+            {
+                Content = new StringContent(content, Encoding.UTF8, "application/json")
+            };
+            
+            request.Headers.Add("Authorization", $"Bearer {smtpSettings.MailerSendSettings.ApiAccessToken}");
+            
+            using var response = await httpClientService.Client.SendAsync(request, cancellationTokenSource.Token);
+            if (response.Headers.Contains("x-message-id"))
+            {
+                statusMessage = $"{response.StatusCode}: {response.Headers.GetValues("x-message-id").FirstOrDefault()}";    
+            }
+            else
+            {
+                statusMessage = $"{response.StatusCode}: No x-messsage-id known";
+            }
+
+            var responseBody = await response.Content.ReadAsStringAsync(cancellationTokenSource.Token);
+            if (!string.IsNullOrEmpty(responseBody))
+            {
+                statusMessage = $"{statusMessage} - {responseBody}";
+            }
+
+            if (response.IsSuccessStatusCode)
+            {
+                return statusMessage;
+            }
+
+            // If request was not success throw the body as an exception.
+            throw new Exception(statusMessage);
+        }
+
+        /// <inheritdoc />
+        public async Task<MailerSendRequestModel> MakeMailerSendRequestBySingleCommunicationAsync(SingleCommunicationModel communication, SmtpSettings smtpSettings)
         {
             var requestBody = new MailerSendRequestModel()
             {
@@ -592,10 +645,11 @@ WHERE id = ?id";
                 }
             };
 
+            var attachments = await GetAttachmentsAsync(communication);
             if (attachments != null && attachments.Any())
             {
                 requestBody.Attachments = attachments.Select(attachment => new MailerSendAttachmentModel
-                        { Content = Convert.ToBase64String(attachment.FileBytes), FileName = attachment.FileName.ToLower(), Id = attachment.FileName.ToLower(), Disposition = "attachment"})
+                        { Content = Convert.ToBase64String(attachment.FileBytes), FileName = attachment.FileName, Id = attachment.FileName.ToLower(), Disposition = "attachment"})
                     .ToList();
             }
             else
@@ -603,44 +657,7 @@ WHERE id = ?id";
                 requestBody.Attachments = new List<MailerSendAttachmentModel>();
             }
 
-            using var cancellationTokenSource = new CancellationTokenSource();
-            cancellationTokenSource.CancelAfter(TimeSpan.FromMilliseconds(timeout));
-
-            // Keys must be lower case
-            var settings = new JsonSerializerSettings();
-            settings.ContractResolver = new LowercaseContractResolver();
-            var content = JsonConvert.SerializeObject(requestBody, Formatting.Indented, settings);
-            
-            var request = new HttpRequestMessage(HttpMethod.Post, "https://api.mailersend.com/v1/email")
-            {
-                Content = new StringContent(content, Encoding.UTF8, "application/json")
-            };
-            
-            request.Headers.Add("Authorization", $"Bearer {smtpSettings.MailerSendSettings.ApiAccessToken}");
-            
-            using var response = await httpClientService.Client.SendAsync(request, cancellationTokenSource.Token);
-            if (response.Headers.Contains("x-message-id"))
-            {
-                communication.StatusMessage = $"{response.StatusCode}: {response.Headers.GetValues("x-message-id").FirstOrDefault()}";    
-            }
-            else
-            {
-                communication.StatusMessage = $"{response.StatusCode}: No x-messsage-id known";
-            }
-
-            var responseBody = await response.Content.ReadAsStringAsync(cancellationTokenSource.Token);
-            if (!string.IsNullOrEmpty(responseBody))
-            {
-                communication.StatusMessage = $"{communication.StatusMessage} - {responseBody}";
-            }
-
-            if (response.IsSuccessStatusCode)
-            {
-                return;
-            }
-
-            // If request was not success throw the body as an exception.
-            throw new Exception(communication.StatusMessage);
+            return requestBody;
         }
 
         private async Task<List<(string FileName, byte[] FileBytes)>> GetAttachmentsAsync(SingleCommunicationModel communication)
@@ -746,13 +763,39 @@ WHERE id = ?id";
         {
             foreach (var receiver in communication.Receivers)
             {
-                switch (smsSettings.Provider)
+                var provider = communication.Provider switch
+                {
+                    "cm" => SmsServiceProviders.Cm,
+                    "spryng" => SmsServiceProviders.Spryng,
+                    "twilio" => SmsServiceProviders.Twilio,
+                    _ => smsSettings.Provider
+                };
+
+                // Use other credentials if not the default provider is used
+                if (provider != smsSettings.Provider)
+                {
+                    var providerSettings = smsSettings.Providers.FirstOrDefault(p => p.Provider == provider);
+                    if (providerSettings != null)
+                    {
+                        smsSettings.ProviderId = providerSettings.ProviderId;
+                        smsSettings.AuthenticationToken = providerSettings.AuthenticationToken;
+                    }
+                    else
+                    {
+                        throw new Exception($"Provider {communication.Provider} not configured.");
+                    }
+                }
+
+                switch (provider)
                 {
                     case SmsServiceProviders.Twilio:
                         await SendTwilioSmsDirectlyAsync(communication, smsSettings, receiver.Address);
                         break;
                     case SmsServiceProviders.Cm:
                         await SendCmSmsDirectlyAsync(communication, smsSettings, receiver.Address);
+                        break;
+                    case SmsServiceProviders.Spryng:
+                        await SendSpryngSmsDirectlyAsync(communication, smsSettings, receiver.Address);
                         break;
                     default:
                         throw new ArgumentOutOfRangeException(nameof(smsSettings.Provider), smsSettings.Provider.ToString());
@@ -763,7 +806,7 @@ WHERE id = ?id";
         /// <summary>
         /// Send a text message using Twilio.
         /// </summary>
-        /// <param name="communication">The <see cref="SingleCommunicationModel"/> object to use as the basis to send the email.</param>
+        /// <param name="communication">The <see cref="SingleCommunicationModel"/> object to use as the basis to send the sms.</param>
         /// <param name="smsSettings">The sms settings to use.</param>
         /// <param name="receiverPhoneNumber">The phone number to send the text message to.</param>
         private async Task SendTwilioSmsDirectlyAsync(SingleCommunicationModel communication, SmsSettings smsSettings, string receiverPhoneNumber)
@@ -809,7 +852,7 @@ WHERE id = ?id";
         /// <summary>
         /// Send a text message using CM.
         /// </summary>
-        /// <param name="communication">The <see cref="SingleCommunicationModel"/> object to use as the basis to send the email.</param>
+        /// <param name="communication">The <see cref="SingleCommunicationModel"/> object to use as the basis to send the sms.</param>
         /// <param name="smsSettings">The text message settings to use.</param>
         /// <param name="receiverPhoneNumber">The phone number to send the text message to.</param>
         private async Task SendCmSmsDirectlyAsync(SingleCommunicationModel communication, SmsSettings smsSettings, string receiverPhoneNumber)
@@ -846,6 +889,79 @@ WHERE id = ?id";
 
             // If request was not success throw the status message as an exception.
             throw new Exception(response.statusMessage);
+        }
+        
+        /// <summary>
+        /// Send a text message using Spryng.
+        /// </summary>
+        /// <param name="communication">The <see cref="SingleCommunicationModel"/> object to use as the basis to send the sms.</param>
+        /// <param name="smsSettings">The text message settings to use.</param>
+        /// <param name="receiverPhoneNumber">The phone number to send the text message to.</param>
+        private async Task SendSpryngSmsDirectlyAsync(SingleCommunicationModel communication, SmsSettings smsSettings, string receiverPhoneNumber)
+        {
+            // Format the receiver phone number
+            if (receiverPhoneNumber.StartsWith("+"))
+            {
+                // Phone number looks something like "+31612345678".
+                receiverPhoneNumber = receiverPhoneNumber[1..];
+            }
+            else if (receiverPhoneNumber.StartsWith("00"))
+            {
+                // Phone number looks something like "0031612345678".
+                receiverPhoneNumber = receiverPhoneNumber[2..];
+            }
+            else
+            {
+                throw new ArgumentException("Phone number is missing the country code.");
+            }
+
+            // Now "sanitize" the phone number by removing all non-digit characters.
+            receiverPhoneNumber = Regex.Replace(receiverPhoneNumber, @"\D+", "");
+            
+            // Set the sender
+            var senderName = communication.SenderName ?? smsSettings.SenderName;
+            if (Regex.IsMatch(senderName, "^\\d+$") && senderName.Length > 17)
+            {
+                senderName = senderName.Substring(0, 17);
+            }
+            else if (senderName.Length > 11)
+            {
+                senderName = senderName.Split(' ')[0].Substring(0, Math.Min(11, senderName.Split(' ')[0].Length));
+            }
+
+            // Send the SMS via the Spryng REST API            
+            var options = new RestClientOptions("https://rest.spryngsms.com")
+            {
+                Timeout = TimeSpan.FromSeconds(30)
+            };
+            var client = new RestClient(options);
+            var request = new RestRequest("/v1/messages", Method.Post);
+            request.AddHeader("Accept", "application/json");
+            request.AddHeader("Authorization", $"Bearer {smsSettings.AuthenticationToken}");
+            request.AddHeader("Content-Type", "application/json");
+            var body = $$"""
+                         {
+                             "body": "{{communication.Content}}",
+                             "encoding": "auto",
+                             "route": "{{(string.IsNullOrEmpty(smsSettings.ProviderId) ? "business" : smsSettings.ProviderId)}}",
+                             "originator": "{{senderName}}",
+                             "recipients": [
+                                 "{{receiverPhoneNumber}}"
+                             ]
+                         }
+                         """;
+            
+            request.AddStringBody(body, DataFormat.Json);
+            var response = await client.ExecuteAsync(request);
+            Console.WriteLine(response.Content);
+            
+            if (response.StatusCode == HttpStatusCode.OK)
+            {
+                return;
+            }
+
+            // If request was not success throw the status message as an exception.
+            throw new Exception($"{response.StatusCode}: {response.StatusDescription}");
         }
 
         /// <inheritdoc />

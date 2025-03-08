@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.RegularExpressions;
 using GeeksCoreLibrary.Core.Models;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -223,14 +224,17 @@ public static class HttpContextHelpers
     /// <param name="domain">Optional: The domain to associate the cookie with. Default is <see langword="null"/>.</param>
     /// <param name="httpOnly">Optional: Set to true if the cookie must not be accessible by client-side script. Default value is true. </param>
     /// <param name="isEssential">Indicates if this cookie is essential for the application to function correctly. If true then consent policy checks may be bypassed. The default value is false.</param>
-    public static void WriteCookie(HttpContext httpContext, string key, string value, DateTimeOffset? expires = null, string domain = null, bool httpOnly = true, bool isEssential = false)
+    /// <param name="secure">Optional: Set to true to mark the cookie as secure. Set to false otherwise. If the value is null (default), the security of the cookie will be determined based on whether the context is HTTPS.</param>
+    public static void WriteCookie(HttpContext httpContext, string key, string value, DateTimeOffset? expires = null, string domain = null, bool httpOnly = true, bool isEssential = false, bool? secure = null)
     {
+        secure ??= httpContext.Request.IsHttps;
+        
         var newCookieOptions = new CookieOptions
         {
             Expires = expires,
             Domain = domain,
             HttpOnly = httpOnly,
-            Secure = httpContext.Request.IsHttps,
+            Secure = secure.Value,
             IsEssential = isEssential,
             SameSite = GclSettings.Current.CookieSameSiteMode
         };
@@ -443,10 +447,8 @@ public static class HttpContextHelpers
     public static void Return404(HttpContext httpContext)
     {
         // when 404 is thrown in wiser loading of template is aborted.
-        if (httpContext.Request.Host.ToString().Contains("wiser.nl", StringComparison.OrdinalIgnoreCase))
-        {
+        if (new Regex(@"(wiser|coder)\.nl", RegexOptions.IgnoreCase).IsMatch(httpContext.Request.Host.ToString()))
             return;
-        }
 
         httpContext.Response.StatusCode = 404;
     }

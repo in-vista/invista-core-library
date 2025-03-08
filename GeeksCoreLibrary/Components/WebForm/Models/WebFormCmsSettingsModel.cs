@@ -71,7 +71,7 @@ namespace GeeksCoreLibrary.Components.WebForm.Models
 
         [CmsProperty(
             PrettyName = "Email template item ID",
-            Description = "The item ID of a Wiser item containing the email's body and subject templates.",
+            Description = "The item ID of a Coder item containing the email's body and subject templates.",
             TabName = CmsAttributes.CmsTabName.Layout,
             GroupName = CmsAttributes.CmsGroupName.MailTemplate,
             DisplayOrder = 30

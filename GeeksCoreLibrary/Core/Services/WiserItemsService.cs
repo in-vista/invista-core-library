@@ -307,8 +307,8 @@ SELECT {(wiserItem.Id > 0 ? "?id" : "LAST_INSERT_ID()")} AS newId;";
                     {
                         destinationEntityType = queryResult.Rows[0].Field<string>("entity_type");
                     }
-
-                    var linkTypeSettings = await wiserItemsService.GetLinkTypeSettingsAsync(0, wiserItem.EntityType, destinationEntityType);
+                    
+                    var linkTypeSettings = await wiserItemsService.GetLinkTypeSettingsAsync(linkTypeNumber>1 ? linkTypeNumber : 0, wiserItem.EntityType, linkTypeNumber <= 1 ? destinationEntityType : "");
                     if (linkTypeSettings is {UseItemParentId: true})
                     {
                         // Save parent ID in parent_item_id column of wiser_item.
@@ -327,7 +327,9 @@ SELECT {(wiserItem.Id > 0 ? "?id" : "LAST_INSERT_ID()")} AS newId;";
                         }
                         await databaseConnection.ExecuteAsync($"UPDATE {tablePrefix}{WiserTableNames.WiserItem} SET parent_item_id = ?parentId, ordering = @newOrdering WHERE id = ?newItemId");
                     }
-                    else
+                    // If the link type states to not store the link as parent_id, but rather in a dedicated link table.
+                    // Additionally check if the link would be valid, by checking if neither the source, destination and type are "0" (invalid).
+                    else if(wiserItem.Id != 0 && parentId.Value != 0 && linkTypeNumber != 0)
                     {
                         var linkTablePrefix = wiserItemsService.GetTablePrefixForLink(linkTypeSettings);
 
@@ -3405,6 +3407,11 @@ WHERE {String.Join(" AND ", where)}";
                     }
                 }
             }
+            
+            // Check whether to store the file name as an SEO title.
+            string fileName = wiserItemFile.FileName;
+            if(wiserItemFile.StoreAsSeo)
+                fileName = Path.GetFileNameWithoutExtension(fileName).ConvertToSeo() + Path.GetExtension(fileName)?.ToLowerInvariant();
 
             databaseConnection.AddParameter("itemId", wiserItemFile.ItemId);
             databaseConnection.AddParameter("itemLinkId", wiserItemFile.ItemLinkId);
@@ -3413,7 +3420,7 @@ WHERE {String.Join(" AND ", where)}";
             databaseConnection.AddParameter("contentUrl", wiserItemFile.ContentUrl);
             databaseConnection.AddParameter("width", wiserItemFile.Width);
             databaseConnection.AddParameter("height", wiserItemFile.Height);
-            databaseConnection.AddParameter("fileName", Path.GetFileNameWithoutExtension(wiserItemFile.FileName).ConvertToSeo() + Path.GetExtension(wiserItemFile.FileName)?.ToLowerInvariant());
+            databaseConnection.AddParameter("fileName", fileName);
             databaseConnection.AddParameter("extension", wiserItemFile.Extension);
             databaseConnection.AddParameter("title", wiserItemFile.Title);
             databaseConnection.AddParameter("propertyName", wiserItemFile.PropertyName);
