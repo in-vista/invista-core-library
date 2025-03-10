@@ -19,4 +19,6 @@ public class Constants
     public const string LinkTypeNumberKey = "linkTypeNumber";
     public const string DefaultInputType = "text";
     public const string LinkOrderingFieldName = "__ordering";
+    public const string LanguageCodeKey = "_languageCode";
+    public const string PropertyNameKey = "_propertyName";
 }

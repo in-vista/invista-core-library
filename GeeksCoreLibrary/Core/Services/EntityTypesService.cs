@@ -182,6 +182,8 @@ public class EntityTypesService : IEntityTypesService, IScopedService
                 options.Add(Constants.SaveSeoValueKey, alsoSaveSeoValue);
                 options.Add(Constants.ReadOnlyKey, readOnly);
                 options.Add(Constants.EnableAggregationKey, enableAggregation);
+                options.Add(Constants.LanguageCodeKey, languageCode);
+                options.Add(Constants.PropertyNameKey, propertyName);
 
                 settings.FieldOptions[$"{propertyName}_{languageCode}"] = options;
 

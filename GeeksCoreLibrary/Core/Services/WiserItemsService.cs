@@ -181,6 +181,38 @@ namespace GeeksCoreLibrary.Core.Services
             return null;
         }
 
+        /// <summary>
+        /// Get Query-parts for aggregated fields that are also in the itemDetails list.
+        /// For inserting or updating an item
+        /// </summary>
+        /// <param name="entityTypeSettings"></param>
+        /// <param name="wiserItem"></param>
+        /// <returns></returns>
+        private async Task<(string additionalAggregatedColumns, string additionalAggregatedColumnParameterNames, string updateQueryPart)> getAggregatedColumnsAndParameters(EntitySettingsModel entityTypeSettings, WiserItemModel wiserItem)
+        {
+            //Aggregated fields must be saved directly on creation
+            var fieldsWithAggregatedTrue = entityTypeSettings.FieldOptions
+                .Where(kv => kv.Value.TryGetValue(Constants.EnableAggregationKey, out var value) && value is true
+                    && wiserItem.Details.Any(detail => (detail.Key + "_" + (detail.LanguageCode??"") == kv.Key)))
+                .ToList();
+            var additionalAggregatedColumns = string.Join(", ", fieldsWithAggregatedTrue.Select(kv => $"{kv.Key.TrimEnd('_')}"));
+            var additionalAggregatedColumnParameterNames = string.Join(", ", fieldsWithAggregatedTrue.Select(kv => $"?{kv.Key}"));
+            var updateQueryPart = string.Join(", ", fieldsWithAggregatedTrue.Select(kv => $"{kv.Key.TrimEnd('_')}=?{kv.Key}"));
+            foreach (var fieldToAggregate in fieldsWithAggregatedTrue)
+            {
+                var itemDetail = wiserItem.Details.FirstOrDefault(detail => detail.Key + "_" + (detail.LanguageCode??"") == fieldToAggregate.Key);
+                databaseConnection.AddParameter(fieldToAggregate.Key, itemDetail.Value);
+            }
+                    
+            //And those fields can be left out of the update (because the update function is often called after the create function, for example at the Save function.
+            //so set changed to false for these fields so the update procedure won't execute another query for these fields.
+            wiserItem.Details.Where(detail => fieldsWithAggregatedTrue.Any(kv => (detail.Key + "_" + (detail.LanguageCode??"") == kv.Key))).ToList().ForEach(
+                detail => detail.Changed=false
+            );
+
+            return (additionalAggregatedColumns, additionalAggregatedColumnParameterNames, updateQueryPart);
+        }
+        
         /// <inheritdoc />
         public async Task<WiserItemModel> CreateAsync(WiserItemModel wiserItem, ulong? parentId = null, int linkTypeNumber = 1, ulong userId = 0, string username = "GCL", string encryptionKey = "", bool saveHistory = true, bool createNewTransaction = true, bool skipPermissionsCheck = false, StoreType? storeTypeOverride = null)
         {
@@ -190,6 +222,7 @@ namespace GeeksCoreLibrary.Core.Services
         /// <inheritdoc />
         public async Task<WiserItemModel> CreateAsync(IWiserItemsService wiserItemsService, WiserItemModel wiserItem, ulong? parentId = null, int linkTypeNumber = 1, ulong userId = 0, string username = "GCL", string encryptionKey = "", bool saveHistory = true, bool createNewTransaction = true, bool skipPermissionsCheck = false, StoreType? storeTypeOverride = null)
         {
+            
             if (String.IsNullOrWhiteSpace(wiserItem?.EntityType))
             {
                 throw new ArgumentNullException(nameof(wiserItem.EntityType));
@@ -255,23 +288,7 @@ namespace GeeksCoreLibrary.Core.Services
                     databaseConnection.AddParameter("performParentUpdate", false); // This is used in triggers. (always set this to false since the wiseritem service takes care of the parent updates in this case)
 
                     //Aggregated fields must be saved directly on creation
-                    var fieldsWithAggregatedTrue = entityTypeSettings.FieldOptions
-                        .Where(kv => kv.Value.TryGetValue(Constants.EnableAggregationKey, out var value) && value is true
-                        && wiserItem.Details.Any(detail => (detail.Key + "_" + (detail.LanguageCode??"") == kv.Key)))
-                        .ToList();
-                    var additionalAggregatedColumns = string.Join(", ", fieldsWithAggregatedTrue.Select(kv => $"{kv.Key.Trim('_')}"));
-                    var additionalAggregatedColumnParameterNames = string.Join(", ", fieldsWithAggregatedTrue.Select(kv => $"?{kv.Key}"));
-                    foreach (var fieldToAggregate in fieldsWithAggregatedTrue)
-                    {
-                        var itemDetail = wiserItem.Details.FirstOrDefault(detail => detail.Key + "_" + (detail.LanguageCode??"") == fieldToAggregate.Key);
-                        databaseConnection.AddParameter(fieldToAggregate.Key, itemDetail.Value);
-                    }
-                    
-                    //And those fields can be left out of the update (because the update function is often called after the create function, for example at the Save function.
-                    //so set changed to false for these fields so the update procedure won't execute another query for these fields.
-                    wiserItem.Details.Where(detail => fieldsWithAggregatedTrue.Any(kv => (detail.Key + "_" + (detail.LanguageCode??"") == kv.Key))).ToList().ForEach(
-                        detail => detail.Changed=false
-                        );
+                    var (additionalAggregatedColumns, additionalAggregatedColumnParameterNames, _) = await getAggregatedColumnsAndParameters(entityTypeSettings, wiserItem);
                     
                     var query = $@"SET @saveHistory = ?saveHistoryGcl;
 SET @_userId = ?userId;
@@ -811,11 +828,10 @@ GROUP BY ep.property_name";
                             itemDetail.Changed = false;
                         }
                     }
-
+                    
+                    var updateQueryParts = new List<string>();
                     if (wiserItem.Changed)
                     {
-                        var updateQueryParts = new List<string>();
-
                         // Save the item itself (if needed).
                         if (!String.IsNullOrEmpty(wiserItem.Title))
                         {
@@ -881,12 +897,7 @@ GROUP BY ep.property_name";
 
                         databaseConnection.AddParameter("changed_on", DateTime.Now);
                         updateQueryParts.Add("changed_on = ?changed_on");
-                        var query = $@"SET @_username = ?username;
-SET @_userId = ?userId;
-SET @saveHistory = ?saveHistoryGcl;
-UPDATE {tablePrefix}{WiserTableNames.WiserItem} SET {String.Join(",", updateQueryParts)} WHERE id = ?itemId";
-                        await databaseConnection.ExecuteAsync(query);
-
+                        
                         // Save SEO value of title, if required.
                         if (!String.IsNullOrEmpty(wiserItem.Title) && entityTypeSettings.SaveTitleAsSeo)
                         {
@@ -902,7 +913,21 @@ UPDATE {tablePrefix}{WiserTableNames.WiserItem} SET {String.Join(",", updateQuer
                             insertQueryBuilder.Add($"(?languageCode{parameterSuffix}, ?itemId, ?groupName{parameterSuffix}, ?key{parameterSuffix}, ?value{parameterSuffix}, ?longValue{parameterSuffix})");
                             //await AddItemDetailInsertOrUpdateQueryAsync("_title");
                         }
+                    }
+                    
+                    //Update aggregated columns 
+                    var (_, __, updateStringForAggregatedDetails) = await getAggregatedColumnsAndParameters(entityTypeSettings, wiserItem);
 
+                    // Execute query in database
+                    if (updateQueryParts.Count > 0 || (!string.IsNullOrEmpty(updateStringForAggregatedDetails) && !skipDetails))
+                    {
+                        var query = $@"SET @_username = ?username;
+                                       SET @_userId = ?userId;
+                                       SET @saveHistory = ?saveHistoryGcl;
+                                       UPDATE {tablePrefix}{WiserTableNames.WiserItem} 
+                                         SET {String.Join(",", String.Join(",", updateQueryParts), (skipDetails ? "" : updateStringForAggregatedDetails))} 
+                                         WHERE id = ?itemId";
+                        await databaseConnection.ExecuteAsync(query);
                         wiserItem.Changed = false;
                     }
 
@@ -1335,10 +1360,10 @@ SET @saveHistory = ?saveHistoryGcl;
                     }*/
 
                     // Add or update item in aggregation table(s) when needed.
-                    if (!isNewlyCreatedItem)
+                    /*if (!isNewlyCreatedItem)
                     {
                         await wiserItemsService.HandleItemAggregationAsync(wiserItem, encryptionKey);                        
-                    }
+                    }*/
 
                     // Execute the after update query, if one is entered.
                     await ExecuteWorkflowAsync(itemId, false, entityTypeSettings, wiserItem, userId, username);
@@ -1682,7 +1707,7 @@ VALUES ('UNDELETE_ITEM', 'wiser_item', ?itemId, IFNULL(@_username, USER()), ?ent
                     if (!String.IsNullOrWhiteSpace(entityType))
                     {
                         // Now (un)delete the item from the aggregation table, if applicable.
-                        var aggregationSettings = await GetAggregationSettingsAsync(entityType);
+                        /*var aggregationSettings = await GetAggregationSettingsAsync(entityType);
                         if (aggregationSettings != null && aggregationSettings.Any())
                         {
                             if (undelete)
@@ -1697,7 +1722,7 @@ VALUES ('UNDELETE_ITEM', 'wiser_item', ?itemId, IFNULL(@_username, USER()), ?ent
                             {
                                 await databaseConnection.ExecuteAsync($"DELETE FROM `{aggregationSettings.First().TableName}` WHERE id IN ({formattedItemIds})");
                             }
-                        }
+                        }*/
 
                         // Also delete children of this item, if applicable.
                         foreach (var linkSettings in allLinkTypeSettings.Where(l => l.CascadeDelete && String.Equals(l.DestinationEntityType, entityType)))
@@ -2429,16 +2454,37 @@ WHERE {String.Join(" AND ", where)}";
             }
 
             // Add all columns from wiser_item table to list.
-            var firstRow = dataTable.Rows[0];
-            var result = DataRowToItem(firstRow);
+            var wiserItem = DataRowToItem(dataTable.Rows[0]);
+            
+            // Add all aggregated values to the list
+            var fieldsWithAggregatedTrue = entitySettings.FieldOptions
+                .Where(kv => kv.Value.TryGetValue(Constants.EnableAggregationKey, out var value) && value is true
+                    && dataTable.Columns.Contains(kv.Key.TrimEnd('_'))
+                    ) 
+                .ToList();
+            
+            //Add aggregated columns to the item details
+            foreach (var field in fieldsWithAggregatedTrue)
+            {
+                wiserItem.Details.Add(new WiserItemDetailModel
+                {
+                    Key = field.Value[Constants.PropertyNameKey].ToString(),
+                    Value = dataTable.Rows[0][field.Key.TrimEnd('_')],
+                    LanguageCode = field.Value[Constants.LanguageCodeKey].ToString(),
+                    GroupName = "", //Groupname is always empty, because cannot be aggregated!
+                    Changed = false
+                });
+            }
+
+            wiserItem.Changed = false;
 
             // Add all details of item to list.
             foreach (DataRow row in dataTable.Rows)
             {
-                AddDetailFromDataRow(result, row);
+                AddDetailFromDataRow(wiserItem, row);
             }
 
-            return result;
+            return wiserItem;
         }
 
         /// <inheritdoc />
@@ -4417,11 +4463,19 @@ WHERE id = ?saveDetailId";
         private static void AddDetailFromDataRow(WiserItemModel wiserItem, DataRow dataRow)
         {
             var key = dataRow.Field<string>("key");
+            var languageCode = dataRow.Field<string>("language_code");
+            var groupName = dataRow.Table.Columns.Contains("groupname") ? dataRow.Field<string>("groupname") : null;
             if (String.IsNullOrWhiteSpace(key))
             {
                 return;
             }
 
+            if (wiserItem.Details.Any(d =>
+                    (d.Key == key && d.LanguageCode == languageCode && d.GroupName == groupName)))
+            {
+                return;                
+            }
+            
             wiserItem.Details.Add(new WiserItemDetailModel
             {
                 Key = key,
@@ -4465,7 +4519,7 @@ WHERE id = ?saveDetailId";
             wiserItem.Removed = dataRow.Table.Columns.Contains("removed") && Convert.ToInt32(dataRow["removed"]) > 0;
             wiserItem.Title = dataRow.Field<string>("title");
             wiserItem.UniqueUuid = dataRow.Field<string>("unique_uuid");
-
+            
             wiserItem.Changed = false;
             return wiserItem;
         }
