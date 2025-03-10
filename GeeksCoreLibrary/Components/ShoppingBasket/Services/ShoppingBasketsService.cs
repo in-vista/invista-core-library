@@ -673,7 +673,7 @@ WHERE `order`.entity_type IN ('{OrderProcess.Models.Constants.OrderEntityType}',
             // Save all fields, also the readonly fields, so actual prices etc. will be saved to the database.
             foreach (var detail in conceptOrder.Details)
             {
-                detail.Id = basketToConceptOrderMethod == OrderProcessBasketToConceptOrderMethods.Convert ? detail.Id : 0;
+                //detail.Id = basketToConceptOrderMethod == OrderProcessBasketToConceptOrderMethods.Convert ? detail.Id : 0;
                 detail.Changed = true;
                 if (detail.ReadOnly)
                 {
@@ -708,7 +708,7 @@ WHERE `order`.entity_type IN ('{OrderProcess.Models.Constants.OrderEntityType}',
                 // Save all fields, also the readonly fields, so actual prices etc. will be saved to the database.
                 foreach (var detail in conceptLine.Details)
                 {
-                    detail.Id = basketToConceptOrderMethod == OrderProcessBasketToConceptOrderMethods.Convert ? detail.Id : 0;
+                    //detail.Id = basketToConceptOrderMethod == OrderProcessBasketToConceptOrderMethods.Convert ? detail.Id : 0;
                     detail.Changed = true;
                     if (detail.ReadOnly)
                     {
