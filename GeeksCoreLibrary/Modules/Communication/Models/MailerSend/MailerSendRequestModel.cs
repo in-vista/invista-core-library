@@ -55,6 +55,11 @@ public class MailerSendRequestModel
     /// Settings to use when sending the email 
     /// </summary>
     public MailerSendSettingsModel Settings { get; set; }
+    
+    /// <summary>
+    /// Tags to save with the email. Limit is max 5 tags. 
+    /// </summary>
+    public List<string> Tags { get; set; }
 }
 
 public class MailerSendContactModel
