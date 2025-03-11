@@ -138,5 +138,10 @@ namespace GeeksCoreLibrary.Modules.Communication.Models
         /// Gets or sets the provider to handle the communication.
         /// </summary>
         public string Provider { get; set; }
+        
+        /// <summary>
+        ///  Gets or sets the tags which must be send to the provider (if supported)
+        /// </summary>
+        public List<string> Tags { get; set; }
     }
 }
