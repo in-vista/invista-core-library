@@ -16,6 +16,11 @@ namespace GeeksCoreLibrary.Core.Models
         {
             Current = this;
         }
+        
+        /// <summary>
+        /// If set the orderprocess middleware is skipped
+        /// </summary>
+        public bool DisableOrderProcessMiddleWare { get; set; }
 
         /// <summary>
         /// The default connection string for the current website.

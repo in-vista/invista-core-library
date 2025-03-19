@@ -901,9 +901,15 @@ namespace GeeksCoreLibrary.Components.OrderProcess.Services
                 }
 
                 // Add order ID to the URLs for later reference.
-                var queryParameters = new Dictionary<string, string> {{"order", orderId.ToString().Encrypt()}};
-                paymentMethodSettings.PaymentServiceProvider.SuccessUrl = UriHelpers.AddToQueryString(String.IsNullOrEmpty(paymentMethodSettings.PaymentServiceProvider.SuccessUrl) ? $"{webhookUrl.Scheme}://{webhookUrl.Host}/" : paymentMethodSettings.PaymentServiceProvider.SuccessUrl, queryParameters);
-                paymentMethodSettings.PaymentServiceProvider.PendingUrl = UriHelpers.AddToQueryString(String.IsNullOrEmpty(paymentMethodSettings.PaymentServiceProvider.PendingUrl) ? $"{webhookUrl.Scheme}://{webhookUrl.Host}/" : paymentMethodSettings.PaymentServiceProvider.PendingUrl, queryParameters);
+                var queryParameters = new Dictionary<string, string>
+                {
+                    { "order", orderId.ToString().Encrypt() },
+                    { Constants.SelectedPaymentMethodRequestKey, paymentMethodSettings.Id.ToString() }
+                };
+                // For local debugging ad portnumber
+                var port = (webhookUrl.Port!=443 && webhookUrl.Port!=80 ? $":{webhookUrl.Port}" : "");
+                paymentMethodSettings.PaymentServiceProvider.SuccessUrl = UriHelpers.AddToQueryString(String.IsNullOrEmpty(paymentMethodSettings.PaymentServiceProvider.SuccessUrl) ? $"{webhookUrl.Scheme}://{webhookUrl.Host}{port}/" : paymentMethodSettings.PaymentServiceProvider.SuccessUrl, queryParameters);
+                paymentMethodSettings.PaymentServiceProvider.PendingUrl = UriHelpers.AddToQueryString(String.IsNullOrEmpty(paymentMethodSettings.PaymentServiceProvider.PendingUrl) ? $"{webhookUrl.Scheme}://{webhookUrl.Host}{port}/" : paymentMethodSettings.PaymentServiceProvider.PendingUrl, queryParameters);
                 // Generate invoice number.
                 var invoiceNumber = "";
                 var invoiceNumberQuery = (await templatesService.GetTemplateContentAsync(name: Constants.InvoiceNumberQueryTemplate, type: TemplateTypes.Query))?.Content;
@@ -1106,7 +1112,7 @@ namespace GeeksCoreLibrary.Components.OrderProcess.Services
                     }
 
                     // Allow custom code to be executed before we send the user to the PSP and cancel the payment if the code returned false.
-                    var success = await orderProcessesService.PaymentStatusUpdateBeforeCommunicationAsync(main, lines, hasAlreadyBeenConvertedToOrderBefore, isSuccessfulStatus);    
+                    var success = await orderProcessesService.PaymentStatusUpdateBeforeCommunicationAsync(main, lines, orderProcessSettings, hasAlreadyBeenConvertedToOrderBefore, isSuccessfulStatus);    
                 
                     if (!success)
                     {

@@ -74,8 +74,9 @@ namespace GeeksCoreLibrary.Core.Extensions
         /// </summary>
         /// <param name="builder"></param>
         /// <param name="env"></param>
+        /// <param name="configuration"></param>
         /// <returns></returns>
-        public static IApplicationBuilder UseGclMiddleware(this IApplicationBuilder builder, IWebHostEnvironment env)
+        public static IApplicationBuilder UseGclMiddleware(this IApplicationBuilder builder, IWebHostEnvironment env, IConfiguration configuration=null)
         {
             if (env.IsDevelopment())
             {
@@ -101,7 +102,12 @@ namespace GeeksCoreLibrary.Core.Extensions
 
             builder.UseWebMarkupMin();
             builder.UseMiddleware<WiserItemFilesMiddleware>();
-            builder.UseMiddleware<RewriteUrlToOrderProcessMiddleware>();
+            
+            var configurationSection = configuration?.GetSection("GCL");
+            var gclSettings = configurationSection?.Get<GclSettings>();
+            if (!gclSettings?.DisableOrderProcessMiddleWare ?? true)
+                builder.UseMiddleware<RewriteUrlToOrderProcessMiddleware>();
+
             builder.UseMiddleware<RewriteUrlToWebPageMiddleware>();
             builder.UseMiddleware<RewriteUrlToTemplateMiddleware>();
 
