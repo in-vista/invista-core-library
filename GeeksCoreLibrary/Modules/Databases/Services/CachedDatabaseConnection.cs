@@ -102,7 +102,7 @@ namespace GeeksCoreLibrary.Modules.Databases.Services
                 }
 
                 generatedCacheName.Append('_').Append(branchesService.GetDatabaseNameFromCookie());
-
+                Console.WriteLine("Cached query: " + cacheName);
                 cacheName = generatedCacheName.ToString();
             }
            

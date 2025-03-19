@@ -642,7 +642,8 @@ WHERE id = ?id";
                     TrackClicks = false,
                     TrackContent = false,
                     TrackOpens = false
-                }
+                },
+                Tags = communication.Tags
             };
 
             var attachments = await GetAttachmentsAsync(communication);

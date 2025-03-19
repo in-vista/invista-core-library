@@ -26,7 +26,7 @@ namespace GeeksCoreLibrary.Core.Interfaces
         /// <param name="storeTypeOverride">Optional: Override the storeType of the item.</param>
         /// <param name="alwaysSaveReadOnly">Save the value even if it is marked as readonly.</param>
         /// <returns>The same <see cref="WiserItemModel"/> again, with the new ID.</returns>
-        Task<WiserItemModel> SaveAsync(WiserItemModel wiserItem, ulong? parentId = null, int linkTypeNumber = 0, ulong userId = 0, string username = "GCL", string encryptionKey = "", bool alwaysSaveValues = false, bool saveHistory = true, bool createNewTransaction = true, bool skipPermissionsCheck = false, StoreType? storeTypeOverride = null, bool alwaysSaveReadOnly = false);
+        Task<WiserItemModel> SaveAsync(WiserItemModel wiserItem, ulong? parentId = null, int linkTypeNumber = 0, ulong userId = 0, string username = "GCL", string encryptionKey = "", bool alwaysSaveValues = false, bool saveHistory = true, bool createNewTransaction = true, bool skipPermissionsCheck = false, StoreType? storeTypeOverride = null, bool alwaysSaveReadOnly = false, string parentEntityType = "");
 
         /// <summary>
         /// Saves an item. If the item has an ID of 0, a new item will be created.
@@ -45,7 +45,7 @@ namespace GeeksCoreLibrary.Core.Interfaces
         /// <param name="storeTypeOverride">Optional: Override the storeType of the item.</param>
         /// <param name="alwaysSaveReadOnly">Save the value even if it is marked as readonly.</param>
         /// <returns>The same <see cref="WiserItemModel"/> again, with the new ID.</returns>
-        Task<WiserItemModel> SaveAsync(IWiserItemsService wiserItemsService, WiserItemModel wiserItem, ulong? parentId = null, int linkTypeNumber = 0, ulong userId = 0, string username = "GCL", string encryptionKey = "", bool alwaysSaveValues = false, bool saveHistory = true, bool createNewTransaction = true, bool skipPermissionsCheck = false, StoreType? storeTypeOverride = null, bool alwaysSaveReadOnly = false);
+        Task<WiserItemModel> SaveAsync(IWiserItemsService wiserItemsService, WiserItemModel wiserItem, ulong? parentId = null, int linkTypeNumber = 0, ulong userId = 0, string username = "GCL", string encryptionKey = "", bool alwaysSaveValues = false, bool saveHistory = true, bool createNewTransaction = true, bool skipPermissionsCheck = false, StoreType? storeTypeOverride = null, bool alwaysSaveReadOnly = false, string parentEntityType = "");
 
         /// <summary>
         /// Creates an item.
@@ -63,7 +63,7 @@ namespace GeeksCoreLibrary.Core.Interfaces
         /// <param name="storeTypeOverride">Optional: Override the storeType of the item.</param>
         /// <returns>The same <see cref="WiserItemModel"/> again, with the new ID.</returns>
         /// <exception cref="System.ArgumentNullException">If wiserItem or entityType is <see langword="null"/>.</exception>
-        Task<WiserItemModel> CreateAsync(WiserItemModel wiserItem, ulong? parentId = null, int linkTypeNumber = 1, ulong userId = 0, string username = "GCL", string encryptionKey = "", bool saveHistory = true, bool createNewTransaction = true, bool skipPermissionsCheck = false, StoreType? storeTypeOverride = null);
+        Task<WiserItemModel> CreateAsync(WiserItemModel wiserItem, ulong? parentId = null, int linkTypeNumber = 1, ulong userId = 0, string username = "GCL", string encryptionKey = "", bool saveHistory = true, bool createNewTransaction = true, bool skipPermissionsCheck = false, StoreType? storeTypeOverride = null, string parentEntityType = "");
 
         /// <summary>
         /// Creates an item.
@@ -82,7 +82,7 @@ namespace GeeksCoreLibrary.Core.Interfaces
         /// <param name="storeTypeOverride">Optional: Override the storeType of the item.</param>
         /// <returns>The same <see cref="WiserItemModel"/> again, with the new ID.</returns>
         /// <exception cref="System.ArgumentNullException">If wiserItem or entityType is <see langword="null"/>.</exception>
-        Task<WiserItemModel> CreateAsync(IWiserItemsService wiserItemsService, WiserItemModel wiserItem, ulong? parentId = null, int linkTypeNumber = 1, ulong userId = 0, string username = "GCL", string encryptionKey = "", bool saveHistory = true, bool createNewTransaction = true, bool skipPermissionsCheck = false, StoreType? storeTypeOverride = null);
+        Task<WiserItemModel> CreateAsync(IWiserItemsService wiserItemsService, WiserItemModel wiserItem, ulong? parentId = null, int linkTypeNumber = 1, ulong userId = 0, string username = "GCL", string encryptionKey = "", bool saveHistory = true, bool createNewTransaction = true, bool skipPermissionsCheck = false, StoreType? storeTypeOverride = null, string parentEntityType = "");
 
         /// <summary>
         /// Duplicate an item. This could also duplicate links and linked items, depending on the settings in wiser_link.
