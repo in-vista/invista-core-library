@@ -80,13 +80,13 @@ namespace GeeksCoreLibrary.Core.Services
         #region Implemented methods from interface
 
         /// <inheritdoc />
-        public async Task<WiserItemModel> SaveAsync(WiserItemModel wiserItem, ulong? parentId = null, int linkTypeNumber = 0, ulong userId = 0, string username = "GCL", string encryptionKey = "", bool alwaysSaveValues = false, bool saveHistory = true, bool createNewTransaction = true, bool skipPermissionsCheck = false, StoreType? storeTypeOverride = null, bool alwaysSaveReadOnly = false)
+        public async Task<WiserItemModel> SaveAsync(WiserItemModel wiserItem, ulong? parentId = null, int linkTypeNumber = 0, ulong userId = 0, string username = "GCL", string encryptionKey = "", bool alwaysSaveValues = false, bool saveHistory = true, bool createNewTransaction = true, bool skipPermissionsCheck = false, StoreType? storeTypeOverride = null, bool alwaysSaveReadOnly = false, string parentEntityType = "")
         {
-            return await SaveAsync(this, wiserItem, parentId, linkTypeNumber, userId, username, encryptionKey, alwaysSaveValues, saveHistory, createNewTransaction, skipPermissionsCheck, storeTypeOverride, alwaysSaveReadOnly);
+            return await SaveAsync(this, wiserItem, parentId, linkTypeNumber, userId, username, encryptionKey, alwaysSaveValues, saveHistory, createNewTransaction, skipPermissionsCheck, storeTypeOverride, alwaysSaveReadOnly ,parentEntityType:parentEntityType);
         }
 
         /// <inheritdoc />
-        public async Task<WiserItemModel> SaveAsync(IWiserItemsService wiserItemsService, WiserItemModel wiserItem, ulong? parentId = null, int linkTypeNumber = 0, ulong userId = 0, string username = "GCL", string encryptionKey = "", bool alwaysSaveValues = false, bool saveHistory = true, bool createNewTransaction = true, bool skipPermissionsCheck = false, StoreType? storeTypeOverride = null, bool alwaysSaveReadOnly = false)
+        public async Task<WiserItemModel> SaveAsync(IWiserItemsService wiserItemsService, WiserItemModel wiserItem, ulong? parentId = null, int linkTypeNumber = 0, ulong userId = 0, string username = "GCL", string encryptionKey = "", bool alwaysSaveValues = false, bool saveHistory = true, bool createNewTransaction = true, bool skipPermissionsCheck = false, StoreType? storeTypeOverride = null, bool alwaysSaveReadOnly = false, string parentEntityType = "")
         {
             var retries = 0;
             var transactionCompleted = false;
@@ -141,6 +141,9 @@ namespace GeeksCoreLibrary.Core.Services
 
                         // When a new item has been created the values always need to be saved. There is no use to check if they have been changed since they are all new.
                         alwaysSaveValues = true;
+                        
+                        // Also when a new item has been created the changed property can be set to false as this item is new at this point
+                        wiserItem.Changed = false;
                     }
 
                     wiserItem = await wiserItemsService.UpdateAsync(wiserItem.Id, wiserItem, userId, username, encryptionKey, alwaysSaveValues, saveHistory, false, skipPermissionsCheck, isNewlyCreated, alwaysSaveReadOnly);
@@ -182,13 +185,13 @@ namespace GeeksCoreLibrary.Core.Services
         }
 
         /// <inheritdoc />
-        public async Task<WiserItemModel> CreateAsync(WiserItemModel wiserItem, ulong? parentId = null, int linkTypeNumber = 1, ulong userId = 0, string username = "GCL", string encryptionKey = "", bool saveHistory = true, bool createNewTransaction = true, bool skipPermissionsCheck = false, StoreType? storeTypeOverride = null)
+        public async Task<WiserItemModel> CreateAsync(WiserItemModel wiserItem, ulong? parentId = null, int linkTypeNumber = 1, ulong userId = 0, string username = "GCL", string encryptionKey = "", bool saveHistory = true, bool createNewTransaction = true, bool skipPermissionsCheck = false, StoreType? storeTypeOverride = null, string parentEntityType = "")
         {
-            return await CreateAsync(this, wiserItem, parentId, linkTypeNumber, userId, username, encryptionKey, saveHistory, createNewTransaction, skipPermissionsCheck, storeTypeOverride);
+            return await CreateAsync(this, wiserItem, parentId, linkTypeNumber, userId, username, encryptionKey, saveHistory, createNewTransaction, skipPermissionsCheck, storeTypeOverride, parentEntityType:parentEntityType);
         }
 
         /// <inheritdoc />
-        public async Task<WiserItemModel> CreateAsync(IWiserItemsService wiserItemsService, WiserItemModel wiserItem, ulong? parentId = null, int linkTypeNumber = 1, ulong userId = 0, string username = "GCL", string encryptionKey = "", bool saveHistory = true, bool createNewTransaction = true, bool skipPermissionsCheck = false, StoreType? storeTypeOverride = null)
+        public async Task<WiserItemModel> CreateAsync(IWiserItemsService wiserItemsService, WiserItemModel wiserItem, ulong? parentId = null, int linkTypeNumber = 1, ulong userId = 0, string username = "GCL", string encryptionKey = "", bool saveHistory = true, bool createNewTransaction = true, bool skipPermissionsCheck = false, StoreType? storeTypeOverride = null, string parentEntityType = "")
         {
             if (String.IsNullOrWhiteSpace(wiserItem?.EntityType))
             {
@@ -238,6 +241,37 @@ namespace GeeksCoreLibrary.Core.Services
                 try
                 {
                     if (createNewTransaction && !alreadyHadTransaction) await databaseConnection.BeginTransactionAsync();
+                    
+                    LinkSettingsModel linkTypeSettings = null;
+                    long ordering = 0;
+                    if (parentId.HasValue)
+                    {
+                        // Check where we need to save the link to the parent ID.
+                        if (parentEntityType == "")
+                        {
+                            databaseConnection.AddParameter("parentId", parentId.Value);
+                            var parentEntityTypeTable = await databaseConnection.GetAsync(
+                                $@"SELECT entity_type FROM {tablePrefix}{WiserTableNames.WiserItem} WHERE id = ?parentId",
+                                true);
+                            if (parentEntityTypeTable.Rows.Count > 0)
+                            {
+                                parentEntityType = parentEntityTypeTable.Rows[0].Field<string>("entity_type");
+                            }
+                        }
+                        
+                        linkTypeSettings = await wiserItemsService.GetLinkTypeSettingsAsync(linkTypeNumber>1 ? linkTypeNumber : 0, wiserItem.EntityType, linkTypeNumber <= 1 ? parentEntityType : "");
+                        if (linkTypeSettings is {UseItemParentId: true})
+                        {
+                            // Save parent ID in parent_item_id column of wiser_item.
+                            wiserItem.ParentItemId = parentId.Value;
+                            if (entityTypeSettings.DefaultOrdering == EntityOrderingTypes.LinkOrdering)
+                            {
+                                var orderResult = await databaseConnection.GetAsync($"SELECT IFNULL(MAX(ordering), 0) + 1 AS newOrdering FROM {tablePrefix}{WiserTableNames.WiserItem} WHERE parent_item_id = ?parentId", skipCache: true);
+                                ordering = orderResult.Rows.Count > 0 ? orderResult.Rows[0].Field<long>("newOrdering") : 1;
+                            }
+                        }
+                    }
+                    
                     if (wiserItem.Id > 0) databaseConnection.AddParameter("id", wiserItem.Id);
                     databaseConnection.AddParameter("moduleId", wiserItem.ModuleId);
                     databaseConnection.AddParameter("ordering", wiserItem.Ordering);
@@ -245,7 +279,8 @@ namespace GeeksCoreLibrary.Core.Services
                     databaseConnection.AddParameter("entityType", wiserItem.EntityType);
                     databaseConnection.AddParameter("parentId", parentId);
                     databaseConnection.AddParameter("linkTypeNumber", linkTypeNumber);
-                    databaseConnection.AddParameter("username", username);
+                    databaseConnection.AddParameter("addedOn", wiserItem.AddedOn.Year<1950 ? "" : wiserItem.AddedOn);
+                    databaseConnection.AddParameter("username", string.IsNullOrEmpty(wiserItem.AddedBy) ? username : wiserItem.AddedBy);
                     databaseConnection.AddParameter("userId", userId);
                     databaseConnection.AddParameter("publishedEnvironment",
                                                     wiserItem.PublishedEnvironment ?? Environments.Live | Environments.Acceptance | Environments.Test | Environments.Development);
@@ -253,12 +288,14 @@ namespace GeeksCoreLibrary.Core.Services
                     databaseConnection.AddParameter("jsonLastProcessedDate", wiserItem.JsonLastProcessedDate);
                     databaseConnection.AddParameter("saveHistoryGcl", saveHistory); // This is used in triggers.
                     databaseConnection.AddParameter("performParentUpdate", false); // This is used in triggers. (always set this to false since the wiseritem service takes care of the parent updates in this case)
-
+                    databaseConnection.AddParameter("newOrdering", ordering);
+                    databaseConnection.AddParameter("parentId", wiserItem.ParentItemId);
+                    
                     var query = $@"SET @saveHistory = ?saveHistoryGcl;
 SET @_userId = ?userId;
 SET @saveHistory = ?saveHistoryGcl;
-INSERT INTO {tablePrefix}{WiserTableNames.WiserItem} ({(wiserItem.Id > 0 ? "id," : "")} moduleid, title, entity_type, added_by, published_environment, json, json_last_processed_date)
-VALUES ({(wiserItem.Id > 0 ? "?id," : "")} ?moduleId, ?title, ?entityType, ?username, ?publishedEnvironment, ?json, ?jsonLastProcessedDate);
+INSERT INTO {tablePrefix}{WiserTableNames.WiserItem} ({(wiserItem.Id > 0 ? "id," : "")} parent_item_id, ordering, moduleid, title, entity_type, added_by, published_environment, json, json_last_processed_date)
+VALUES ({(wiserItem.Id > 0 ? "?id," : "")} ?parentId, ?newOrdering, ?moduleId, ?title, ?entityType, ?username, ?publishedEnvironment, ?json, ?jsonLastProcessedDate);
 SELECT {(wiserItem.Id > 0 ? "?id" : "LAST_INSERT_ID()")} AS newId;";
                     var queryResult = await databaseConnection.GetAsync(query, true);
 
@@ -274,38 +311,10 @@ SELECT {(wiserItem.Id > 0 ? "?id" : "LAST_INSERT_ID()")} AS newId;";
                     {
                         return wiserItem;
                     }
-
-                    // Check where we need to save the link to the parent ID.
-                    databaseConnection.AddParameter("parentId", parentId.Value);
-                    queryResult = await databaseConnection.GetAsync($@"SELECT entity_type FROM {tablePrefix}{WiserTableNames.WiserItem} WHERE id = ?parentId", true);
-                    var destinationEntityType = "";
-                    if (queryResult.Rows.Count > 0)
-                    {
-                        destinationEntityType = queryResult.Rows[0].Field<string>("entity_type");
-                    }
                     
-                    var linkTypeSettings = await wiserItemsService.GetLinkTypeSettingsAsync(linkTypeNumber>1 ? linkTypeNumber : 0, wiserItem.EntityType, linkTypeNumber <= 1 ? destinationEntityType : "");
-                    if (linkTypeSettings is {UseItemParentId: true})
-                    {
-                        // Save parent ID in parent_item_id column of wiser_item.
-                        wiserItem.ParentItemId = parentId.Value;
-                        databaseConnection.AddParameter("newItemId", wiserItem.Id);
-                        databaseConnection.AddParameter("parentId", parentId);
-                        if (entityTypeSettings.DefaultOrdering == EntityOrderingTypes.LinkOrdering)
-                        {
-                            var orderResult = await databaseConnection.GetAsync($"SELECT IFNULL(MAX(ordering), 0) + 1 AS newOrdering FROM {tablePrefix}{WiserTableNames.WiserItem} WHERE parent_item_id = ?parentId", skipCache: true);
-                            databaseConnection.AddParameter("newOrdering", orderResult.Rows.Count > 0 ? orderResult.Rows[0].Field<long>("newOrdering") : 1);
-                        }
-                        else
-                        {
-                            //Do not save if the ordering of this entity is set to itemTitle, because in that case orering does not matter (for example for baskets)
-                            databaseConnection.AddParameter("newOrdering", 1);
-                        }
-                        await databaseConnection.ExecuteAsync($"UPDATE {tablePrefix}{WiserTableNames.WiserItem} SET parent_item_id = ?parentId, ordering = @newOrdering WHERE id = ?newItemId");
-                    }
                     // If the link type states to not store the link as parent_id, but rather in a dedicated link table.
                     // Additionally check if the link would be valid, by checking if neither the source, destination and type are "0" (invalid).
-                    else if(wiserItem.Id != 0 && parentId.Value != 0 && linkTypeNumber != 0)
+                    if(parentId.HasValue && linkTypeSettings.UseItemParentId==false && wiserItem.Id != 0 && parentId.Value != 0 && linkTypeNumber != 0)
                     {
                         var linkTablePrefix = wiserItemsService.GetTablePrefixForLink(linkTypeSettings);
 
@@ -675,38 +684,42 @@ VALUES (?newId, ?parentId, ?newOrderNumber, ?linkTypeNumber)");
                     databaseConnection.AddParameter("saveHistoryGcl", saveHistory); // This is used in triggers.
                     databaseConnection.AddParameter("performParentUpdate", false); // This is used in triggers. (always set this to false since the wiseritem service takes care of the parent updates in this case)
 
-
-                    // The word "update" at the end of the query is to force the GCL to use the write database (for customers that use multiple databases).
-                    // Otherwise the GCL might throw the exception that the item doesn't exist, if it has just been created and not synchronised to the slave database(s) yet.
-                    var dataTable = await databaseConnection.GetAsync($"SELECT readonly, entity_type, parent_item_id FROM {tablePrefix}{WiserTableNames.WiserItem} WHERE id = ?itemId #UPDATE", true);
-                    if (dataTable.Rows.Count == 0)
-                    {
-                        throw new Exception($"Item with id '{itemId}' does not exist.");
-                    }
-
-                    if (Convert.ToBoolean(dataTable.Rows[0]["readonly"]))
-                    {
-                        throw new Exception($"Item with id '{itemId}' is set to read only.");
-                    }
-
-                    var entityTypeInDatabase = dataTable.Rows[0].Field<string>("entity_type");
-
+                    DataTable dataTable;
+                    
                     // Remember the current changed value, because it will always be set to true when setting the Id/EncryptedId/EntityType.
                     var originalChangedValue = wiserItem.Changed;
+                    
+                    // The word "update" at the end of the query is to force the GCL to use the write database (for customers that use multiple databases).
+                    // Otherwise the GCL might throw the exception that the item doesn't exist, if it has just been created and not synchronised to the slave database(s) yet.
+                    var entityTypeInDatabase = "";
+                    if (!isNewlyCreatedItem)
+                    {
+                        //When the item is just created, there is no reason to check if the item is readonly or if the item exists. So these checks can be skipped.
+                        dataTable = await databaseConnection.GetAsync($"SELECT readonly, entity_type, parent_item_id FROM {tablePrefix}{WiserTableNames.WiserItem} WHERE id = ?itemId #UPDATE", true);
+                        if (dataTable.Rows.Count == 0)
+                        {
+                            throw new Exception($"Item with id '{itemId}' does not exist.");
+                        }
 
+                        if (Convert.ToBoolean(dataTable.Rows[0]["readonly"]))
+                        {
+                            throw new Exception($"Item with id '{itemId}' is set to read only.");
+                        }
+
+                        entityTypeInDatabase = dataTable.Rows[0].Field<string>("entity_type");
+                        // Get entity type of item, we need this later in javascript for executing API work flows.
+                        if (String.IsNullOrWhiteSpace(wiserItem.EntityType))
+                        {
+                            wiserItem.EntityType = entityTypeInDatabase;
+                        }
+                        if (wiserItem.ParentItemId == 0) // ParentItemId is necessary for use in the aggregate functionality
+                        {
+                            wiserItem.ParentItemId = dataTable.Rows[0].Field<ulong>("parent_item_id");
+                        }
+                    }
+                    
                     wiserItem.Id = itemId;
                     wiserItem.EncryptedId = itemId.ToString().EncryptWithAesWithSalt(encryptionKey, true);
-
-                    // Get entity type of item, we need this later in javascript for executing API work flows.
-                    if (String.IsNullOrWhiteSpace(wiserItem.EntityType))
-                    {
-                        wiserItem.EntityType = entityTypeInDatabase;
-                    }
-                    if (wiserItem.ParentItemId == 0) // ParentItemId is necessary for use in the aggregate functionality
-                    {
-                        wiserItem.ParentItemId = dataTable.Rows[0].Field<ulong>("parent_item_id");
-                    }
-
                     wiserItem.Changed = originalChangedValue;
 
                     var insertQueryBuilder = new List<string>();
@@ -3929,6 +3942,7 @@ WHERE {String.Join(" AND ", where)}";
                 await databaseHelpersService.CreateTableAsync(tableName, new List<ColumnSettingsModel> { new("id", MySqlDbType.UInt64) });
                 await databaseHelpersService.AddColumnToTableAsync(tableName, new ColumnSettingsModel("title", MySqlDbType.VarChar, 255));
                 await databaseHelpersService.AddColumnToTableAsync(tableName, new ColumnSettingsModel("parent_item_id", MySqlDbType.UInt64));
+                await databaseHelpersService.AddColumnToTableAsync(tableName, new ColumnSettingsModel("added_by", MySqlDbType.VarChar,255));
 
                 var settingsForThisTable = settings.Where(setting => setting.TableName == tableName).ToList();
 
@@ -3971,6 +3985,7 @@ WHERE {String.Join(" AND ", where)}";
             databaseConnection.AddParameter("id", wiserItem.Id);
             databaseConnection.AddParameter("title", wiserItem.Title);
             databaseConnection.AddParameter("parent_item_id", wiserItem.ParentItemId);
+            databaseConnection.AddParameter("added_by", wiserItem.AddedBy);
             var columnsForQuery = new Dictionary<string, List<string>>();
             var parametersForQuery = new Dictionary<string, List<string>>();
             var counter = 0;
@@ -3978,8 +3993,8 @@ WHERE {String.Join(" AND ", where)}";
             {
                 if (!columnsForQuery.ContainsKey(setting.TableName))
                 {
-                    columnsForQuery.Add(setting.TableName, new List<string> { "id", "title", "parent_item_id" });
-                    parametersForQuery.Add(setting.TableName, new List<string> { "?id", "?title", "?parent_item_id" });
+                    columnsForQuery.Add(setting.TableName, new List<string> { "id", "title", "parent_item_id", "added_by" });
+                    parametersForQuery.Add(setting.TableName, new List<string> { "?id", "?title", "?parent_item_id", "?added_by" });
                 }
 
                 var itemDetail = wiserItem.Details.FirstOrDefault(detail => String.Equals(detail.Key, setting.PropertyName, StringComparison.OrdinalIgnoreCase) && String.Equals(detail.LanguageCode ?? "", setting.LanguageCode ?? "", StringComparison.OrdinalIgnoreCase));
