@@ -100,7 +100,7 @@ namespace GeeksCoreLibrary.Core.Services
                 if (wiserItem.Id == 0)
                 {
                     wiserItem.Json = JsonConvert.SerializeObject(wiserItem);
-                    return await wiserItemsService.CreateAsync(wiserItem, parentId, linkTypeNumber, userId, username, encryptionKey, saveHistory, false, skipPermissionsCheck);
+                    return await wiserItemsService.CreateAsync(wiserItem, parentId, linkTypeNumber, userId, username, encryptionKey, saveHistory, false, skipPermissionsCheck, parentEntityType:parentEntityType);
                 }
 
                 if (storeType == StoreType.DocumentStore)
