@@ -498,9 +498,7 @@ WHERE `order`.entity_type IN ('{OrderProcess.Models.Constants.OrderEntityType}',
 
             if (String.IsNullOrWhiteSpace(shoppingBasket.EntityType) || shoppingBasket.Id == 0UL)
             {
-                shoppingBasket.AddedOn = DateTime.Now;
                 shoppingBasket.EntityType = Constants.BasketEntityType;
-                shoppingBasket.AddedBy = "GCL";
                 newBasket = true;
             }
 
@@ -512,7 +510,7 @@ WHERE `order`.entity_type IN ('{OrderProcess.Models.Constants.OrderEntityType}',
                 try
                 {
                     if (createNewTransaction) await databaseConnection.BeginTransactionAsync();
-                    shoppingBasket = await wiserItemsService.SaveAsync(shoppingBasket, alwaysSaveValues: true, saveHistory: false, createNewTransaction: false, skipPermissionsCheck: true);
+                    shoppingBasket = await wiserItemsService.SaveAsync(shoppingBasket, alwaysSaveValues: true, saveHistory: false, createNewTransaction: false, skipPermissionsCheck: true, parentId:shoppingBasket.ParentItemId);
 
                     var lineIds = new List<ulong>();
 
@@ -650,6 +648,8 @@ WHERE `order`.entity_type IN ('{OrderProcess.Models.Constants.OrderEntityType}',
             var conceptOrder = new WiserItemModel
             {
                 Id = basketToConceptOrderMethod == OrderProcessBasketToConceptOrderMethods.Convert ? shoppingBasket.Id : 0,
+                ParentItemId = shoppingBasket.ParentItemId,
+                AddedBy = shoppingBasket.AddedBy,
                 EntityType = OrderProcess.Models.Constants.ConceptOrderEntityType,
                 Details = new List<WiserItemDetailModel>(shoppingBasket.Details)
             };
@@ -697,6 +697,8 @@ WHERE `order`.entity_type IN ('{OrderProcess.Models.Constants.OrderEntityType}',
                     Id = basketToConceptOrderMethod == OrderProcessBasketToConceptOrderMethods.Convert ? line.Id : 0,
                     EntityType = OrderProcess.Models.Constants.OrderLineEntityType,
                     Details = line.Details,
+                    AddedBy = line.AddedBy,
+                    ParentItemId = line.ParentItemId,
                     Title = line.Title
                 };
 
