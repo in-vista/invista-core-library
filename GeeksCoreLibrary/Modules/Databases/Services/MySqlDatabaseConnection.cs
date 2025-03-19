@@ -175,6 +175,7 @@ namespace GeeksCoreLibrary.Modules.Databases.Services
                     throw new GclQueryException("Error trying to run query", query, invalidOperationException);
                 }
 
+                logger.LogError(invalidOperationException, $"Retry - (due to nvalid operation) executing query for {retryCount} time", query);
                 Thread.Sleep(gclSettings.TimeToWaitBeforeRetryingQueryInMilliseconds);
                 return await GetAsync(query, retryCount + 1, cleanUp, useWritingConnectionIfAvailable);
             }
@@ -185,19 +186,20 @@ namespace GeeksCoreLibrary.Modules.Databases.Services
                 // Also, if we've reached the maximum number of retries, don't retry anymore.
                 if (HasActiveTransaction() || retryCount >= gclSettings.MaximumRetryCountForQueries)
                 {
-                    logger.LogError(mySqlException, "Error trying to run this query: {query}", query);
+                    logger.LogError(mySqlException, $"Error trying to run this query: {query}", query);
                     throw new GclQueryException("Error trying to run query", query, mySqlException);
                 }
 
                 // If we're not in a transaction, retry the query if it's a deadlock.
                 if (MySqlErrorCodesToRetry.Contains(mySqlException.Number))
                 {
+                    logger.LogError(mySqlException, $"Retry - (due to mySQL exception) executing query for {retryCount} time", query);
                     Thread.Sleep(gclSettings.TimeToWaitBeforeRetryingQueryInMilliseconds);
                     return await GetAsync(query, retryCount + 1, cleanUp, useWritingConnectionIfAvailable);
                 }
 
                 // For any other errors, just throw the exception.
-                logger.LogError(mySqlException, "Error trying to run this query: {query}", query);
+                logger.LogError(mySqlException, $"Error trying to run this query: {query}", query);
                 throw new GclQueryException("Error trying to run query", query, mySqlException);
             }
             finally
@@ -222,9 +224,9 @@ namespace GeeksCoreLibrary.Modules.Databases.Services
         }
 
         /// <inheritdoc />
-        public Task<int> ExecuteAsync(string query, bool useWritingConnectionIfAvailable = true, bool cleanUp = true)
+        public async Task<int> ExecuteAsync(string query, bool useWritingConnectionIfAvailable = true, bool cleanUp = true)
         {
-            return ExecuteAsync(query, 0, useWritingConnectionIfAvailable, cleanUp);
+            return await ExecuteAsync(query, 0, useWritingConnectionIfAvailable, cleanUp);
         }
 
         /// <summary>
@@ -346,9 +348,9 @@ namespace GeeksCoreLibrary.Modules.Databases.Services
         }
 
         /// <inheritdoc />
-        public Task<long> InsertRecordAsync(string query, bool useWritingConnectionIfAvailable = true)
+        public async Task<long> InsertRecordAsync(string query, bool useWritingConnectionIfAvailable = true)
         {
-            return InsertRecordAsync(query, 0, useWritingConnectionIfAvailable);
+            return await InsertRecordAsync(query, 0, useWritingConnectionIfAvailable);
         }
 
         private async Task<long> InsertRecordAsync(string query, int retryCount, bool useWritingConnectionIfAvailable = true)
