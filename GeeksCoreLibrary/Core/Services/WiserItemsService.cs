@@ -938,7 +938,7 @@ GROUP BY ep.property_name";
                                        SET @_userId = ?userId;
                                        SET @saveHistory = ?saveHistoryGcl;
                                        UPDATE {tablePrefix}{WiserTableNames.WiserItem} 
-                                         SET {String.Join(",", String.Join(",", updateQueryParts), (skipDetails ? "" : updateStringForAggregatedDetails))} 
+                                         SET {String.Join(",", String.Join(",", updateQueryParts), (skipDetails ? "" : updateStringForAggregatedDetails)).Trim(',')} 
                                          WHERE id = ?itemId";
                         await databaseConnection.ExecuteAsync(query);
                         wiserItem.Changed = false;
