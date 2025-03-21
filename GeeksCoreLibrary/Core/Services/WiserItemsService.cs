@@ -284,7 +284,7 @@ namespace GeeksCoreLibrary.Core.Services
                     databaseConnection.AddParameter("entityType", wiserItem.EntityType);
                     databaseConnection.AddParameter("parentId", parentId);
                     databaseConnection.AddParameter("linkTypeNumber", linkTypeNumber);
-                    databaseConnection.AddParameter("addedOn", wiserItem.AddedOn.Year<1950 ? "" : wiserItem.AddedOn);
+                    databaseConnection.AddParameter("addedOn", wiserItem.AddedOn.Year<1950 ? DBNull.Value : wiserItem.AddedOn);
                     databaseConnection.AddParameter("username", string.IsNullOrEmpty(wiserItem.AddedBy) ? username : wiserItem.AddedBy);
                     databaseConnection.AddParameter("userId", userId);
                     databaseConnection.AddParameter("publishedEnvironment",
