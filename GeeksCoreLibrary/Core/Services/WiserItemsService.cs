@@ -198,9 +198,9 @@ namespace GeeksCoreLibrary.Core.Services
                 .Where(kv => kv.Value.TryGetValue(Constants.EnableAggregationKey, out var value) && value is true
                     && wiserItem.Details.Any(detail => (detail.Key + "_" + (detail.LanguageCode??"") == kv.Key)))
                 .ToList();
-            var additionalAggregatedColumns = string.Join(", ", fieldsWithAggregatedTrue.Select(kv => $"{kv.Key.TrimEnd('_')}"));
+            var additionalAggregatedColumns = string.Join(", ", fieldsWithAggregatedTrue.Select(kv => $"`{kv.Key.TrimEnd('_')}`"));
             var additionalAggregatedColumnParameterNames = string.Join(", ", fieldsWithAggregatedTrue.Select(kv => $"?{kv.Key}"));
-            var updateQueryPart = string.Join(", ", fieldsWithAggregatedTrue.Select(kv => $"{kv.Key.TrimEnd('_')}=?{kv.Key}"));
+            var updateQueryPart = string.Join(", ", fieldsWithAggregatedTrue.Select(kv => $"`{kv.Key.TrimEnd('_')}`=?{kv.Key}"));
             foreach (var fieldToAggregate in fieldsWithAggregatedTrue)
             {
                 var itemDetail = wiserItem.Details.FirstOrDefault(detail => detail.Key + "_" + (detail.LanguageCode??"") == fieldToAggregate.Key);
