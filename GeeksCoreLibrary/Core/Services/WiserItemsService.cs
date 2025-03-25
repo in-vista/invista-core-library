@@ -292,14 +292,19 @@ namespace GeeksCoreLibrary.Core.Services
                             }
                         }
                         
+                        //Get the linktype settings
                         linkTypeSettings = await wiserItemsService.GetLinkTypeSettingsAsync(linkTypeNumber>1 ? linkTypeNumber : 0, wiserItem.EntityType, linkTypeNumber <= 1 ? parentEntityType : "");
                         if (linkTypeSettings is {UseItemParentId: true})
                         {
                             // Save parent ID in parent_item_id column of wiser_item.
                             wiserItem.ParentItemId = parentId.Value;
-                            if (entityTypeSettings.DefaultOrdering == EntityOrderingTypes.LinkOrdering)
+                        }
+                        
+                        if (entityTypeSettings.DefaultOrdering == EntityOrderingTypes.LinkOrdering)
+                        {
+                            var orderResult = await databaseConnection.GetAsync($"SELECT IFNULL(MAX(ordering), 0) + 1 AS newOrdering FROM {tablePrefix}{WiserTableNames.WiserItem} WHERE parent_item_id = ?parentId", skipCache: true);
+                            if (orderResult.Rows.Count > 0)
                             {
-                                var orderResult = await databaseConnection.GetAsync($"SELECT IFNULL(MAX(ordering), 0) + 1 AS newOrdering FROM {tablePrefix}{WiserTableNames.WiserItem} WHERE parent_item_id = ?parentId", skipCache: true);
                                 ordering = orderResult.Rows.Count > 0 ? orderResult.Rows[0].Field<long>("newOrdering") : 1;
                             }
                         }
@@ -312,7 +317,7 @@ namespace GeeksCoreLibrary.Core.Services
                     databaseConnection.AddParameter("entityType", wiserItem.EntityType);
                     databaseConnection.AddParameter("parentId", parentId);
                     databaseConnection.AddParameter("linkTypeNumber", linkTypeNumber);
-                    databaseConnection.AddParameter("addedOn", wiserItem.AddedOn.Year<1950 ? "" : wiserItem.AddedOn);
+                    databaseConnection.AddParameter("addedOn", wiserItem.AddedOn.Year<1950 ? DBNull.Value : wiserItem.AddedOn);
                     databaseConnection.AddParameter("username", string.IsNullOrEmpty(wiserItem.AddedBy) ? username : wiserItem.AddedBy);
                     databaseConnection.AddParameter("userId", userId);
                     databaseConnection.AddParameter("publishedEnvironment",
@@ -356,17 +361,9 @@ SELECT {(wiserItem.Id > 0 ? "?id" : "LAST_INSERT_ID()")} AS newId;";
                         var linkTablePrefix = wiserItemsService.GetTablePrefixForLink(linkTypeSettings);
 
                         // Save parent ID in wiser_itemlink.
-                        var newOrderNumber = 1;
-                        queryResult = await databaseConnection.GetAsync($"SELECT IFNULL(MAX(ordering), 0) + 1 AS newOrderNumber FROM {linkTablePrefix}{WiserTableNames.WiserItemLink} WHERE destination_item_id = ?parentId", true);
-                        if (queryResult.Rows.Count > 0)
-                        {
-                            newOrderNumber = Convert.ToInt32(queryResult.Rows[0]["newOrderNumber"]);
-                        }
-
                         databaseConnection.AddParameter("newId", wiserItem.Id);
-                        databaseConnection.AddParameter("newOrderNumber", newOrderNumber);
                         await databaseConnection.ExecuteAsync($@"INSERT INTO {linkTablePrefix}{WiserTableNames.WiserItemLink} (item_id, destination_item_id, ordering, type)
-VALUES (?newId, ?parentId, ?newOrderNumber, ?linkTypeNumber)");
+                                                                      VALUES (?newId, ?parentId, ?newOrdering, ?linkTypeNumber)");
                     }
 
                     if (createNewTransaction && !alreadyHadTransaction) await databaseConnection.CommitTransactionAsync();
