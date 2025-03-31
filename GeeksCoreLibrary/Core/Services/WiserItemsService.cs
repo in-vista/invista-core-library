@@ -246,10 +246,11 @@ namespace GeeksCoreLibrary.Core.Services
                     long ordering = 0;
                     if (parentId.HasValue)
                     {
+                        databaseConnection.AddParameter("parentId", parentId.Value);
+                        
                         // Check where we need to save the link to the parent ID.
                         if (parentEntityType == "")
                         {
-                            databaseConnection.AddParameter("parentId", parentId.Value);
                             var parentEntityTypeTable = await databaseConnection.GetAsync(
                                 $@"SELECT entity_type FROM {tablePrefix}{WiserTableNames.WiserItem} WHERE id = ?parentId",
                                 true);
