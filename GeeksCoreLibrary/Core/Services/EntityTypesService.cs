@@ -170,7 +170,7 @@ public class EntityTypesService : IEntityTypesService, IScopedService
                 var languageCode = dataRow.Field<string>("language_code");
                 var alsoSaveSeoValue = Convert.ToBoolean(dataRow["also_save_seo_value"]);
                 var readOnly = Convert.ToBoolean(dataRow["readonly"]);
-                var enableAggregation = Convert.ToBoolean(dataRow["enable_aggregation"]);
+                var enableAggregation = Convert.ToInt32(dataRow["enable_aggregation"]);
 
                 var options = new Dictionary<string, object>();
                 if (!String.IsNullOrWhiteSpace(optionsJson))
