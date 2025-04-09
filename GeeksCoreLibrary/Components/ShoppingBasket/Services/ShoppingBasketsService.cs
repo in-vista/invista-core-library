@@ -670,24 +670,27 @@ WHERE `order`.entity_type IN ('{OrderProcess.Models.Constants.OrderEntityType}',
                 }
             }
 
-            // Save all fields, also the readonly fields, so actual prices etc. will be saved to the database.
-            foreach (var detail in conceptOrder.Details)
+            if (basketToConceptOrderMethod == OrderProcessBasketToConceptOrderMethods.CreateCopy)
             {
-                //detail.Id = basketToConceptOrderMethod == OrderProcessBasketToConceptOrderMethods.Convert ? detail.Id : 0;
-                detail.Changed = true;
-                if (detail.ReadOnly)
+                // Save all fields, also the readonly fields, so actual prices etc. will be saved to the database.
+                foreach (var detail in conceptOrder.Details)
                 {
-                    detail.ReadOnly = false;
+                    //detail.Id = basketToConceptOrderMethod == OrderProcessBasketToConceptOrderMethods.Convert ? detail.Id : 0;
+                    detail.Changed = true;
+                    if (detail.ReadOnly)
+                    {
+                        detail.ReadOnly = false;
+                    }
                 }
-            }
 
-            if (userId > 0)
-            {
-                await wiserItemsService.SaveAsync(conceptOrder, userId, linkTypeOrderToUser, alwaysSaveValues: true, skipPermissionsCheck: true);
-            }
-            else
-            {
-                await wiserItemsService.SaveAsync(conceptOrder, alwaysSaveValues: true, skipPermissionsCheck: true);
+                if (userId > 0)
+                {
+                    await wiserItemsService.SaveAsync(conceptOrder, userId, linkTypeOrderToUser, alwaysSaveValues: true, skipPermissionsCheck: true);
+                }
+                else
+                {
+                    await wiserItemsService.SaveAsync(conceptOrder, alwaysSaveValues: true, skipPermissionsCheck: true);
+                }
             }
 
             foreach (var line in basketLines)
@@ -2148,7 +2151,7 @@ WHERE `order`.entity_type IN ('{OrderProcess.Models.Constants.OrderEntityType}',
                 return basketLines;
             }
 
-            return basketLines.Where(line => line != null && line.GetDetailValue("type").Equals(lineType, StringComparison.OrdinalIgnoreCase)).ToList();
+            return basketLines.Where(line => line != null && line.GetDetailValue("type")!=null && line.GetDetailValue("type").ToString().Equals(lineType, StringComparison.OrdinalIgnoreCase)).ToList();
         }
 
         /// <inheritdoc />
