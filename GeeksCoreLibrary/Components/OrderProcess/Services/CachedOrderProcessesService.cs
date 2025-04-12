@@ -73,6 +73,10 @@ namespace GeeksCoreLibrary.Components.OrderProcess.Services
         public override async Task<PaymentMethodSettingsModel> GetPaymentMethodAsync(ulong paymentMethodId)
         {
             var cacheName = $"OrderProcessGetPaymentMethodAsync_{paymentMethodId}_{branchesService.GetDatabaseNameFromCookie()}";
+            //So a value of 0 seconds alsways works
+            if (gclSettings.DefaultOrderProcessCacheDuration.TotalSeconds==0)
+                return await orderProcessesService.GetPaymentMethodAsync(paymentMethodId);
+
             return await cache.GetOrAddAsync(cacheName,
                 delegate(ICacheEntry cacheEntry)
                 {                    

@@ -97,7 +97,8 @@ public class EntityTypesService : IEntityTypesService, IScopedService
                                 property.language_code,
                                 property.options,
                                 property.also_save_seo_value,
-                                property.readonly
+                                property.readonly,
+                                property.enable_aggregation
                             # DUAL is a fake MySQL table that you can use in queries. We use it because sometimes there is no row in wiser_entity and sometimes no row in wiser_entityproperty, so both of these need to be left joins.
                             FROM (SELECT 1 FROM DUAL) AS d
                             LEFT JOIN {WiserTableNames.WiserEntity} AS entity ON entity.name = ?entityType
@@ -169,6 +170,7 @@ public class EntityTypesService : IEntityTypesService, IScopedService
                 var languageCode = dataRow.Field<string>("language_code");
                 var alsoSaveSeoValue = Convert.ToBoolean(dataRow["also_save_seo_value"]);
                 var readOnly = Convert.ToBoolean(dataRow["readonly"]);
+                var enableAggregation = Convert.ToInt32(dataRow["enable_aggregation"]);
 
                 var options = new Dictionary<string, object>();
                 if (!String.IsNullOrWhiteSpace(optionsJson))
@@ -179,6 +181,9 @@ public class EntityTypesService : IEntityTypesService, IScopedService
                 options.Add(Constants.FieldTypeKey, fieldType);
                 options.Add(Constants.SaveSeoValueKey, alsoSaveSeoValue);
                 options.Add(Constants.ReadOnlyKey, readOnly);
+                options.Add(Constants.EnableAggregationKey, enableAggregation);
+                options.Add(Constants.LanguageCodeKey, languageCode);
+                options.Add(Constants.PropertyNameKey, propertyName);
 
                 settings.FieldOptions[$"{propertyName}_{languageCode}"] = options;
 

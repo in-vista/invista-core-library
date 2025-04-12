@@ -21,7 +21,8 @@ namespace GeeksCoreLibrary.Core.Extensions
         /// <returns>The URL encoded string.</returns>
         public static string UrlEncode(this string input)
         {
-            return System.Net.WebUtility.UrlEncode(input);
+            //return System.Net.WebUtility.UrlEncode(input);
+            return input == null ? null : Uri.EscapeDataString(input);
         }
 
         /// <summary>
@@ -31,7 +32,8 @@ namespace GeeksCoreLibrary.Core.Extensions
         /// <returns>The URL decoded string.</returns>
         public static string UrlDecode(this string input)
         {
-            return System.Net.WebUtility.UrlDecode(input);
+            return input == null ? null : Uri.UnescapeDataString(input);
+            //return System.Net.WebUtility.UrlDecode(input);
         }
 
         /// <summary>

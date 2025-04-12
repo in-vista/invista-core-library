@@ -4,7 +4,7 @@ namespace GeeksCoreLibrary.Core.Models
 {
     public class WiserItemDetailModel
     {
-        private ulong id;
+        /*private ulong id;
 
         /// <summary>
         /// Gets or sets the ID of the item detail.
@@ -21,7 +21,7 @@ namespace GeeksCoreLibrary.Core.Models
                 }
                 id = value;
             }
-        }
+        }*/
 
         private bool changed;
         private bool changedSetToFalseManually;
@@ -31,7 +31,7 @@ namespace GeeksCoreLibrary.Core.Models
         /// </summary>
         public bool Changed
         {
-            get => changed || (id == 0 && !changedSetToFalseManually);
+            get => changed || (/*id == 0 && */!changedSetToFalseManually);
             set
             {
                 changed = value;

@@ -498,9 +498,7 @@ WHERE `order`.entity_type IN ('{OrderProcess.Models.Constants.OrderEntityType}',
 
             if (String.IsNullOrWhiteSpace(shoppingBasket.EntityType) || shoppingBasket.Id == 0UL)
             {
-                shoppingBasket.AddedOn = DateTime.Now;
                 shoppingBasket.EntityType = Constants.BasketEntityType;
-                shoppingBasket.AddedBy = "GCL";
                 newBasket = true;
             }
 
@@ -512,7 +510,7 @@ WHERE `order`.entity_type IN ('{OrderProcess.Models.Constants.OrderEntityType}',
                 try
                 {
                     if (createNewTransaction) await databaseConnection.BeginTransactionAsync();
-                    shoppingBasket = await wiserItemsService.SaveAsync(shoppingBasket, alwaysSaveValues: true, saveHistory: false, createNewTransaction: false, skipPermissionsCheck: true);
+                    shoppingBasket = await wiserItemsService.SaveAsync(shoppingBasket, alwaysSaveValues: true, saveHistory: false, createNewTransaction: false, skipPermissionsCheck: true, parentId:shoppingBasket.ParentItemId);
 
                     var lineIds = new List<ulong>();
 
@@ -650,6 +648,8 @@ WHERE `order`.entity_type IN ('{OrderProcess.Models.Constants.OrderEntityType}',
             var conceptOrder = new WiserItemModel
             {
                 Id = basketToConceptOrderMethod == OrderProcessBasketToConceptOrderMethods.Convert ? shoppingBasket.Id : 0,
+                ParentItemId = shoppingBasket.ParentItemId,
+                AddedBy = shoppingBasket.AddedBy,
                 EntityType = OrderProcess.Models.Constants.ConceptOrderEntityType,
                 Details = new List<WiserItemDetailModel>(shoppingBasket.Details)
             };
@@ -670,24 +670,27 @@ WHERE `order`.entity_type IN ('{OrderProcess.Models.Constants.OrderEntityType}',
                 }
             }
 
-            // Save all fields, also the readonly fields, so actual prices etc. will be saved to the database.
-            foreach (var detail in conceptOrder.Details)
+            if (basketToConceptOrderMethod == OrderProcessBasketToConceptOrderMethods.CreateCopy)
             {
-                detail.Id = basketToConceptOrderMethod == OrderProcessBasketToConceptOrderMethods.Convert ? detail.Id : 0;
-                detail.Changed = true;
-                if (detail.ReadOnly)
+                // Save all fields, also the readonly fields, so actual prices etc. will be saved to the database.
+                foreach (var detail in conceptOrder.Details)
                 {
-                    detail.ReadOnly = false;
+                    //detail.Id = basketToConceptOrderMethod == OrderProcessBasketToConceptOrderMethods.Convert ? detail.Id : 0;
+                    detail.Changed = true;
+                    if (detail.ReadOnly)
+                    {
+                        detail.ReadOnly = false;
+                    }
                 }
-            }
 
-            if (userId > 0)
-            {
-                await wiserItemsService.SaveAsync(conceptOrder, userId, linkTypeOrderToUser, alwaysSaveValues: true, skipPermissionsCheck: true);
-            }
-            else
-            {
-                await wiserItemsService.SaveAsync(conceptOrder, alwaysSaveValues: true, skipPermissionsCheck: true);
+                if (userId > 0)
+                {
+                    await wiserItemsService.SaveAsync(conceptOrder, userId, linkTypeOrderToUser, alwaysSaveValues: true, skipPermissionsCheck: true);
+                }
+                else
+                {
+                    await wiserItemsService.SaveAsync(conceptOrder, alwaysSaveValues: true, skipPermissionsCheck: true);
+                }
             }
 
             foreach (var line in basketLines)
@@ -697,6 +700,8 @@ WHERE `order`.entity_type IN ('{OrderProcess.Models.Constants.OrderEntityType}',
                     Id = basketToConceptOrderMethod == OrderProcessBasketToConceptOrderMethods.Convert ? line.Id : 0,
                     EntityType = OrderProcess.Models.Constants.OrderLineEntityType,
                     Details = line.Details,
+                    AddedBy = line.AddedBy,
+                    ParentItemId = line.ParentItemId,
                     Title = line.Title
                 };
 
@@ -708,7 +713,7 @@ WHERE `order`.entity_type IN ('{OrderProcess.Models.Constants.OrderEntityType}',
                 // Save all fields, also the readonly fields, so actual prices etc. will be saved to the database.
                 foreach (var detail in conceptLine.Details)
                 {
-                    detail.Id = basketToConceptOrderMethod == OrderProcessBasketToConceptOrderMethods.Convert ? detail.Id : 0;
+                    //detail.Id = basketToConceptOrderMethod == OrderProcessBasketToConceptOrderMethods.Convert ? detail.Id : 0;
                     detail.Changed = true;
                     if (detail.ReadOnly)
                     {
@@ -2146,7 +2151,7 @@ WHERE `order`.entity_type IN ('{OrderProcess.Models.Constants.OrderEntityType}',
                 return basketLines;
             }
 
-            return basketLines.Where(line => line != null && line.GetDetailValue("type").Equals(lineType, StringComparison.OrdinalIgnoreCase)).ToList();
+            return basketLines.Where(line => line != null && line.GetDetailValue("type")!=null && line.GetDetailValue("type").ToString().Equals(lineType, StringComparison.OrdinalIgnoreCase)).ToList();
         }
 
         /// <inheritdoc />
