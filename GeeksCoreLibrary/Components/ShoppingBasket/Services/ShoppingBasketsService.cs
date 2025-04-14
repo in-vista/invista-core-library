@@ -2483,7 +2483,7 @@ WHERE `order`.entity_type IN ('{OrderProcess.Models.Constants.OrderEntityType}',
         public async Task<decimal> GetLinePriceAsync(WiserItemModel shoppingBasket, WiserItemModel line, ShoppingBasketCmsSettingsModel settings, ShoppingBasket.PriceTypes priceType = ShoppingBasket.PriceTypes.InVatInDiscount, bool singlePrice = false, bool round = false, int onlyIfVatRate = -1, bool withoutFactor = false, bool useOriginalPrice = false)
         {
             var output = 0M;
-            var quantity = 1;
+            var quantity = 1M;
             var factor = 1M;
             var price = 0M;
             var priceIncludesVat = Convert.ToBoolean(await objectsService.FindSystemObjectByDomainNameAsync("W2_PricesIncludeVat", "true"));
@@ -2492,7 +2492,7 @@ WHERE `order`.entity_type IN ('{OrderProcess.Models.Constants.OrderEntityType}',
 
             if (!String.IsNullOrWhiteSpace(line.GetDetailValue(settings.QuantityPropertyName)))
             {
-                quantity = line.GetDetailValue<int>(settings.QuantityPropertyName);
+                quantity = line.GetDetailValue<decimal>(settings.QuantityPropertyName);
             }
 
             if (!withoutFactor && !String.IsNullOrWhiteSpace(line.GetDetailValue(settings.FactorPropertyName)))
