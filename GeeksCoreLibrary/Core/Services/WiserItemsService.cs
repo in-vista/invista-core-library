@@ -379,6 +379,7 @@ SELECT {(wiserItem.Id > 0 ? "?id" : "LAST_INSERT_ID()")} AS newId;";
 
                         // Save parent ID in wiser_itemlink.
                         databaseConnection.AddParameter("newId", wiserItem.Id);
+                        databaseConnection.AddParameter("parentId", parentId);
                         await databaseConnection.ExecuteAsync($@"INSERT INTO {linkTablePrefix}{WiserTableNames.WiserItemLink} (item_id, destination_item_id, ordering, type)
                                                                       VALUES (?newId, ?parentId, ?newOrdering, ?linkTypeNumber)");
                     }
