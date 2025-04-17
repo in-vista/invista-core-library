@@ -1913,7 +1913,7 @@ namespace GeeksCoreLibrary.Components.Account
                 Dictionary<string, object> writeCookieReplacementData =
                     new Dictionary<string, object>
                     {
-                        { "userId", decryptedUserId }
+                        { "userId", loggedInUserId }
                     };
                 
                 // Apply replacements and evaluate the query.
