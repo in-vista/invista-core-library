@@ -1190,7 +1190,15 @@ WHERE item.id = ?itemId");
                             //{
                             if (!isNewlyCreatedItem)
                             {
-                                deleteQueryBuilder.Add($"(`key` = ?key{counter} AND language_code = ?languageCode{counter})");                                
+                                if (string.IsNullOrEmpty(itemDetail.Key))
+                                {
+                                    deleteQueryBuilder.Add($"`id` = ?detail_id{counter}");
+                                    databaseConnection.AddParameter($"detail_id{counter}", itemDetail.Id);
+                                }
+                                else
+                                {
+                                    deleteQueryBuilder.Add($"(`key` = ?key{counter} AND language_code = ?languageCode{counter})");
+                                }
                             }
                             //}
                         }
