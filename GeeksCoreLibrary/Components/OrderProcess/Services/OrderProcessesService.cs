@@ -909,8 +909,25 @@ namespace GeeksCoreLibrary.Components.OrderProcess.Services
                 };
                 // For local debugging ad portnumber
                 var port = (webhookUrl.Port!=443 && webhookUrl.Port!=80 ? $":{webhookUrl.Port}" : "");
-                paymentMethodSettings.PaymentServiceProvider.SuccessUrl = UriHelpers.AddToQueryString(String.IsNullOrEmpty(paymentMethodSettings.PaymentServiceProvider.SuccessUrl) ? $"{webhookUrl.Scheme}://{webhookUrl.Host}{port}/" : paymentMethodSettings.PaymentServiceProvider.SuccessUrl, queryParameters);
-                paymentMethodSettings.PaymentServiceProvider.PendingUrl = UriHelpers.AddToQueryString(String.IsNullOrEmpty(paymentMethodSettings.PaymentServiceProvider.PendingUrl) ? $"{webhookUrl.Scheme}://{webhookUrl.Host}{port}/" : paymentMethodSettings.PaymentServiceProvider.PendingUrl, queryParameters);
+              
+                if (Uri.IsWellFormedUriString(paymentMethodSettings.PaymentServiceProvider.SuccessUrl, UriKind.Absolute))
+                {
+                    paymentMethodSettings.PaymentServiceProvider.SuccessUrl = UriHelpers.AddToQueryString(String.IsNullOrEmpty(paymentMethodSettings.PaymentServiceProvider.SuccessUrl) ? $"{webhookUrl.Scheme}://{webhookUrl.Host}{port}/" : paymentMethodSettings.PaymentServiceProvider.SuccessUrl, queryParameters);    
+                }
+                else
+                {
+                    throw new Exception("No valid absolute URL given for SuccessUrl.");
+                }
+                
+                if (Uri.IsWellFormedUriString(paymentMethodSettings.PaymentServiceProvider.PendingUrl, UriKind.Absolute))
+                {
+                    paymentMethodSettings.PaymentServiceProvider.PendingUrl = UriHelpers.AddToQueryString(String.IsNullOrEmpty(paymentMethodSettings.PaymentServiceProvider.PendingUrl) ? $"{webhookUrl.Scheme}://{webhookUrl.Host}{port}/" : paymentMethodSettings.PaymentServiceProvider.PendingUrl, queryParameters);
+                } 
+                else
+                {
+                    throw new Exception("No valid absolute URL given for PendingUrl.");
+                }
+                
                 // Generate invoice number.
                 var invoiceNumber = "";
                 var invoiceNumberQuery = (await templatesService.GetTemplateContentAsync(name: Constants.InvoiceNumberQueryTemplate, type: TemplateTypes.Query))?.Content;
