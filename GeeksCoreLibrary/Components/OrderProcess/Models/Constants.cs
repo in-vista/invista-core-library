@@ -9,19 +9,19 @@
 
         #region Pages
 
-        public const string CheckoutPage = "orderProcessCheckout.gcl";
+        public const string CheckoutPage = "orderprocesscheckout.gcl";
 
-        public const string PaymentInPage = "orderProcessPaymentIn.gcl";
+        public const string PaymentInPage = "orderprocesspaymentin.gcl";
 
-        public const string PaymentOutPage = "orderProcessPaymentOut.gcl";
+        public const string PaymentOutPage = "orderprocesspaymentout.gcl";
 
-        public const string PaymentReturnPage = "orderProcessPaymentReturn.gcl";
+        public const string PaymentReturnPage = "orderprocesspaymentreturn.gcl";
         
-        public const string DirectPaymentInPage = "directPaymentIn.gcl";
+        public const string DirectPaymentInPage = "directpaymentin.gcl";
 
-        public const string DirectPaymentOutPage = "directPaymentOut.gcl";
+        public const string DirectPaymentOutPage = "directpaymentout.gcl";
 
-        public const string DirectPaymentReturnPage = "directPaymentReturn.gcl";
+        public const string DirectPaymentReturnPage = "directpaymentreturn.gcl";
 
         public const string DownloadInvoicePage = "/orders/invoice/";
 
