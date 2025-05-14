@@ -372,8 +372,8 @@ SELECT {(wiserItem.Id > 0 ? "?id" : "LAST_INSERT_ID()")} AS newId;";
                     }
                     
                     // If the link type states to not store the link as parent_id, but rather in a dedicated link table.
-                    // Additionally check if the link would be valid, by checking if neither the source, destination and type are "0" (invalid).
-                    if(parentId.HasValue && linkTypeSettings.UseItemParentId==false && wiserItem.Id != 0 && parentId.Value != 0 && linkTypeNumber != 0)
+                    // Additionally check if the link would be valid, by checking if neither the source and type are "0" (invalid).
+                    if(parentId.HasValue && linkTypeSettings.UseItemParentId==false && wiserItem.Id != 0 && linkTypeNumber != 0)
                     {
                         var linkTablePrefix = wiserItemsService.GetTablePrefixForLink(linkTypeSettings);
 
