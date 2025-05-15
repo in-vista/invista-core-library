@@ -60,6 +60,11 @@ public class MailerSendRequestModel
     /// Tags to save with the email. Limit is max 5 tags. 
     /// </summary>
     public List<string> Tags { get; set; }
+    
+    /// <summary>
+    /// Headers to save with the email. Please note that this feature is available to Professional and Enterprise accounts only.
+    /// </summary>
+    public List<MailerSendHeadersModel> Headers { get; set; }
 }
 
 public class MailerSendContactModel
@@ -81,6 +86,12 @@ public class MailerSendSettingsModel
     public bool TrackClicks { get; set; }
     public bool TrackOpens { get; set; }
     public bool TrackContent  { get; set; }
+}
+
+public class MailerSendHeadersModel
+{
+    public string Name { get; set; }
+    public string Value { get; set; }
 }
 
 // All keys must be lower case to MailerSend API
