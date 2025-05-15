@@ -646,6 +646,15 @@ WHERE id = ?id";
                 Tags = communication.Tags
             };
 
+            if (smtpSettings.MailerSendSettings.IsProfessionalOrEnterpriseAccount)
+            {
+                requestBody.Headers = new List<MailerSendHeadersModel>
+                {
+                    new() { Name = "id", Value = communication.Id.ToString() },
+                    new() { Name = "communication-id", Value = communication.CommunicationId.ToString() }
+                };
+            }
+
             var attachments = await GetAttachmentsAsync(communication);
             if (attachments != null && attachments.Any())
             {
