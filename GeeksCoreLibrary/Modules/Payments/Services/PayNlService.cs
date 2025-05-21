@@ -78,7 +78,7 @@ public class PayNlService(
         restRequest.AddParameter("serviceId", payNlSettings.ServiceId);
         restRequest.AddParameter("amount", (int) Math.Round(totalPrice * 100));
         restRequest.AddParameter("ipAddress", HttpContextHelpers.GetUserIpAddress(httpContextAccessor?.HttpContext));
-        restRequest.AddParameter("finishUrl", payNlSettings.ReturnUrl);
+        restRequest.AddParameter("finishUrl", payNlSettings.SuccessUrl);
         restRequest.AddParameter("testmode", (gclSettings.Environment.InList(Environments.Test, Environments.Development) ? 1 : 0));
         restRequest.AddParameter("paymentOptionId", 10);
         //restRequest.AddParameter("paymentOptionSubId", xxx);→ Bankkeuze bij iDEAL
