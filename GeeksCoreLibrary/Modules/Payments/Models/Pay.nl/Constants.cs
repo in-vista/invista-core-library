@@ -2,7 +2,7 @@
 
 public class Constants
 {
-    public const string WebhookInvoiceNumberProperty = "orderId";
+    public const string WebhookInvoiceNumberProperty = "order_id";
 
     public const string PayNlAccountCodeProperty = "paynlaccountcode";
 

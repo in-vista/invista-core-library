@@ -98,7 +98,7 @@ public class PayNlService(
             {
                 var transactionId = new WiserItemDetailModel()
                 {
-                    Key = "PayNlTransactionId",
+                    Key = "uniquePaymentNumber",
                     Value = responseJson["transaction"]?["transactionId"]?.ToString()
                 };
                 await wiserItemsService.SaveItemDetailAsync(transactionId, order.Main.Id, entityType: "ConceptOrder");
@@ -127,10 +127,10 @@ public class PayNlService(
             var resp = responseJson == null ? null : JsonConvert.SerializeObject(responseJson);
             
             var parameters = restRequest.Parameters
-                .Where(p => p.Type == ParameterType.RequestBody)
+                .Where(p => p.Type == ParameterType.GetOrPost)
                 .Select(p => $"{Uri.EscapeDataString(p.Name)}={Uri.EscapeDataString(p.Value?.ToString() ?? "")}");
 
-            await AddLogEntryAsync(PaymentServiceProviders.PayNl, invoiceNumber, requestBody: string.Join("&", parameters), responseBody: resp, error: error, isIncomingRequest: false);
+            await AddLogEntryAsync(PaymentServiceProviders.PayNl, invoiceNumber, requestFormValues: string.Join("&", parameters), responseBody: resp, error: error, isIncomingRequest: false);
         }
     }
     
