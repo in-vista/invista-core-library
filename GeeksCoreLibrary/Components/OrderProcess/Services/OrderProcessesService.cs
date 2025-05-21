@@ -1353,8 +1353,8 @@ namespace GeeksCoreLibrary.Components.OrderProcess.Services
                 main.SetDetail(Constants.PaymentCompleteProperty, result);
                 await shoppingBasketsService.SaveAsync(main, lines, basketSettings);
             }
-
-            return (result && pspUpdateResult.Successful);
+            
+            return result && !pspUpdateResult.Status.ToLower().Contains("error");
         }
 
         /// <inheritdoc />
