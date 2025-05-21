@@ -1354,7 +1354,7 @@ namespace GeeksCoreLibrary.Components.OrderProcess.Services
                 await shoppingBasketsService.SaveAsync(main, lines, basketSettings);
             }
 
-            return result;
+            return (result && pspUpdateResult.Successful);
         }
 
         /// <inheritdoc />

@@ -147,7 +147,7 @@ namespace GeeksCoreLibrary.Components.OrderProcess.Controllers
                 throw new Exception("Payment update webhook failed.");
             }
 
-            return Content("", "text/html");
+            return Content("TRUE", "text/html");
         }
 
         [Route(Constants.PaymentReturnPage)]
