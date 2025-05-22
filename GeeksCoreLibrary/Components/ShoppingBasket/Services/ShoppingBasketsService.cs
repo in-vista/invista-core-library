@@ -875,7 +875,7 @@ WHERE `order`.entity_type IN ('{OrderProcess.Models.Constants.OrderEntityType}',
         }
 
         /// <inheritdoc />
-        public async Task ConvertConceptOrderToOrderAsync(WiserItemModel conceptOrder, ShoppingBasketCmsSettingsModel settings)
+        public async Task ConvertConceptOrderToOrderAsync(WiserItemModel conceptOrder, ShoppingBasketCmsSettingsModel settings, bool backToBasketInsteadOfOrder = false)
         {
             var retries = 0;
             var transactionCompleted = false;
@@ -886,26 +886,32 @@ WHERE `order`.entity_type IN ('{OrderProcess.Models.Constants.OrderEntityType}',
                 {
                     await databaseConnection.BeginTransactionAsync();
 
-                    await wiserItemsService.ChangeEntityTypeAsync(conceptOrder.Id, OrderProcess.Models.Constants.ConceptOrderEntityType, OrderProcess.Models.Constants.OrderEntityType, skipPermissionsCheck: true, resetAddedOnDate: true);
-
-                    // Check if there is a AfterCreateConceptOrder query in the templates module and execute this query if present.
-                    var afterConvertToOrderQuery = (await templatesService.GetTemplateContentAsync(0, "AfterConvertToOrder", TemplateTypes.Query)).Content;
-                    if (!String.IsNullOrWhiteSpace(afterConvertToOrderQuery))
+                    if (backToBasketInsteadOfOrder)
                     {
-                        var query = stringReplacementsService.DoSessionReplacements(afterConvertToOrderQuery, true);
-
-                        var replacementData = new Dictionary<string, object> {{"orderId", conceptOrder.Id}};
-
-                        var orderLineToOrderLinkType = await wiserItemsService.GetLinkTypeAsync(OrderProcess.Models.Constants.OrderEntityType, OrderProcess.Models.Constants.OrderLineEntityType);
-                        var orderLines = await wiserItemsService.GetLinkedItemDetailsAsync(conceptOrder.Id, orderLineToOrderLinkType, OrderProcess.Models.Constants.OrderLineEntityType, itemIdEntityType: OrderProcess.Models.Constants.OrderEntityType, skipPermissionsCheck: true);
-
-                        query = stringReplacementsService.DoReplacements(query, replacementData, forQuery: true);
-                        query = await ReplaceBasketInTemplateAsync(conceptOrder, orderLines, settings, query, forQuery: true);
-                        query = stringReplacementsService.DoHttpRequestReplacements(query, true);
-
-                        await databaseConnection.ExecuteAsync(query);
+                        await wiserItemsService.ChangeEntityTypeAsync(conceptOrder.Id, OrderProcess.Models.Constants.ConceptOrderEntityType, Constants.BasketEntityType, skipPermissionsCheck: true, resetAddedOnDate: false);
                     }
+                    else 
+                    {
+                        await wiserItemsService.ChangeEntityTypeAsync(conceptOrder.Id, OrderProcess.Models.Constants.ConceptOrderEntityType, OrderProcess.Models.Constants.OrderEntityType, skipPermissionsCheck: true, resetAddedOnDate: true);
+                    
+                        // Check if there is a AfterConvertToOrder query in the templates module and execute this query if present.
+                        var afterConvertToOrderQuery = (await templatesService.GetTemplateContentAsync(0, "AfterConvertToOrder", TemplateTypes.Query)).Content;
+                        if (!String.IsNullOrWhiteSpace(afterConvertToOrderQuery))
+                        {
+                            var query = stringReplacementsService.DoSessionReplacements(afterConvertToOrderQuery, true);
 
+                            var replacementData = new Dictionary<string, object> {{"orderId", conceptOrder.Id}};
+
+                            var orderLineToOrderLinkType = await wiserItemsService.GetLinkTypeAsync(OrderProcess.Models.Constants.OrderEntityType, OrderProcess.Models.Constants.OrderLineEntityType);
+                            var orderLines = await wiserItemsService.GetLinkedItemDetailsAsync(conceptOrder.Id, orderLineToOrderLinkType, OrderProcess.Models.Constants.OrderLineEntityType, itemIdEntityType: OrderProcess.Models.Constants.OrderEntityType, skipPermissionsCheck: true);
+
+                            query = stringReplacementsService.DoReplacements(query, replacementData, forQuery: true);
+                            query = await ReplaceBasketInTemplateAsync(conceptOrder, orderLines, settings, query, forQuery: true);
+                            query = stringReplacementsService.DoHttpRequestReplacements(query, true);
+
+                            await databaseConnection.ExecuteAsync(query);
+                        }
+                    }
                     await databaseConnection.CommitTransactionAsync();
                     transactionCompleted = true;
                 }

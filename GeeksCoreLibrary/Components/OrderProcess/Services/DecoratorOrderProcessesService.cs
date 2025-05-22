@@ -5,6 +5,7 @@ using GeeksCoreLibrary.Components.OrderProcess.Enums;
 using GeeksCoreLibrary.Components.OrderProcess.Interfaces;
 using GeeksCoreLibrary.Components.OrderProcess.Models;
 using GeeksCoreLibrary.Core.Models;
+using GeeksCoreLibrary.Modules.Payments.Models;
 
 namespace GeeksCoreLibrary.Components.OrderProcess.Services;
 
@@ -90,13 +91,35 @@ public abstract class DecoratorOrderProcessesService : IOrderProcessesService
     /// <inheritdoc />
     public virtual async Task<bool> HandlePaymentStatusUpdateAsync(OrderProcessSettingsModel orderProcessSettings, ICollection<(WiserItemModel Main, List<WiserItemModel> Lines)> conceptOrders, string newStatus, bool isSuccessfulStatus, bool convertConceptOrderToOrder = true)
     {
-        return await orderProcessesService.HandlePaymentStatusUpdateAsync(this, orderProcessSettings, conceptOrders, newStatus, isSuccessfulStatus, convertConceptOrderToOrder);
+        var statusUpdateResult = new StatusUpdateResult()
+        {
+            Status = newStatus,
+            Successful = isSuccessfulStatus
+        };
+        return await orderProcessesService.HandlePaymentStatusUpdateAsync(this, orderProcessSettings, conceptOrders, statusUpdateResult, convertConceptOrderToOrder);
     }
 
     /// <inheritdoc />
     public virtual async Task<bool> HandlePaymentStatusUpdateAsync(IOrderProcessesService service, OrderProcessSettingsModel orderProcessSettings, ICollection<(WiserItemModel Main, List<WiserItemModel> Lines)> conceptOrders, string newStatus, bool isSuccessfulStatus, bool convertConceptOrderToOrder = true)
     {
-        return await orderProcessesService.HandlePaymentStatusUpdateAsync(service, orderProcessSettings, conceptOrders, newStatus, isSuccessfulStatus, convertConceptOrderToOrder);
+        var statusUpdateResult = new StatusUpdateResult()
+        {
+            Status = newStatus,
+            Successful = isSuccessfulStatus
+        };
+        return await orderProcessesService.HandlePaymentStatusUpdateAsync(service, orderProcessSettings, conceptOrders, statusUpdateResult, convertConceptOrderToOrder);
+    }
+
+    /// <inheritdoc />
+    public virtual async Task<bool> HandlePaymentStatusUpdateAsync(OrderProcessSettingsModel orderProcessSettings, ICollection<(WiserItemModel Main, List<WiserItemModel> Lines)> conceptOrders, StatusUpdateResult statusUpdateResult, bool convertConceptOrderToOrder = true) 
+    {
+        return await orderProcessesService.HandlePaymentStatusUpdateAsync(orderProcessSettings, conceptOrders, statusUpdateResult, convertConceptOrderToOrder);
+    }
+
+    /// <inheritdoc />
+    public virtual async Task<bool> HandlePaymentStatusUpdateAsync(IOrderProcessesService service, OrderProcessSettingsModel orderProcessSettings, ICollection<(WiserItemModel Main, List<WiserItemModel> Lines)> conceptOrders, StatusUpdateResult statusUpdateResult, bool convertConceptOrderToOrder = true)
+    {
+        return await orderProcessesService.HandlePaymentStatusUpdateAsync(service, orderProcessSettings, conceptOrders, statusUpdateResult, convertConceptOrderToOrder);
     }
 
     /// <inheritdoc />

@@ -101,9 +101,9 @@ namespace GeeksCoreLibrary.Components.ShoppingBasket.Services
         }
 
         /// <inheritdoc />
-        public async Task ConvertConceptOrderToOrderAsync(WiserItemModel conceptOrder, ShoppingBasketCmsSettingsModel settings)
+        public async Task ConvertConceptOrderToOrderAsync(WiserItemModel conceptOrder, ShoppingBasketCmsSettingsModel settings, bool backToBasketInsteadOfOrder = false)
         {
-            await shoppingBasketsService.ConvertConceptOrderToOrderAsync(conceptOrder, settings);
+            await shoppingBasketsService.ConvertConceptOrderToOrderAsync(conceptOrder, settings, backToBasketInsteadOfOrder);
         }
 
         /// <inheritdoc />

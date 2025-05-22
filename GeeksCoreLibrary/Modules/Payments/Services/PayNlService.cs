@@ -183,7 +183,8 @@ public class PayNlService(
         return new StatusUpdateResult
         {
             Successful = responseJson["paymentDetails"]?["state"]?.ToString() == "100",
-            Status = responseJson["paymentDetails"]?["stateName"]?.ToString()
+            Status = responseJson["paymentDetails"]?["stateName"]?.ToString(),
+            StatusCode = Convert.ToInt32(responseJson["paymentDetails"]?["state"])
         };
     }
 

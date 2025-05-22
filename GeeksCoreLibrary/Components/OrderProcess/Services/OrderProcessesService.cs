@@ -1094,13 +1094,35 @@ namespace GeeksCoreLibrary.Components.OrderProcess.Services
         }
 
         /// <inheritdoc />
+        public async Task<bool> HandlePaymentStatusUpdateAsync(OrderProcessSettingsModel orderProcessSettings, ICollection<(WiserItemModel Main, List<WiserItemModel> Lines)> conceptOrders, StatusUpdateResult statusUpdateResult, bool convertConceptOrderToOrder = true)
+        {
+            return await HandlePaymentStatusUpdateAsync(this, orderProcessSettings, conceptOrders, statusUpdateResult, convertConceptOrderToOrder);
+        }
+        
+        /// <inheritdoc />
         public async Task<bool> HandlePaymentStatusUpdateAsync(OrderProcessSettingsModel orderProcessSettings, ICollection<(WiserItemModel Main, List<WiserItemModel> Lines)> conceptOrders, string newStatus, bool isSuccessfulStatus, bool convertConceptOrderToOrder = true)
         {
-            return await HandlePaymentStatusUpdateAsync(this, orderProcessSettings, conceptOrders, newStatus, isSuccessfulStatus, convertConceptOrderToOrder);
+            var statusUpdateResult = new StatusUpdateResult()
+            {
+                Status = newStatus,
+                Successful = isSuccessfulStatus
+            };
+            return await HandlePaymentStatusUpdateAsync(this, orderProcessSettings, conceptOrders, statusUpdateResult, convertConceptOrderToOrder);
         }
 
         /// <inheritdoc />
         public async Task<bool> HandlePaymentStatusUpdateAsync(IOrderProcessesService orderProcessesService, OrderProcessSettingsModel orderProcessSettings, ICollection<(WiserItemModel Main, List<WiserItemModel> Lines)> conceptOrders, string newStatus, bool isSuccessfulStatus, bool convertConceptOrderToOrder = true)
+        {
+            var statusUpdateResult = new StatusUpdateResult()
+            {
+                Status = newStatus,
+                Successful = isSuccessfulStatus
+            };
+            return await HandlePaymentStatusUpdateAsync(orderProcessesService, orderProcessSettings, conceptOrders, statusUpdateResult, convertConceptOrderToOrder);
+        }
+
+        /// <inheritdoc />
+        public async Task<bool> HandlePaymentStatusUpdateAsync(IOrderProcessesService orderProcessesService, OrderProcessSettingsModel orderProcessSettings, ICollection<(WiserItemModel Main, List<WiserItemModel> Lines)> conceptOrders, StatusUpdateResult statusUpdateResult, bool convertConceptOrderToOrder = true)
         {
             var mailsToSendToUser = new List<SingleCommunicationModel>();
             var mailsToSendToMerchant = new List<SingleCommunicationModel>();
@@ -1120,17 +1142,27 @@ namespace GeeksCoreLibrary.Components.OrderProcess.Services
 
                 if (orderProcessSettings == null)
                 {
-                    main.SetDetail(Constants.PaymentHistoryProperty, $"{DateTime.Now:yyyyMMddHHmmss} - {newStatus}", true);
+                    main.SetDetail(Constants.PaymentHistoryProperty, $"{DateTime.Now:yyyyMMddHHmmss} - {statusUpdateResult.Status}", true);
                     await shoppingBasketsService.SaveAsync(main, lines, basketSettings);
 
                     // If order is not finished yet and the payment was successful.
-                    if (!hasAlreadyBeenConvertedToOrderBefore && isSuccessfulStatus && convertConceptOrderToOrder)
+                    if (!hasAlreadyBeenConvertedToOrderBefore && statusUpdateResult.Successful && convertConceptOrderToOrder)
                     {
-                        await shoppingBasketsService.ConvertConceptOrderToOrderAsync(main, basketSettings);
+                        await shoppingBasketsService.ConvertConceptOrderToOrderAsync(main, basketSettings, false);
+                    }
+                    else if (!hasAlreadyBeenConvertedToOrderBefore && statusUpdateResult.StatusCode<0) // StatusCode<0 is a Pay. final status (not pending) that the payment failed or is canceled.
+                    {
+                        await shoppingBasketsService.ConvertConceptOrderToOrderAsync(main, basketSettings, true);
+                        
+                        // Set lines back to basketlines. Lines are converted to orderlines when basket becomes conceptorder
+                        foreach (var line in lines)
+                        { 
+                            await wiserItemsService.ChangeEntityTypeAsync(line.Id, line.EntityType, ShoppingBasket.Models.Constants.BasketLineEntityType, skipPermissionsCheck: true, resetAddedOnDate: false);
+                        }
                     }
 
                     // Allow custom code to be executed before we send the user to the PSP and cancel the payment if the code returned false.
-                    var success = await orderProcessesService.PaymentStatusUpdateBeforeCommunicationAsync(main, lines, orderProcessSettings, hasAlreadyBeenConvertedToOrderBefore, isSuccessfulStatus);    
+                    var success = await orderProcessesService.PaymentStatusUpdateBeforeCommunicationAsync(main, lines, orderProcessSettings, hasAlreadyBeenConvertedToOrderBefore, statusUpdateResult.Successful);    
                 
                     if (!success)
                     {
@@ -1229,17 +1261,26 @@ namespace GeeksCoreLibrary.Components.OrderProcess.Services
 
                     main.SetDetail("user_mail_body", emailContent);
                     main.SetDetail("user_mail_subject", emailSubject);
-                    main.SetDetail(Constants.PaymentHistoryProperty, $"{DateTime.Now:yyyyMMddHHmmss} - {newStatus}", true);
+                    main.SetDetail(Constants.PaymentHistoryProperty, $"{DateTime.Now:yyyyMMddHHmmss} - {statusUpdateResult.Status}", true);
                     await shoppingBasketsService.SaveAsync(main, lines, basketSettings);
 
                     // If order is not finished yet and the payment was successful.
-                    if (!hasAlreadyBeenConvertedToOrderBefore && isSuccessfulStatus && convertConceptOrderToOrder)
+                    if (!hasAlreadyBeenConvertedToOrderBefore && statusUpdateResult.Successful && convertConceptOrderToOrder)
                     {
-                        await shoppingBasketsService.ConvertConceptOrderToOrderAsync(main, basketSettings);
+                        await shoppingBasketsService.ConvertConceptOrderToOrderAsync(main, basketSettings, false);
                     }
-
+                    else if (!hasAlreadyBeenConvertedToOrderBefore && statusUpdateResult.StatusCode<0) // StatusCode<0 is a Pay. final status (not pending) that the payment failed or is canceled.
+                    {
+                        await shoppingBasketsService.ConvertConceptOrderToOrderAsync(main, basketSettings, true);
+                        // Set lines back to basketlines. Lines are converted to orderlines when basket becomes conceptorder
+                        foreach (var line in lines)
+                        { 
+                            await wiserItemsService.ChangeEntityTypeAsync(line.Id, line.EntityType, ShoppingBasket.Models.Constants.BasketLineEntityType, skipPermissionsCheck: true, resetAddedOnDate: false);
+                        }
+                    }
+                    
                     // Allow custom code to be executed before we send the user to the PSP and cancel the payment if the code returned false.
-                    var success = await orderProcessesService.PaymentStatusUpdateBeforeCommunicationAsync(main, lines, orderProcessSettings, hasAlreadyBeenConvertedToOrderBefore, isSuccessfulStatus);
+                    var success = await orderProcessesService.PaymentStatusUpdateBeforeCommunicationAsync(main, lines, orderProcessSettings, hasAlreadyBeenConvertedToOrderBefore, statusUpdateResult.Successful);
 
                     if (!success)
                     {
@@ -1278,7 +1319,7 @@ namespace GeeksCoreLibrary.Components.OrderProcess.Services
                         });
                     }
 
-                    if (isSuccessfulStatus && orderProcessSettings.MeasurementProtocolActive)
+                    if (statusUpdateResult.Successful && orderProcessSettings.MeasurementProtocolActive)
                     {
                         await measurementProtocolService.PurchaseEventAsync(orderProcessSettings, main, lines, basketSettings, main.GetDetailValue(Constants.UniquePaymentNumberProperty));
                     }
@@ -1292,7 +1333,7 @@ namespace GeeksCoreLibrary.Components.OrderProcess.Services
 
             foreach (var mailToSend in mailsToSendToUser)
             {
-                if (isSuccessfulStatus && mailToSend.Receivers.Any() && !String.IsNullOrWhiteSpace(mailToSend.Content))
+                if (statusUpdateResult.Successful && mailToSend.Receivers.Any() && !String.IsNullOrWhiteSpace(mailToSend.Content))
                 {
                     await communicationsService.SendEmailAsync(mailToSend);
                 }
@@ -1343,7 +1384,7 @@ namespace GeeksCoreLibrary.Components.OrderProcess.Services
             // Let the payment service provider service handle the status update.
             var pspUpdateResult = await paymentServiceProviderService.ProcessStatusUpdateAsync(orderProcessSettings, paymentMethodSettings);
 
-            var result = await orderProcessesService.HandlePaymentStatusUpdateAsync(orderProcessSettings, conceptOrders, pspUpdateResult.Status, pspUpdateResult.Successful);
+            var result = await orderProcessesService.HandlePaymentStatusUpdateAsync(orderProcessSettings, conceptOrders, pspUpdateResult);
 
             var basketSettings = await shoppingBasketsService.GetSettingsAsync();
             foreach (var (main, lines) in conceptOrders)

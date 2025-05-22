@@ -92,9 +92,9 @@ namespace GeeksCoreLibrary.Components.ShoppingBasket.Interfaces
         Task RevertConceptOrderToBasketAsync(WiserItemModel conceptOrder, List<WiserItemModel> conceptOrderLines);
 
         /// <summary>
-        /// Turns a concept order into a final order.
+        /// Turns a concept order into a final order. Or turns a concept order back into a basket (used when payment canceled).
         /// </summary>
-        Task ConvertConceptOrderToOrderAsync(WiserItemModel conceptOrder, ShoppingBasketCmsSettingsModel settings);
+        Task ConvertConceptOrderToOrderAsync(WiserItemModel conceptOrder, ShoppingBasketCmsSettingsModel settings, bool backToBasketInsteadOfOrder = false);
 
         /// <summary>
         /// Replaces shopping basket variables in a template.
