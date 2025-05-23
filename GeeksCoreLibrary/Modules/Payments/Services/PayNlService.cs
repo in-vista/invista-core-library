@@ -33,7 +33,7 @@ namespace GeeksCoreLibrary.Modules.Payments.PayNl.Services;
 /// <inheritdoc cref="IPaymentServiceProviderService" />
 public class PayNlService : PaymentServiceProviderBaseService, IPaymentServiceProviderService, IScopedService
 {
-    private const string BaseUrl = "https://rest-api.pay.nl/";
+    private const string BaseUrl = "https://connect.pay.nl";
     private readonly IDatabaseConnection databaseConnection;
     private readonly ILogger<PaymentServiceProviderBaseService> logger;
     private readonly IHttpContextAccessor? httpContextAccessor;
@@ -83,25 +83,28 @@ public class PayNlService : PaymentServiceProviderBaseService, IPaymentServicePr
         JObject responseJson = null;
 
         // Build and execute payment request.
-        var restRequest = new RestRequest("/v13/Transaction/start/json", Method.Post);
+        var restRequest = new RestRequest("/v1/orders", Method.Post);
         restRequest = AddRequestHeaders(restRequest, payNlSettings);
-        restRequest.AddParameter("serviceId", payNlSettings.ServiceId);
-        restRequest.AddParameter("amount", (int) Math.Round(totalPrice * 100));
-        restRequest.AddParameter("ipAddress", HttpContextHelpers.GetUserIpAddress(httpContextAccessor?.HttpContext));
-        restRequest.AddParameter("finishUrl", payNlSettings.SuccessUrl);
-        restRequest.AddParameter("testmode", (gclSettings.Environment.InList(Environments.Test, Environments.Development) ? 1 : 0));
-        restRequest.AddParameter("paymentOptionId", 10);
-        //restRequest.AddParameter("paymentOptionSubId", xxx);→ Bankkeuze bij iDEAL
-        restRequest.AddParameter("transaction[description]", $"Order #{invoiceNumber}");
-        restRequest.AddParameter("transaction[orderNumber]", invoiceNumber);
-        restRequest.AddParameter("transaction[orderExchangeUrl]", payNlSettings.WebhookUrl);
+        
+        var requestBody = new PayNLOrderCreateRequestModel()
+        {
+            Amount = new Amount { Value = (int) Math.Round(totalPrice * 100) },
+            ServiceId = payNlSettings.ServiceId,
+            Description = $"Order #{invoiceNumber}",
+            Reference = invoiceNumber.Replace("-",""),
+            ReturnUrl = payNlSettings.SuccessUrl,
+            ExchangeUrl = payNlSettings.WebhookUrl,
+            Integration = new Integration { Test = gclSettings.Environment.InList(Environments.Test, Environments.Development)},
+            PaymentMethod = new PaymentMethod { Id = 10 }
+        };
+        restRequest.AddJsonBody(requestBody);
         
         try
         {
             var restClient = new RestClient(BaseUrl);
             restResponse = await restClient.ExecuteAsync(restRequest);
             responseJson = String.IsNullOrWhiteSpace(restResponse.Content) ? new JObject() : JObject.Parse(restResponse.Content);
-            var responseSuccessful = restResponse.StatusCode == HttpStatusCode.OK;
+            var responseSuccessful = restResponse.StatusCode == HttpStatusCode.Created;
 
             // Save transaction id, because we need it for the status update.
             foreach (var order in conceptOrders)
@@ -109,7 +112,7 @@ public class PayNlService : PaymentServiceProviderBaseService, IPaymentServicePr
                 var transactionId = new WiserItemDetailModel()
                 {
                     Key = "uniquePaymentNumber",
-                    Value = responseJson["transaction"]?["transactionId"]?.ToString()
+                    Value = responseJson["orderId"]?.ToString()
                 };
                 await wiserItemsService.SaveItemDetailAsync(transactionId, order.Main.Id, entityType: "ConceptOrder");
             }
@@ -118,7 +121,7 @@ public class PayNlService : PaymentServiceProviderBaseService, IPaymentServicePr
             {
                 Successful = responseSuccessful,
                 Action = PaymentRequestActions.Redirect,
-                ActionData = responseSuccessful ? responseJson["transaction"]?["paymentURL"]?.ToString() : payNlSettings.FailUrl
+                ActionData = responseSuccessful ? responseJson["links"]?["redirect"]?.ToString() : payNlSettings.FailUrl
             };
         }
         catch (Exception e)
@@ -135,12 +138,7 @@ public class PayNlService : PaymentServiceProviderBaseService, IPaymentServicePr
         finally
         {
             var resp = responseJson == null ? null : JsonConvert.SerializeObject(responseJson);
-            
-            var parameters = restRequest.Parameters
-                .Where(p => p.Type == ParameterType.GetOrPost)
-                .Select(p => $"{p.Name}={p.Value?.ToString() ?? ""}");
-
-            await AddLogEntryAsync(PaymentServiceProviders.PayNl, invoiceNumber, requestFormValues: string.Join("&", parameters), responseBody: resp, error: error, isIncomingRequest: false);
+            await AddLogEntryAsync(PaymentServiceProviders.PayNl, invoiceNumber, requestBody: JsonConvert.SerializeObject(requestBody), responseBody: resp, error: error, isIncomingRequest: false);
         }
     }
     
@@ -279,8 +277,7 @@ public class PayNlService : PaymentServiceProviderBaseService, IPaymentServicePr
     private static RestRequest AddRequestHeaders(RestRequest restRequest, PayNlSettingsModel payNlSettings)
     {
         restRequest.AddHeader("authorization", $"Basic {$"{payNlSettings.AccountCode}:{payNlSettings.Token}".Base64()}");
-        restRequest.AddHeader("cache-control", "no-cache");
-        restRequest.AddHeader("content-type", "application/x-www-form-urlencoded");
+        restRequest.AddHeader("accept", "application/json");
         return restRequest;
     }
 
