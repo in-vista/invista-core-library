@@ -497,6 +497,10 @@ namespace GeeksCoreLibrary.Core.Extensions
                 throw new Exception("DecryptWithAesWithSalt: No AES secret key set.");
             }
 
+            // Replace spaces in input to +, because when the URL is not URL-encoded, then the input will contain spaces where the + should be. 
+            // Pay. for example replaces our %2b with + and then we receive a space. This is a bug in the Pay. REST API.
+            input = input.Replace(" ", "+");
+
             string output;
             if (useSlowerButMoreSecureMethod)
             {

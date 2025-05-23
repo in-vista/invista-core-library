@@ -138,7 +138,7 @@ public class PayNlService : PaymentServiceProviderBaseService, IPaymentServicePr
             
             var parameters = restRequest.Parameters
                 .Where(p => p.Type == ParameterType.GetOrPost)
-                .Select(p => $"{Uri.EscapeDataString(p.Name)}={Uri.EscapeDataString(p.Value?.ToString() ?? "")}");
+                .Select(p => $"{p.Name}={p.Value?.ToString() ?? ""}");
 
             await AddLogEntryAsync(PaymentServiceProviders.PayNl, invoiceNumber, requestFormValues: string.Join("&", parameters), responseBody: resp, error: error, isIncomingRequest: false);
         }
