@@ -153,14 +153,12 @@ public class PayNlService : PaymentServiceProviderBaseService, IPaymentServicePr
                 Status = "Error retrieving status: No HttpContext available."
             };
         }
-
-        // The settings have been checked during transaction creation so we don't do so again
+        
+        var payNlTransactionId = httpContextAccessor.HttpContext.Request.Form["object[orderId]"];
         var payNlSettings = (PayNlSettingsModel) paymentMethodSettings.PaymentServiceProvider;
         var restClient = new RestClient(BaseUrl);
-        var payNlTransactionId = httpContextAccessor.HttpContext.Request.Query["order_id"];
-        var restRequest = new RestRequest("/v13/Transaction/status/json");
+        var restRequest = new RestRequest($"/v1/orders/{payNlTransactionId}/status");
         restRequest = AddRequestHeaders(restRequest, payNlSettings);
-        restRequest.AddParameter("transactionId", payNlTransactionId);
         var restResponse = await restClient.ExecuteAsync(restRequest);
         
         if (restResponse.StatusCode != HttpStatusCode.OK || String.IsNullOrWhiteSpace(restResponse.Content))
@@ -174,25 +172,13 @@ public class PayNlService : PaymentServiceProviderBaseService, IPaymentServicePr
         }
 
         var responseJson = JObject.Parse(restResponse.Content);
-
-        if (responseJson["request"]?["result"]?.ToString() == "0")
-        {
-            await LogIncomingPaymentActionAsync(PaymentServiceProviders.PayNl, payNlTransactionId, (int) restResponse.StatusCode, responseBody: restResponse.Content, error: $"ErrorId: {responseJson["request"]?["errorId"]}");
-            return new StatusUpdateResult
-            {
-                Successful = false,
-                Status = "error"
-            }; 
-        }
-        
-        var invoiceNumber = responseJson["paymentDetails"]?["orderId"]?.ToString();
+        var invoiceNumber = responseJson["orderId"]?.ToString();
         await LogIncomingPaymentActionAsync(PaymentServiceProviders.PayNl, invoiceNumber, (int) restResponse.StatusCode, responseBody: restResponse.Content);
-
         return new StatusUpdateResult
         {
-            Successful = responseJson["paymentDetails"]?["state"]?.ToString() == "100",
-            Status = responseJson["paymentDetails"]?["stateName"]?.ToString(),
-            StatusCode = Convert.ToInt32(responseJson["paymentDetails"]?["state"])
+            Successful = responseJson["status"]?["code"]?.ToString() == "100",
+            Status = responseJson["status"]?["action"]?.ToString(),
+            StatusCode = Convert.ToInt32(responseJson["status"]?["code"])
         };
     }
 
