@@ -31,22 +31,32 @@ using Constants = GeeksCoreLibrary.Components.OrderProcess.Models.Constants;
 namespace GeeksCoreLibrary.Modules.Payments.PayNl.Services;
 
 /// <inheritdoc cref="IPaymentServiceProviderService" />
-public class PayNlService(
-    IDatabaseHelpersService databaseHelpersService,
-    IDatabaseConnection databaseConnection,
-    ILogger<PaymentServiceProviderBaseService> logger,
-    IOptions<GclSettings> gclSettings,
-    IShoppingBasketsService shoppingBasketsService,
-    IWiserItemsService wiserItemsService,
-    IHttpContextAccessor httpContextAccessor = null)
-    : PaymentServiceProviderBaseService(databaseHelpersService, databaseConnection, logger, httpContextAccessor), IPaymentServiceProviderService, IScopedService
+public class PayNlService : PaymentServiceProviderBaseService, IPaymentServiceProviderService, IScopedService
 {
     private const string BaseUrl = "https://rest-api.pay.nl/";
-    private readonly IDatabaseConnection databaseConnection = databaseConnection;
-    private readonly ILogger<PaymentServiceProviderBaseService> logger = logger;
-    private readonly IHttpContextAccessor? httpContextAccessor = httpContextAccessor;
-    private readonly GclSettings gclSettings = gclSettings.Value;
-    private IWiserItemsService wiserItemsService = wiserItemsService;
+    private readonly IDatabaseConnection databaseConnection;
+    private readonly ILogger<PaymentServiceProviderBaseService> logger;
+    private readonly IHttpContextAccessor? httpContextAccessor;
+    private readonly GclSettings gclSettings;
+    private IWiserItemsService wiserItemsService;
+    private readonly IShoppingBasketsService shoppingBasketsService;
+
+    public PayNlService(IDatabaseHelpersService databaseHelpersService,
+        IDatabaseConnection databaseConnection,
+        ILogger<PaymentServiceProviderBaseService> logger,
+        IOptions<GclSettings> gclSettings,
+        IShoppingBasketsService shoppingBasketsService,
+        IWiserItemsService wiserItemsService,
+        IHttpContextAccessor httpContextAccessor = null)
+        : base(databaseHelpersService, databaseConnection, logger, httpContextAccessor)
+    {
+        this.databaseConnection = databaseConnection;
+        this.logger = logger;
+        this.httpContextAccessor = httpContextAccessor;
+        this.gclSettings = gclSettings.Value;
+        this.wiserItemsService = wiserItemsService;
+        this.shoppingBasketsService = shoppingBasketsService;
+    }
 
     /// <inheritdoc />
     public async Task<PaymentRequestResult> HandlePaymentRequestAsync(
