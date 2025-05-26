@@ -909,10 +909,12 @@ namespace GeeksCoreLibrary.Components.OrderProcess.Services
                 };
                 // For local debugging ad portnumber
                 var port = (webhookUrl.Port!=443 && webhookUrl.Port!=80 ? $":{webhookUrl.Port}" : "");
-              
+                paymentMethodSettings.PaymentServiceProvider.SuccessUrl = String.IsNullOrEmpty(paymentMethodSettings.PaymentServiceProvider.SuccessUrl) ? $"{webhookUrl.Scheme}://{webhookUrl.Host}{port}/" : paymentMethodSettings.PaymentServiceProvider.SuccessUrl;
+                paymentMethodSettings.PaymentServiceProvider.PendingUrl = String.IsNullOrEmpty(paymentMethodSettings.PaymentServiceProvider.PendingUrl) ? $"{webhookUrl.Scheme}://{webhookUrl.Host}{port}/" : paymentMethodSettings.PaymentServiceProvider.PendingUrl;
+                
                 if (Uri.IsWellFormedUriString(paymentMethodSettings.PaymentServiceProvider.SuccessUrl, UriKind.Absolute))
                 {
-                    paymentMethodSettings.PaymentServiceProvider.SuccessUrl = UriHelpers.AddToQueryString(String.IsNullOrEmpty(paymentMethodSettings.PaymentServiceProvider.SuccessUrl) ? $"{webhookUrl.Scheme}://{webhookUrl.Host}{port}/" : paymentMethodSettings.PaymentServiceProvider.SuccessUrl, queryParameters);    
+                    paymentMethodSettings.PaymentServiceProvider.SuccessUrl = UriHelpers.AddToQueryString(paymentMethodSettings.PaymentServiceProvider.SuccessUrl, queryParameters);    
                 }
                 else
                 {
@@ -921,7 +923,7 @@ namespace GeeksCoreLibrary.Components.OrderProcess.Services
                 
                 if (Uri.IsWellFormedUriString(paymentMethodSettings.PaymentServiceProvider.PendingUrl, UriKind.Absolute))
                 {
-                    paymentMethodSettings.PaymentServiceProvider.PendingUrl = UriHelpers.AddToQueryString(String.IsNullOrEmpty(paymentMethodSettings.PaymentServiceProvider.PendingUrl) ? $"{webhookUrl.Scheme}://{webhookUrl.Host}{port}/" : paymentMethodSettings.PaymentServiceProvider.PendingUrl, queryParameters);
+                    paymentMethodSettings.PaymentServiceProvider.PendingUrl = UriHelpers.AddToQueryString(paymentMethodSettings.PaymentServiceProvider.PendingUrl, queryParameters);
                 } 
                 else
                 {
