@@ -89,28 +89,30 @@ public abstract class DecoratorOrderProcessesService : IOrderProcessesService
     }
 
     /// <inheritdoc />
-    public virtual async Task<bool> HandlePaymentStatusUpdateAsync(OrderProcessSettingsModel orderProcessSettings, ICollection<(WiserItemModel Main, List<WiserItemModel> Lines)> conceptOrders, string newStatus, bool isSuccessfulStatus, bool convertConceptOrderToOrder = true)
+    public virtual async Task<bool> HandlePaymentStatusUpdateAsync(OrderProcessSettingsModel orderProcessSettings, ICollection<(WiserItemModel Main, List<WiserItemModel> Lines)> conceptOrders, string newStatus, bool isSuccessfulStatus, int statusCode, bool convertConceptOrderToOrder = true)
     {
-        var statusUpdateResult = new StatusUpdateResult()
+        /*var statusUpdateResult = new StatusUpdateResult()
         {
             Status = newStatus,
             Successful = isSuccessfulStatus
-        };
-        return await orderProcessesService.HandlePaymentStatusUpdateAsync(this, orderProcessSettings, conceptOrders, statusUpdateResult, convertConceptOrderToOrder);
+        };*/
+        //return await orderProcessesService.HandlePaymentStatusUpdateAsync(this, orderProcessSettings, conceptOrders, statusUpdateResult, convertConceptOrderToOrder);
+        return await orderProcessesService.HandlePaymentStatusUpdateAsync(this, orderProcessSettings, conceptOrders, newStatus, isSuccessfulStatus, statusCode, convertConceptOrderToOrder);
     }
 
     /// <inheritdoc />
-    public virtual async Task<bool> HandlePaymentStatusUpdateAsync(IOrderProcessesService service, OrderProcessSettingsModel orderProcessSettings, ICollection<(WiserItemModel Main, List<WiserItemModel> Lines)> conceptOrders, string newStatus, bool isSuccessfulStatus, bool convertConceptOrderToOrder = true)
+    public virtual async Task<bool> HandlePaymentStatusUpdateAsync(IOrderProcessesService service, OrderProcessSettingsModel orderProcessSettings, ICollection<(WiserItemModel Main, List<WiserItemModel> Lines)> conceptOrders, string newStatus, bool isSuccessfulStatus, int statusCode, bool convertConceptOrderToOrder = true)
     {
-        var statusUpdateResult = new StatusUpdateResult()
+        /*var statusUpdateResult = new StatusUpdateResult()
         {
             Status = newStatus,
             Successful = isSuccessfulStatus
-        };
-        return await orderProcessesService.HandlePaymentStatusUpdateAsync(service, orderProcessSettings, conceptOrders, statusUpdateResult, convertConceptOrderToOrder);
+        };*/
+        //return await orderProcessesService.HandlePaymentStatusUpdateAsync(service, orderProcessSettings, conceptOrders, statusUpdateResult, convertConceptOrderToOrder);
+        return await orderProcessesService.HandlePaymentStatusUpdateAsync(service, orderProcessSettings, conceptOrders, newStatus, isSuccessfulStatus, statusCode, convertConceptOrderToOrder);
     }
 
-    /// <inheritdoc />
+    /*/// <inheritdoc />
     public virtual async Task<bool> HandlePaymentStatusUpdateAsync(OrderProcessSettingsModel orderProcessSettings, ICollection<(WiserItemModel Main, List<WiserItemModel> Lines)> conceptOrders, StatusUpdateResult statusUpdateResult, bool convertConceptOrderToOrder = true) 
     {
         return await orderProcessesService.HandlePaymentStatusUpdateAsync(orderProcessSettings, conceptOrders, statusUpdateResult, convertConceptOrderToOrder);
@@ -120,7 +122,7 @@ public abstract class DecoratorOrderProcessesService : IOrderProcessesService
     public virtual async Task<bool> HandlePaymentStatusUpdateAsync(IOrderProcessesService service, OrderProcessSettingsModel orderProcessSettings, ICollection<(WiserItemModel Main, List<WiserItemModel> Lines)> conceptOrders, StatusUpdateResult statusUpdateResult, bool convertConceptOrderToOrder = true)
     {
         return await orderProcessesService.HandlePaymentStatusUpdateAsync(service, orderProcessSettings, conceptOrders, statusUpdateResult, convertConceptOrderToOrder);
-    }
+    }*/
 
     /// <inheritdoc />
     public virtual async Task<bool> HandlePaymentServiceProviderWebhookAsync(ulong orderProcessId, ulong paymentMethodId)

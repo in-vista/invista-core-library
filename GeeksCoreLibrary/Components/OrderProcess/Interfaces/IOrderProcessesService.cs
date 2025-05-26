@@ -102,8 +102,9 @@ namespace GeeksCoreLibrary.Components.OrderProcess.Interfaces
         /// <param name="newStatus">The new status of the payment.</param>
         /// <param name="isSuccessfulStatus">Whether or not the new status means that the payment was successful.</param>
         /// <param name="convertConceptOrderToOrder">Optional: Whether or not to convert the concept order(s) to order(s). Default value is true.</param>
-        Task<bool> HandlePaymentStatusUpdateAsync(OrderProcessSettingsModel orderProcessSettings, ICollection<(WiserItemModel Main, List<WiserItemModel> Lines)> conceptOrders, string newStatus, bool isSuccessfulStatus, bool convertConceptOrderToOrder = true);
+        Task<bool> HandlePaymentStatusUpdateAsync(OrderProcessSettingsModel orderProcessSettings, ICollection<(WiserItemModel Main, List<WiserItemModel> Lines)> conceptOrders, string newStatus, bool isSuccessfulStatus, int statusCode, bool convertConceptOrderToOrder = true);
 
+        /*
         /// <summary>
         /// Handles a status update (usually done via a webhook) of a payment via an PSP.
         /// </summary>
@@ -112,6 +113,7 @@ namespace GeeksCoreLibrary.Components.OrderProcess.Interfaces
         /// <param name="statusUpdateResult">The status update result from the PSP.</param>
         /// <param name="convertConceptOrderToOrder">Optional: Whether or not to convert the concept order(s) to order(s). Default value is true.</param>
         Task<bool> HandlePaymentStatusUpdateAsync(OrderProcessSettingsModel orderProcessSettings, ICollection<(WiserItemModel Main, List<WiserItemModel> Lines)> conceptOrders, StatusUpdateResult statusUpdateResult, bool convertConceptOrderToOrder = true);
+        */
 
         /// <summary>
         /// Handles a status update (usually done via a webhook) of a payment via an PSP.
@@ -122,8 +124,9 @@ namespace GeeksCoreLibrary.Components.OrderProcess.Interfaces
         /// <param name="newStatus">The new status of the payment.</param>
         /// <param name="isSuccessfulStatus">Whether or not the new status means that the payment was successful.</param>
         /// <param name="convertConceptOrderToOrder">Optional: Whether or not to convert the concept order(s) to order(s). Default value is true.</param>
-        Task<bool> HandlePaymentStatusUpdateAsync(IOrderProcessesService orderProcessesService, OrderProcessSettingsModel orderProcessSettings, ICollection<(WiserItemModel Main, List<WiserItemModel> Lines)> conceptOrders, string newStatus, bool isSuccessfulStatus, bool convertConceptOrderToOrder = true);
+        Task<bool> HandlePaymentStatusUpdateAsync(IOrderProcessesService orderProcessesService, OrderProcessSettingsModel orderProcessSettings, ICollection<(WiserItemModel Main, List<WiserItemModel> Lines)> conceptOrders, string newStatus, bool isSuccessfulStatus, int statusCode, bool convertConceptOrderToOrder = true);
      
+        /*
         /// <summary>
         /// Handles a status update (usually done via a webhook) of a payment via an PSP.
         /// </summary>
@@ -133,6 +136,7 @@ namespace GeeksCoreLibrary.Components.OrderProcess.Interfaces
         /// <param name="statusUpdateResult">The status update result from the PSP.</param>
         /// <param name="convertConceptOrderToOrder">Optional: Whether or not to convert the concept order(s) to order(s). Default value is true.</param>
         Task<bool> HandlePaymentStatusUpdateAsync(IOrderProcessesService orderProcessesService, OrderProcessSettingsModel orderProcessSettings, ICollection<(WiserItemModel Main, List<WiserItemModel> Lines)> conceptOrders, StatusUpdateResult statusUpdateResult, bool convertConceptOrderToOrder = true);
+        */
 
         /// <summary>
         /// Handles the webhook of a PSP for payment status updates.
