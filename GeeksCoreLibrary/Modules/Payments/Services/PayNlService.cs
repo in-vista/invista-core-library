@@ -257,7 +257,21 @@ public class PayNlService : PaymentServiceProviderBaseService, IPaymentServicePr
                 //}
                 
                 await LogIncomingPaymentActionAsync(PaymentServiceProviders.PayNl, GetInvoiceNumberFromRequest(), 0);
-                var status = HttpContextHelpers.GetRequestValue(httpContextAccessor?.HttpContext, "statusAction");
+                var status = string.Empty;
+                var url = HttpContextHelpers.GetOriginalRequestUri(httpContextAccessor.HttpContext).ToString();
+               
+                // Workaround for Pay. bug in return URL, double ? 
+                // https://localhost:5001/directpaymentin.gcl?paymentMethodId=24314?statusAction=CHANGE&reference=276215X20250528112419
+                if (url.Split(".gcl?")[1].Contains('?'))
+                {
+                    url = $"{url.Split(".gcl?")[0]}.gcl?{url.Split(".gcl?")[1].Replace("?","&")}";
+                    
+                }
+                
+                var uri = new Uri(url);
+                var query = HttpUtility.ParseQueryString(uri.Query);
+                status = query["statusAction"]; 
+
                 return new StatusUpdateResult
                 {
                     Successful = status == "PAID",
@@ -363,7 +377,19 @@ public class PayNlService : PaymentServiceProviderBaseService, IPaymentServicePr
         if (string.IsNullOrEmpty(invoiceNumber))
         {
             // Get the order by reference on the softpos return URL, because the ID of Pay. is unknown on this point.
-            invoiceNumber = HttpContextHelpers.GetRequestValue(httpContextAccessor?.HttpContext, "reference");
+            var url = HttpContextHelpers.GetOriginalRequestUri(httpContextAccessor.HttpContext).ToString();
+               
+            // Workaround for Pay. bug in return URL, double ? 
+            // https://localhost:5001/directpaymentin.gcl?paymentMethodId=24314?statusAction=CHANGE&reference=276215X20250528112419
+            if (url.Split(".gcl?")[1].Contains('?'))
+            {
+                url = $"{url.Split(".gcl?")[0]}.gcl?{url.Split(".gcl?")[1].Replace("?","&")}";
+            }
+                
+            var uri = new Uri(url);
+            var query = HttpUtility.ParseQueryString(uri.Query);
+            invoiceNumber = query["reference"]; 
+            
             if (!string.IsNullOrEmpty(invoiceNumber))
                 invoiceNumber = invoiceNumber.Replace("X", "-"); // Replace the X by a dash, so we have the original unique payment number
         } 
