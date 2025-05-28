@@ -2,6 +2,7 @@
 {
     public enum PaymentRequestActions
     {
-        Redirect
+        Redirect,
+        ReturnUrl
     }
 }

@@ -804,7 +804,7 @@ namespace GeeksCoreLibrary.Components.OrderProcess.Services
                     webhookUrl = new UriBuilder(pspWebhookDomain);
                 }
                 // The PSP can't reach our development and test environments, so use the main domain in those cases (except when NoPsp because we can test this locally)
-                else if (gclSettings.Environment.InList(Environments.Development, Environments.Test) && paymentMethodSettings.PaymentServiceProvider.Type!=PaymentServiceProviders.NoPsp)
+                /*else if (gclSettings.Environment.InList(Environments.Development, Environments.Test) && paymentMethodSettings.PaymentServiceProvider.Type!=PaymentServiceProviders.NoPsp)
                 {
                     var mainDomain = await objectsService.FindSystemObjectByDomainNameAsync("maindomain");
                     if (String.IsNullOrWhiteSpace(mainDomain))
@@ -818,7 +818,7 @@ namespace GeeksCoreLibrary.Components.OrderProcess.Services
                     }
 
                     webhookUrl = new UriBuilder(mainDomain);
-                }
+                }*/
                 else
                 {
                     webhookUrl = new UriBuilder(HttpContextHelpers.GetBaseUri(httpContextAccessor?.HttpContext));
@@ -1400,6 +1400,19 @@ namespace GeeksCoreLibrary.Components.OrderProcess.Services
                 // This should not be done in orderProcessesService.HandlePaymentStatusUpdateAsync, because that method is also called for NOPSP.
                 main.SetDetail(Constants.PaymentCompleteProperty, result);
                 await shoppingBasketsService.SaveAsync(main, lines, basketSettings);
+            }
+
+            if (paymentMethodSettings.ExternalName == "softpos")
+            {
+                // Do redirect to succes or fail URL after processing status. Visitor is redirected to payment_in.
+                if (pspUpdateResult.Successful)
+                {
+                    httpContextAccessor.HttpContext.Response.Redirect(paymentMethodSettings.PaymentServiceProvider.SuccessUrl);
+                }
+                else
+                {
+                    httpContextAccessor.HttpContext.Response.Redirect(paymentMethodSettings.PaymentServiceProvider.FailUrl);
+                }
             }
             
             return result && !pspUpdateResult.Status.ToLower().Contains("error");

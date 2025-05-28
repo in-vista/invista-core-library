@@ -103,6 +103,8 @@ namespace GeeksCoreLibrary.Components.OrderProcess.Controllers
                 case PaymentRequestActions.Redirect:
                     httpContextAccessor.HttpContext.Response.Redirect(paymentRequestResult.ActionData);
                     break;
+                case PaymentRequestActions.ReturnUrl:
+                    return Json(new { paymentRequestResult.ActionData });        
                 default:
                     throw new ArgumentOutOfRangeException(nameof(paymentRequestResult.Action), paymentRequestResult.Action.ToString());
             }
