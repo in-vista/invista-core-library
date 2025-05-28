@@ -75,8 +75,9 @@ namespace GeeksCoreLibrary.Core.Extensions
         /// <param name="builder"></param>
         /// <param name="env"></param>
         /// <param name="configuration"></param>
+        /// <param name="useCors">Whether to add CORS support to the app.</param>
         /// <returns></returns>
-        public static IApplicationBuilder UseGclMiddleware(this IApplicationBuilder builder, IWebHostEnvironment env, IConfiguration configuration=null)
+        public static IApplicationBuilder UseGclMiddleware(this IApplicationBuilder builder, IWebHostEnvironment env, IConfiguration configuration = null, bool useCors = false)
         {
             if (env.IsDevelopment())
             {
@@ -117,6 +118,14 @@ namespace GeeksCoreLibrary.Core.Extensions
             builder.UseStaticFiles();
 
             builder.UseRouting();
+            
+            // Enables CORS and adds the necessary middleware to the app.
+            if (useCors)
+            {
+                builder.UseCors();
+                builder.UseAuthentication();
+                builder.UseAuthorization();
+            }
 
             builder.UseEndpoints(endpoints =>
             {
