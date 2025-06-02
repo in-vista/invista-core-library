@@ -103,6 +103,8 @@ namespace GeeksCoreLibrary.Components.OrderProcess.Controllers
                 case PaymentRequestActions.Redirect:
                     httpContextAccessor.HttpContext.Response.Redirect(paymentRequestResult.ActionData);
                     break;
+                case PaymentRequestActions.ReturnUrl:
+                    return Json(new { paymentRequestResult.ActionData });        
                 default:
                     throw new ArgumentOutOfRangeException(nameof(paymentRequestResult.Action), paymentRequestResult.Action.ToString());
             }
@@ -136,6 +138,13 @@ namespace GeeksCoreLibrary.Components.OrderProcess.Controllers
             }
 
             var paymentMethodFromRequest = HttpContextHelpers.GetRequestValue(httpContextAccessor.HttpContext, Constants.SelectedPaymentMethodRequestKey);
+            
+            // Workaround for Pay. bug, which returns: https://localhost:5001/directpaymentin.gcl?paymentMethodId=24314?orderId=60126295021X734b&statusAction=PAID&etc.
+            if (paymentMethodFromRequest.Contains('?'))
+            {
+                paymentMethodFromRequest = paymentMethodFromRequest.Split('?')[0];
+            }
+            
             if (!UInt64.TryParse(paymentMethodFromRequest, out var paymentMethodId) || paymentMethodId == 0)
             {
                 throw new Exception($"Invalid payment method ID: {paymentMethodFromRequest}");
