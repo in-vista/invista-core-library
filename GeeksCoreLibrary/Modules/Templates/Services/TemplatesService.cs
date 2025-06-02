@@ -326,13 +326,14 @@ ORDER BY parent5.ordering ASC, parent4.ordering ASC, parent3.ordering ASC, paren
                 return template;
             }
             
-            var emptyTemplate = new Template
-            {
-                Type = template.Type,
-                LoginRequired = true,
-                LoginRedirectUrl = template.LoginRedirectUrl,
-                LoginRoles = template.LoginRoles
-            };
+            // Create a shallow clone of the same runtime type (e.g., QueryTemplate)
+            var emptyTemplate = (Template)Activator.CreateInstance(template.GetType())!;
+
+            // Copy the relevant properties
+            emptyTemplate.Type = template.Type;
+            emptyTemplate.LoginRequired = true;
+            emptyTemplate.LoginRedirectUrl = template.LoginRedirectUrl;
+            emptyTemplate.LoginRoles = template.LoginRoles;
 
             if (httpContextAccessor?.HttpContext == null)
             {
