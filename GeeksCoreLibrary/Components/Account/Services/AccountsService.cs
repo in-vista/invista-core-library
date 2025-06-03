@@ -118,7 +118,7 @@ namespace GeeksCoreLibrary.Components.Account.Services
                     return defaultAnonymousUserModel;
                 }
 
-                await databaseHelpersService.CheckAndUpdateTablesAsync(new List<string> { Constants.AuthenticationTokensTableName });
+                //await databaseHelpersService.CheckAndUpdateTablesAsync(new List<string> { Constants.AuthenticationTokensTableName });
 
                 // Note: Added the word 'update' to the query force the GCL to use the write connection string.
                 // Note: This is done because sometimes the sync to a read database is not instant and then the cookie cannot be found immediately after creating it.
