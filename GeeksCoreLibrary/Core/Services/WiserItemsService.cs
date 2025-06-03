@@ -201,19 +201,23 @@ namespace GeeksCoreLibrary.Core.Services
             
             var additionalAggregatedColumns = string.Join(", ", fieldsWithAggregatedTrue.Select(kv => $"`{kv.Key.TrimEnd('_')}`"));
             var additionalAggregatedColumnParameterNames = string.Join(", ", fieldsWithAggregatedTrue.Select(kv => $"?{kv.Key}"));
-            var updateQueryPart = string.Join(", ", fieldsWithAggregatedTrue.Select(kv => $"`{kv.Key.TrimEnd('_')}`=?{kv.Key}"));
+            var updateQueryPart = ""; //string.Join(", ", fieldsWithAggregatedTrue.Select(kv => $"`{kv.Key.TrimEnd('_')}`=?{kv.Key}"));
 
             foreach (var fieldToAggregate in fieldsWithAggregatedTrue)
             {
                 var itemDetail = wiserItem.Details.FirstOrDefault(detail => detail.Key + "_" + (detail.LanguageCode??"") == fieldToAggregate.Key);
                 var key = $"{itemDetail.Key}_{itemDetail.LanguageCode}";
+
+                if (itemDetail.Changed)
+                    updateQueryPart += $"`{key.TrimEnd('_')}`=?{key},";
                 
                 if (entityTypeSettings.FieldOptions != null && entityTypeSettings.FieldOptions.ContainsKey(key))
                 {
                     var options = entityTypeSettings.FieldOptions[key];
                     if (options.Any() && (bool)options[Constants.SaveSeoValueKey])
                     {
-                        updateQueryPart += $"{key.TrimEnd('_')}{Constants.SeoPropertySuffix}=?{key}{Constants.SeoPropertySuffix}";
+                        if (itemDetail.Changed)
+                            updateQueryPart += $"`{key.TrimEnd('_')}{Constants.SeoPropertySuffix}`=?{key}{Constants.SeoPropertySuffix},";
                         additionalAggregatedColumns += $",{key.TrimEnd('_')}{Constants.SeoPropertySuffix}?";
                         additionalAggregatedColumnParameterNames += $",?{key}{Constants.SeoPropertySuffix}";
                     }
@@ -230,7 +234,7 @@ namespace GeeksCoreLibrary.Core.Services
                 detail => detail.Changed=false
             );
 
-            return (additionalAggregatedColumns, additionalAggregatedColumnParameterNames, updateQueryPart);
+            return (additionalAggregatedColumns, additionalAggregatedColumnParameterNames, updateQueryPart.TrimEnd(','));
         }
         
         /// <inheritdoc />
