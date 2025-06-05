@@ -1411,7 +1411,8 @@ namespace GeeksCoreLibrary.Components.OrderProcess.Services
                 }
                 else
                 {
-                    httpContextAccessor.HttpContext.Response.Redirect(paymentMethodSettings.PaymentServiceProvider.FailUrl);
+                    var queryParameters = new Dictionary<string, string> { { "status", pspUpdateResult.Status } };
+                    httpContextAccessor.HttpContext.Response.Redirect(UriHelpers.AddToQueryString(paymentMethodSettings.PaymentServiceProvider.FailUrl, queryParameters));
                 }
             }
             
