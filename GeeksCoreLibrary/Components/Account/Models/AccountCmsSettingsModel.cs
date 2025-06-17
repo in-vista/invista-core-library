@@ -1200,6 +1200,56 @@ namespace GeeksCoreLibrary.Components.Account.Models
             ComponentMode = "ResetPassword,CreateOrUpdateAccount,SubAccountsManagement"
         )]
         public string PasswordValidationRegex { get; set; }
+        
+        [CmsProperty(
+            PrettyName = "SSO endpoint",
+            Description = "The endpoint that is requested upon attempting to log in.",
+            TabName = CmsAttributes.CmsTabName.Behavior,
+            GroupName = CmsAttributes.CmsGroupName.Basic,
+            DisplayOrder = 10,
+            ComponentMode = "SSO"
+        )]
+        public string SSOEndpoint { get; set; }
+        
+        [CmsProperty(
+            PrettyName = "SSO username field name",
+            Description = "The field name that is used to retrieve the username for the request.",
+            TabName = CmsAttributes.CmsTabName.Behavior,
+            GroupName = CmsAttributes.CmsGroupName.Basic,
+            DisplayOrder = 11,
+            ComponentMode = "SSO"
+        )]
+        public string SSOSourceUsernameFieldName { get; set; }
+        
+        [CmsProperty(
+            PrettyName = "SSO username field name (third-party)",
+            Description = "The field name for the username that is used to build the request body for the given endpoint.",
+            TabName = CmsAttributes.CmsTabName.Behavior,
+            GroupName = CmsAttributes.CmsGroupName.Basic,
+            DisplayOrder = 12,
+            ComponentMode = "SSO"
+        )]
+        public string SSOThirdPartyUsernameFieldName { get; set; }
+        
+        [CmsProperty(
+            PrettyName = "SSO password field name",
+            Description = "The field name that is used to retrieve the password for the request.",
+            TabName = CmsAttributes.CmsTabName.Behavior,
+            GroupName = CmsAttributes.CmsGroupName.Basic,
+            DisplayOrder = 13,
+            ComponentMode = "SSO"
+        )]
+        public string SSOSourcePasswordFieldName { get; set; }
+        
+        [CmsProperty(
+            PrettyName = "SSO password field name (third-party)",
+            Description = "The field name for the password that is used to build the request body for the given endpoint.",
+            TabName = CmsAttributes.CmsTabName.Behavior,
+            GroupName = CmsAttributes.CmsGroupName.Basic,
+            DisplayOrder = 14,
+            ComponentMode = "SSO"
+        )]
+        public string SSOThirdPartyPasswordFieldName { get; set; }
 
         #endregion
 

@@ -91,7 +91,12 @@ namespace GeeksCoreLibrary.Components.Account
             /// <summary>
             /// A mode for continuing a punch out cXML session.
             /// </summary>
-            CXmlPunchOutContinueSession = 7
+            CXmlPunchOutContinueSession = 7,
+            
+            /// <summary>
+            /// A mode used for authentication handling by a third-party.
+            /// </summary>
+            SSO = 8
         }
 
         /// <summary>
@@ -343,6 +348,9 @@ namespace GeeksCoreLibrary.Components.Account
                     break;
                 case ComponentModes.CXmlPunchOutContinueSession:
                     await HandleCXmlPunchOutContinueSessionModeAsync();
+                    break;
+                case ComponentModes.SSO:
+                    await HandleSSOModeAsync();
                     break;
                 default:
                     throw new NotImplementedException($"Unknown or unsupported component mode '{Settings.ComponentMode}' in 'GenerateHtmlAsync'.");
@@ -1262,6 +1270,29 @@ namespace GeeksCoreLibrary.Components.Account
         private Task HandleCXmlPunchOutContinueSessionModeAsync()
         {
             throw new NotImplementedException();
+        }
+        
+        /// <summary>
+        /// Handle everything for authenticating through a third-party.
+        /// </summary>
+        private async Task HandleSSOModeAsync()
+        {
+            try
+            {
+                var httpContext = HttpContext;
+                var response = httpContext?.Response;
+                var request = httpContext?.Request;
+
+                string sourceUsernameField = HttpContextHelpers.GetRequestValue(httpContext, Settings.SSOSourceUsernameFieldName);
+                string sourcePasswordField = HttpContextHelpers.GetRequestValue(httpContext, Settings.SSOSourcePasswordFieldName);
+                
+                string thirdPartyUsernameField = HttpContextHelpers.GetRequestValue(httpContext, Settings.SSOThirdPartyUsernameFieldName);
+                string thirdPartyPasswordField = HttpContextHelpers.GetRequestValue(httpContext, Settings.SSOThirdPartyPasswordFieldName);
+            }
+            catch (Exception exception)
+            {
+                Logger.LogError(exception.ToString());
+            }
         }
 
         /// <summary>
