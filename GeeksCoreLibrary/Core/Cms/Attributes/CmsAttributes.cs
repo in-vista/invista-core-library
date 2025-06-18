@@ -66,7 +66,8 @@ namespace GeeksCoreLibrary.Core.Cms.Attributes
             [CmsEnum(PrettyName = "Sessions / Cookies")]
             SessionCookie,
             Search,
-            Cookies
+            Cookies,
+            SSO
         }
 
         /// <summary>

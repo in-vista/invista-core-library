@@ -1,4 +1,5 @@
 ﻿using System.ComponentModel;
+using System.Net.Http;
 using GeeksCoreLibrary.Core.Cms;
 using GeeksCoreLibrary.Core.Cms.Attributes;
 
@@ -1205,18 +1206,38 @@ namespace GeeksCoreLibrary.Components.Account.Models
             PrettyName = "SSO endpoint",
             Description = "The endpoint that is requested upon attempting to log in.",
             TabName = CmsAttributes.CmsTabName.Behavior,
-            GroupName = CmsAttributes.CmsGroupName.Basic,
+            GroupName = CmsAttributes.CmsGroupName.SSO,
             DisplayOrder = 10,
             ComponentMode = "SSO"
         )]
         public string SSOEndpoint { get; set; }
         
         [CmsProperty(
+            PrettyName = "SSO request method",
+            Description = "The HTTP method used to make the SSO request.",
+            TabName = CmsAttributes.CmsTabName.Behavior,
+            GroupName = CmsAttributes.CmsGroupName.SSO,
+            DisplayOrder = 11,
+            ComponentMode = "SSO"
+        ), DefaultValue(HttpMethod.POST)]
+        public HttpMethod SSORequestMethod { get; set; } = HttpMethod.POST;
+
+        [CmsProperty(
+             PrettyName = "SSO form type",
+             Description = "The form type used for the body of the SSO request.",
+             TabName = CmsAttributes.CmsTabName.Behavior,
+             GroupName = CmsAttributes.CmsGroupName.SSO,
+             DisplayOrder = 12,
+             ComponentMode = "SSO"
+         ), DefaultValue(HttpFormType.None)]
+        public HttpFormType SSOFormType { get; set; } = HttpFormType.None;
+        
+        [CmsProperty(
             PrettyName = "SSO username field name",
             Description = "The field name that is used to retrieve the username for the request.",
             TabName = CmsAttributes.CmsTabName.Behavior,
-            GroupName = CmsAttributes.CmsGroupName.Basic,
-            DisplayOrder = 11,
+            GroupName = CmsAttributes.CmsGroupName.SSO,
+            DisplayOrder = 13,
             ComponentMode = "SSO"
         )]
         public string SSOSourceUsernameFieldName { get; set; }
@@ -1225,8 +1246,8 @@ namespace GeeksCoreLibrary.Components.Account.Models
             PrettyName = "SSO username field name (third-party)",
             Description = "The field name for the username that is used to build the request body for the given endpoint.",
             TabName = CmsAttributes.CmsTabName.Behavior,
-            GroupName = CmsAttributes.CmsGroupName.Basic,
-            DisplayOrder = 12,
+            GroupName = CmsAttributes.CmsGroupName.SSO,
+            DisplayOrder = 14,
             ComponentMode = "SSO"
         )]
         public string SSOThirdPartyUsernameFieldName { get; set; }
@@ -1235,8 +1256,8 @@ namespace GeeksCoreLibrary.Components.Account.Models
             PrettyName = "SSO password field name",
             Description = "The field name that is used to retrieve the password for the request.",
             TabName = CmsAttributes.CmsTabName.Behavior,
-            GroupName = CmsAttributes.CmsGroupName.Basic,
-            DisplayOrder = 13,
+            GroupName = CmsAttributes.CmsGroupName.SSO,
+            DisplayOrder = 15,
             ComponentMode = "SSO"
         )]
         public string SSOSourcePasswordFieldName { get; set; }
@@ -1245,11 +1266,46 @@ namespace GeeksCoreLibrary.Components.Account.Models
             PrettyName = "SSO password field name (third-party)",
             Description = "The field name for the password that is used to build the request body for the given endpoint.",
             TabName = CmsAttributes.CmsTabName.Behavior,
-            GroupName = CmsAttributes.CmsGroupName.Basic,
-            DisplayOrder = 14,
+            GroupName = CmsAttributes.CmsGroupName.SSO,
+            DisplayOrder = 16,
             ComponentMode = "SSO"
         )]
         public string SSOThirdPartyPasswordFieldName { get; set; }
+        
+        [CmsProperty(
+            PrettyName = "SSO request headers query",
+            Description = "A query to define the headers to be used for making the request to the third-party.",
+            TabName = CmsAttributes.CmsTabName.Behavior,
+            GroupName = CmsAttributes.CmsGroupName.SSO,
+            DisplayOrder = 100,
+            ComponentMode = "SSO",
+            TextEditorType = CmsAttributes.CmsTextEditorType.QueryEditor
+        )]
+        public string SSORequestHeadersQuery { get; set; }
+        
+        [CmsProperty(
+            PrettyName = "SSO user details store query",
+            Description = "A query to define what values to store alongside the user that is created for this SSO authentication.",
+            DeveloperRemarks = "The variables that can be used are the properties of the response of the SSO authentication.",
+            TabName = CmsAttributes.CmsTabName.Behavior,
+            GroupName = CmsAttributes.CmsGroupName.SSO,
+            DisplayOrder = 101,
+            ComponentMode = "SSO",
+            TextEditorType = CmsAttributes.CmsTextEditorType.QueryEditor
+        )]
+        public string SSOUserDetailsStoreQuery { get; set; }
+        
+        [CmsProperty(
+            PrettyName = "SSO after-login query",
+            Description = "A query that is executed after the user is successfully authenticated through SSO.",
+            DeveloperRemarks = "The variables that can be used are the properties of the response of the SSO authentication. This query is executed after saving the user model, but before logging in the user.",
+            TabName = CmsAttributes.CmsTabName.Behavior,
+            GroupName = CmsAttributes.CmsGroupName.SSO,
+            DisplayOrder = 102,
+            ComponentMode = "SSO",
+            TextEditorType = CmsAttributes.CmsTextEditorType.QueryEditor
+        )]
+        public string SSOAfterLoginQuery { get; set; }
 
         #endregion
 
