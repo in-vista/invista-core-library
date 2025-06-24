@@ -5,6 +5,7 @@ using System.Data.Common;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Net.Http;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -40,7 +41,9 @@ using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Primitives;
 using MySqlConnector;
 using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 using Constants = GeeksCoreLibrary.Components.Account.Models.Constants;
+using HttpMethod = System.Net.Http.HttpMethod;
 
 namespace GeeksCoreLibrary.Components.Account
 {
@@ -53,6 +56,7 @@ namespace GeeksCoreLibrary.Components.Account
         private readonly GclSettings gclSettings;
         private readonly IObjectsService objectsService;
         private readonly ICommunicationsService communicationsService;
+        private readonly IWiserItemsService wiserItemsService;
 
         #region Enums
 
@@ -91,7 +95,12 @@ namespace GeeksCoreLibrary.Components.Account
             /// <summary>
             /// A mode for continuing a punch out cXML session.
             /// </summary>
-            CXmlPunchOutContinueSession = 7
+            CXmlPunchOutContinueSession = 7,
+            
+            /// <summary>
+            /// A mode used for authentication handling by a third-party.
+            /// </summary>
+            SSO = 8
         }
 
         /// <summary>
@@ -246,11 +255,21 @@ namespace GeeksCoreLibrary.Components.Account
 
         #region Constructor
 
-        public Account(IOptions<GclSettings> gclSettings, ILogger<Account> logger, IStringReplacementsService stringReplacementsService, IObjectsService objectsService, ICommunicationsService communicationsService, IDatabaseConnection databaseConnection, ITemplatesService templatesService, IAccountsService accountsService, IAntiforgery antiForgery)
+        public Account(
+            IOptions<GclSettings> gclSettings,
+            ILogger<Account> logger,
+            IStringReplacementsService stringReplacementsService,
+            IObjectsService objectsService,
+            ICommunicationsService communicationsService,
+            IDatabaseConnection databaseConnection,
+            ITemplatesService templatesService,
+            IAccountsService accountsService,
+            IWiserItemsService wiserItemsService)
         {
             this.gclSettings = gclSettings.Value;
             this.objectsService = objectsService;
             this.communicationsService = communicationsService;
+            this.wiserItemsService = wiserItemsService;
 
             Logger = logger;
             StringReplacementsService = stringReplacementsService;
@@ -343,6 +362,9 @@ namespace GeeksCoreLibrary.Components.Account
                     break;
                 case ComponentModes.CXmlPunchOutContinueSession:
                     await HandleCXmlPunchOutContinueSessionModeAsync();
+                    break;
+                case ComponentModes.SSO:
+                    resultHtml.Append(await HandleSSOModeAsync());
                     break;
                 default:
                     throw new NotImplementedException($"Unknown or unsupported component mode '{Settings.ComponentMode}' in 'GenerateHtmlAsync'.");
@@ -1262,6 +1284,236 @@ namespace GeeksCoreLibrary.Components.Account
         private Task HandleCXmlPunchOutContinueSessionModeAsync()
         {
             throw new NotImplementedException();
+        }
+        
+        /// <summary>
+        /// Handle everything for authenticating through a third-party.
+        /// </summary>
+        public async Task<string> HandleSSOModeAsync()
+        {
+            string resultHtml = Settings.Template;
+            string errorType = null;
+            
+            try
+            {
+                // Check whether the user is trying to logout.
+                // This is based on whether the URL contains a specific query key.
+                if (string.Equals(HttpContext.Request?.Query[$"{Constants.LogoutQueryStringKey}{ComponentId}"], "true", StringComparison.OrdinalIgnoreCase))
+                {
+                    await AccountsService.LogoutUserAsync(Settings);
+                    goto end;
+                }
+
+                // Retrieve the username and password values used for the authentication.
+                string sourceUsername = HttpContextHelpers.GetRequestValue(HttpContext, Settings.SSOSourceUsernameFieldName);
+                string sourcePassword = HttpContextHelpers.GetRequestValue(HttpContext, Settings.SSOSourcePasswordFieldName);
+                
+                // If the username and password are empty, this means the user has not submitted the login form yet.
+                if (string.IsNullOrEmpty(sourceUsername) || string.IsNullOrEmpty(sourcePassword))
+                    goto end;
+                
+                // Retrieve the key names for the request body for the username and password fields.
+                string thirdPartyUsernameField = Settings.SSOThirdPartyUsernameFieldName;
+                string thirdPartyPasswordField = Settings.SSOThirdPartyPasswordFieldName;
+                
+                // Collect any additional headers based on a given query to be used with the SSO request.
+                string headersQuery = StringReplacementsService.DoHttpRequestReplacements(Settings.SSORequestHeadersQuery);
+                DataTable headersResults = await RenderAndExecuteQueryAsync(headersQuery, skipCache: true);
+                Dictionary<string, string> headers = headersResults.AsEnumerable().ToDictionary(
+                    row => row["name"] as string,
+                    row => row["value"] as string
+                );
+                
+                // Prepare a dictionary of the response's properties.
+                // These will later be used in a follow-up query to build the user details to be stored.
+                Dictionary<string, object> ssoResponseVariables = new Dictionary<string, object>();
+                
+                // Create a HTTPClient instance to create and send a HTTP request.
+                using (HttpClient client = new HttpClient())
+                {
+                    // Add any additional headers to the request instance.
+                    foreach(KeyValuePair<string, string> header in headers)
+                        client.DefaultRequestHeaders.Add(header.Key, header.Value);
+                    
+                    // Determine the type of body to build and add to the request.
+                    HttpContent ssoContent = null;
+                    switch (Settings.SSOFormType)
+                    {
+                        // application/x-www-form-urlencoded.
+                        case HttpFormType.FormUrlEncodedContent:
+                            List<KeyValuePair<string, string>> formUrlEncoded = new List<KeyValuePair<string, string>>();
+                            formUrlEncoded.Add(new KeyValuePair<string, string>(thirdPartyUsernameField, sourceUsername));
+                            formUrlEncoded.Add(new KeyValuePair<string, string>(thirdPartyPasswordField, sourcePassword));
+                            ssoContent = new FormUrlEncodedContent(formUrlEncoded);
+                            break;
+                        // multipart/form-data.
+                        case HttpFormType.MultipartFormData:
+                            MultipartFormDataContent multipartFormData = new MultipartFormDataContent();
+                            multipartFormData.Add(new StringContent(sourceUsername), thirdPartyUsernameField);
+                            multipartFormData.Add(new StringContent(sourcePassword), thirdPartyPasswordField);
+                            ssoContent = multipartFormData;
+                            break;
+                        // JSON body.
+                        case HttpFormType.RawJson:
+                            JObject json = new JObject(
+                                new JProperty(thirdPartyUsernameField, sourceUsername),
+                                new JProperty(thirdPartyPasswordField, sourcePassword)
+                            );
+                            ssoContent = new StringContent(json.ToString(), Encoding.UTF8, "application/json");
+                            break;
+                    }
+                    
+                    // Determine the HTTP method used to make the SSO request.
+                    HttpMethod ssoRequestMethod = Settings.SSORequestMethod switch
+                    {
+                        Models.HttpMethod.GET => HttpMethod.Get,
+                        Models.HttpMethod.POST => HttpMethod.Post,
+                        Models.HttpMethod.PUT => HttpMethod.Put,
+                        _ => throw new NullReferenceException("Unrecognized request method.")
+                    };
+                    
+                    // Prepare the SSO request with the given HTTP method and endpoint.
+                    HttpRequestMessage ssoRequest = new HttpRequestMessage(ssoRequestMethod, Settings.SSOEndpoint);
+                    
+                    // Add a body to the request if one was defined.
+                    if(ssoContent != null)
+                        ssoRequest.Content = ssoContent;
+                    
+                    // Send the SSO request.
+                    HttpResponseMessage ssoResponse = await client.SendAsync(ssoRequest);
+                    
+                    // Retrieve the response as a string.
+                    string ssoResponseContent = await ssoResponse.Content.ReadAsStringAsync();
+                    
+                    // Validate the response. If it failed, we are not authenticated and we want to show an error template to the user.
+                    if (!ssoResponse.IsSuccessStatusCode)
+                    {
+                        string errorTemplate = Settings.TemplateError.Replace("{errorType}", "InvalidUsernameOrPassword");
+                        resultHtml = resultHtml.Replace("{error}", errorTemplate, StringComparison.OrdinalIgnoreCase);
+                        goto end;
+                    }
+
+                    // Parse the response (as string) into workable JSON.
+                    JObject responseObject = JObject.Parse(ssoResponseContent);
+                    
+                    // Add the response's properties to the collection of variables.
+                    foreach (JProperty property in responseObject.Properties())
+                        ssoResponseVariables.Add(property.Name, property.Value);
+                }
+                
+                // Prepare the query used to determine what details to store alongside the user created after
+                // succesfully authenticating.
+                // Additionally, variables are added to the query from the response of the SSO request.
+                string userDetailsStoreQuery = Settings.SSOUserDetailsStoreQuery;
+                userDetailsStoreQuery = StringReplacementsService.DoReplacements(userDetailsStoreQuery, ssoResponseVariables);
+                
+                // Retrieve the details to store alongside the user.
+                DataTable userDetailsStoreResults = await DatabaseConnection.GetAsync(userDetailsStoreQuery);
+                
+                // Convert the data row from the query's results into a key-value pair dictionary.
+                Dictionary<string, string> userDetails = new Dictionary<string, string>();
+                if (userDetailsStoreResults.Rows.Count > 0)
+                {
+                    DataRow userDetailsStoreRow = userDetailsStoreResults.Rows[0];
+                    userDetails = userDetailsStoreRow
+                        .Table
+                        .Columns
+                        .Cast<DataColumn>()
+                        .Where(column => !string.IsNullOrEmpty(userDetailsStoreRow[column].ToString()))
+                        .ToDictionary(column => column.ColumnName, column => userDetailsStoreRow[column].ToString());
+                }
+                
+                // Get the identifier and username/title from the user details query results.
+                string ssoIdentifier = userDetails["identifier"];
+                string userTitle = userDetails.TryGetValue("title", out string userTitleTemp) ? userTitleTemp : string.Empty;
+                
+                // Get the user ID based on the given SSO identifier.
+                string userIdQuery = @$"SELECT `identifier`.`item_id`
+FROM {WiserTableNames.WiserItemDetail} `identifier`
+WHERE `identifier`.`key` = 'identifier' AND `identifier`.groupname = 'sso' AND `identifier`.`value` = ?identifier
+LIMIT 1";
+                DatabaseConnection.ClearParameters();
+                DatabaseConnection.AddParameter("identifier", ssoIdentifier);
+                DataTable userIdResults = await DatabaseConnection.GetAsync(userIdQuery);
+                ulong userId = userIdResults.Rows.Count > 0 ? Convert.ToUInt64(userIdResults.Rows[0][0]) : 0;
+                
+                // Prepare an empty user item model.
+                WiserItemModel userModel = null;
+                
+                // If there was no user yet with the SSO identifier, then we have to create a new user.
+                if (userId == 0)
+                {
+                    userModel = new WiserItemModel()
+                    {
+                        EntityType = Settings.EntityType,
+                        ReadOnly = true
+                    };
+                }
+                // Otherwise, retrieve the existing user.
+                else
+                {
+                    userModel = await wiserItemsService.GetItemDetailsAsync(userId, skipPermissionsCheck: true);
+                }
+                
+                // Overwrite the title of the user.
+                userModel.Title = userTitle;
+                
+                // Add the details to the user model.
+                foreach(KeyValuePair<string, string> userDetail in userDetails)
+                    userModel.SetDetail(userDetail.Key, userDetail.Value, groupName: "sso");
+                
+                // Save the user in the database.
+                userModel = await wiserItemsService.SaveAsync(userModel, skipPermissionsCheck: true);
+                
+                // Run the after-login query if it not empty.
+                string afterLoginQuery = Settings.SSOAfterLoginQuery;
+                if (!string.IsNullOrEmpty(afterLoginQuery))
+                {
+                    afterLoginQuery = StringReplacementsService.DoReplacements(userDetailsStoreQuery, ssoResponseVariables);
+                    DatabaseConnection.ClearParameters();
+                    await DatabaseConnection.ExecuteAsync(afterLoginQuery);
+                }
+                
+                // Force login the user to the new account.
+                var (loginResults, _, __) = await LoginUserAsync(encryptedUserId: userModel.EncryptedId);
+
+                if (loginResults != LoginResults.Success)
+                {
+                    string errorTemplate = Settings.TemplateError.Replace("{errorType}", loginResults.ToString());
+                    resultHtml = resultHtml.Replace("{error}", errorTemplate, StringComparison.OrdinalIgnoreCase);
+                    goto end;
+                }
+                
+                // Set the template to be succesful to be sent back to the user.
+                resultHtml = Settings.TemplateSuccess;
+                resultHtml = DoDefaultAccountHtmlReplacements(resultHtml);
+                resultHtml = resultHtml.Replace("{title}", userTitle);
+            }
+            catch (Exception exception)
+            {
+                // Set the template to be an error and show it to the user.
+                string errorTemplate = Settings.TemplateError.Replace("{errorType}", "Server");
+                resultHtml = resultHtml.Replace("{error}", errorTemplate, StringComparison.OrdinalIgnoreCase);
+                
+                // Log the thrown error.
+                Logger.LogError(exception.ToString());
+            }
+            
+            // End control for skipping code execution, but rely on default behaviour.
+            end:
+            
+            // Apply default replacement.
+            resultHtml = DoDefaultAccountHtmlReplacements(resultHtml);
+            
+            // Apply evaluations to the template.
+            resultHtml = await TemplatesService.DoReplacesAsync(
+                resultHtml,
+                handleRequest: Settings.HandleRequest,
+                evaluateLogicSnippets: Settings.EvaluateIfElseInTemplates,
+                removeUnknownVariables: Settings.RemoveUnknownVariables);
+            
+            // Return the template to the user.
+            return resultHtml;
         }
 
         /// <summary>
