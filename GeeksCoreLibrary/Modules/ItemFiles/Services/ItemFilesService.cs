@@ -2,6 +2,7 @@
 using System.Data;
 using System.IO;
 using System.Linq;
+using System.Net;
 using System.Threading.Tasks;
 using GeeksCoreLibrary.Core.DependencyInjection.Interfaces;
 using GeeksCoreLibrary.Core.Extensions;
@@ -491,6 +492,9 @@ namespace GeeksCoreLibrary.Modules.ItemFiles.Services
                             {
                                 var requestUri = new Uri(contentUrl);
                                 fileBytes = await httpClientService.Client.GetByteArrayAsync(requestUri);
+                                var fileResult = await httpClientService.Client.GetAsync(contentUrl);
+                                if (fileResult.StatusCode == HttpStatusCode.OK)
+                                    fileBytes = await fileResult.Content.ReadAsByteArrayAsync();
                             }
                             else
                             {
