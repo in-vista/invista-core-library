@@ -71,7 +71,7 @@ namespace GeeksCoreLibrary.Components.Repeater.Models
             TabName = CmsAttributes.CmsTabName.Layout,
             GroupName = CmsAttributes.CmsGroupName.Templates,
             DisplayOrder = 10,
-            ComponentMode = "NonLegacy",
+            ComponentMode = "NonLegacy,Repeater",
             HideInCms = false,
             ReadOnlyInCms = false
         )]
