@@ -21,4 +21,5 @@ public class Constants
     public const string LinkOrderingFieldName = "__ordering";
     public const string LanguageCodeKey = "_languageCode";
     public const string PropertyNameKey = "_propertyName";
+    public const int MinimumDefaultAwsSecretsCacheDurationInMinutes = 60;
 }

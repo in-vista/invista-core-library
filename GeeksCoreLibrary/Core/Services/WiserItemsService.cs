@@ -16,6 +16,7 @@ using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using GeeksCoreLibrary.Core.Exceptions;
+using GeeksCoreLibrary.Modules.Databases.Helpers;
 using GeeksCoreLibrary.Modules.Databases.Interfaces;
 using GeeksCoreLibrary.Modules.Databases.Models;
 using GeeksCoreLibrary.Modules.Databases.Services;
@@ -153,7 +154,7 @@ namespace GeeksCoreLibrary.Core.Services
 
                     return wiserItem;
                 }
-                catch (MySqlException mySqlException)
+                catch (GclQueryException queryException)
                 {
                     if (!createNewTransaction)
                     {
@@ -162,7 +163,7 @@ namespace GeeksCoreLibrary.Core.Services
 
                     await databaseConnection.RollbackTransactionAsync(false);
 
-                    if (MySqlDatabaseConnection.MySqlErrorCodesToRetry.Contains(mySqlException.Number) && retries < gclSettings.MaximumRetryCountForQueries)
+                    if (MySqlHelpers.IsErrorToRetry(queryException) && retries < gclSettings.MaximumRetryCountForQueries)
                     {
                         // Exception is a deadlock or something similar, retry the transaction.
                         retries++;
@@ -393,11 +394,11 @@ SELECT {(wiserItem.Id > 0 ? "?id" : "LAST_INSERT_ID()")} AS newId;";
 
                     return wiserItem;
                 }
-                catch (MySqlException mySqlException)
+                catch (GclQueryException queryException)
                 {
                     await databaseConnection.RollbackTransactionAsync(false);
 
-                    if (MySqlDatabaseConnection.MySqlErrorCodesToRetry.Contains(mySqlException.Number) && retries < gclSettings.MaximumRetryCountForQueries)
+                    if (MySqlHelpers.IsErrorToRetry(queryException) && retries < gclSettings.MaximumRetryCountForQueries)
                     {
                         // Exception is a deadlock or something similar, retry the transaction.
                         retries++;
@@ -501,22 +502,22 @@ SELECT {(wiserItem.Id > 0 ? "?id" : "LAST_INSERT_ID()")} AS newId;";
                                     WHERE id = ?itemId
                                 );
 
-                                SET @newItemId = (SELECT LAST_INSERT_ID());
+                                SET @lastInsertedId = (SELECT LAST_INSERT_ID());
 
                                 {addItemLinkQuery}
 
                                 #Duplicate values
                                 INSERT INTO {tablePrefix}{WiserTableNames.WiserItemDetail} (language_code, item_id, groupname, `key`, `value`, long_value)
-                                (SELECT language_code, @newItemId, groupname, `key`, `value`, long_value FROM {tablePrefix}{WiserTableNames.WiserItemDetail} WHERE item_id = ?itemId);
+                                (SELECT language_code, @lastInsertedId, groupname, `key`, `value`, long_value FROM {tablePrefix}{WiserTableNames.WiserItemDetail} WHERE item_id = ?itemId);
 
                                 #Duplicate files
                                 INSERT INTO {tablePrefix}{WiserTableNames.WiserItemFile} (item_id, content_type, content, content_url, width, height, file_name, extension, title, property_name, added_on, added_by)
-                                (SELECT @newItemId, content_type, content, content_url, width, height, file_name, extension, title, property_name, NOW(), ?username FROM {tablePrefix}{WiserTableNames.WiserItemFile} WHERE item_id = ?itemId);
+                                (SELECT @lastInsertedId, content_type, content, content_url, width, height, file_name, extension, title, property_name, NOW(), ?username FROM {tablePrefix}{WiserTableNames.WiserItemFile} WHERE item_id = ?itemId);
 
-                                SELECT @newItemId AS newItemId, we.icon, {(useItemParentId ? "0" : "@newLinkId")} AS newLinkId, i.title
+                                SELECT @lastInsertedId AS newItemId, we.icon, {(useItemParentId ? "0" : "@newLinkId")} AS newLinkId, i.title
                                 FROM {tablePrefix}{WiserTableNames.WiserItem} i
                                 LEFT JOIN {WiserTableNames.WiserEntity} we ON we.name = i.entity_type
-                                WHERE i.id = @newItemId
+                                WHERE i.id = @lastInsertedId
                                 LIMIT 1;";
 
                 var dataTable = await databaseConnection.GetAsync(query, true);
@@ -643,7 +644,7 @@ SELECT {(wiserItem.Id > 0 ? "?id" : "LAST_INSERT_ID()")} AS newId;";
 
                     return result;
                 }
-                catch (MySqlException mySqlException)
+                catch (GclQueryException queryException)
                 {
                     if (!createNewTransaction)
                     {
@@ -652,7 +653,7 @@ SELECT {(wiserItem.Id > 0 ? "?id" : "LAST_INSERT_ID()")} AS newId;";
 
                     await databaseConnection.RollbackTransactionAsync(false);
 
-                    if (MySqlDatabaseConnection.MySqlErrorCodesToRetry.Contains(mySqlException.Number) && retries < gclSettings.MaximumRetryCountForQueries)
+                    if (MySqlHelpers.IsErrorToRetry(queryException) && retries < gclSettings.MaximumRetryCountForQueries)
                     {
                         // Exception is a deadlock or something similar, retry the transaction.
                         retries++;
@@ -1418,7 +1419,7 @@ SET @saveHistory = ?saveHistoryGcl;
 
                     return wiserItem;
                 }
-                catch (MySqlException mySqlException)
+                catch (GclQueryException queryException)
                 {
                     if (!createNewTransaction)
                     {
@@ -1427,7 +1428,7 @@ SET @saveHistory = ?saveHistoryGcl;
 
                     await databaseConnection.RollbackTransactionAsync(false);
 
-                    if (MySqlDatabaseConnection.MySqlErrorCodesToRetry.Contains(mySqlException.Number) && retries < gclSettings.MaximumRetryCountForQueries)
+                    if (MySqlHelpers.IsErrorToRetry(queryException) && retries < gclSettings.MaximumRetryCountForQueries)
                     {
                         // Exception is a deadlock or something similar, retry the transaction.
                         retries++;
@@ -1793,7 +1794,7 @@ VALUES ('UNDELETE_ITEM', 'wiser_item', ?itemId, IFNULL(@_username, USER()), ?ent
 
                     return result;
                 }
-                catch (MySqlException mySqlException)
+                catch (GclQueryException queryException)
                 {
                     if (!createNewTransaction)
                     {
@@ -1802,7 +1803,7 @@ VALUES ('UNDELETE_ITEM', 'wiser_item', ?itemId, IFNULL(@_username, USER()), ?ent
 
                     await databaseConnection.RollbackTransactionAsync(false);
 
-                    if (MySqlDatabaseConnection.MySqlErrorCodesToRetry.Contains(mySqlException.Number) && retries < gclSettings.MaximumRetryCountForQueries)
+                    if (MySqlHelpers.IsErrorToRetry(queryException) && retries < gclSettings.MaximumRetryCountForQueries)
                     {
                         // Exception is a deadlock or something similar, retry the transaction.
                         retries++;
@@ -3549,6 +3550,7 @@ WHERE {String.Join(" AND ", where)}";
             databaseConnection.AddParameter("extension", wiserItemFile.Extension);
             databaseConnection.AddParameter("title", wiserItemFile.Title);
             databaseConnection.AddParameter("propertyName", wiserItemFile.PropertyName);
+            databaseConnection.AddParameter("protected", wiserItemFile.Protected);
             databaseConnection.AddParameter("extraData", wiserItemFile.ExtraData == null ? null : JsonConvert.SerializeObject(wiserItemFile.ExtraData));
             databaseConnection.AddParameter("username", username);
             databaseConnection.AddParameter("userId", userId);
@@ -3559,8 +3561,8 @@ WHERE {String.Join(" AND ", where)}";
                 SET @_username = ?username;
                 SET @_userId = ?userId;
                 SET @saveHistory = ?saveHistoryGcl;
-                INSERT IGNORE INTO {(linkType > 0 ? linkTablePrefix : tablePrefix)}{WiserTableNames.WiserItemFile} (item_id, content_type, content, content_url, width, height, file_name, extension, added_by, title, property_name, itemlink_id, extra_data) 
-                VALUES (?itemId, ?contentType, ?content, ?contentUrl, ?width, ?height, ?fileName, ?extension, ?username, ?title, ?propertyName, ?itemLinkId, ?extraData);
+                INSERT IGNORE INTO {{(linkType > 0 ? linkTablePrefix : tablePrefix)}}{{WiserTableNames.WiserItemFile}} (item_id, content_type, content, content_url, width, height, file_name, extension, added_by, title, property_name, protected, itemlink_id, extra_data) 
+                VALUES (?itemId, ?contentType, ?content, ?contentUrl, ?width, ?height, ?fileName, ?extension, ?username, ?title, ?propertyName, ?protected, ?itemLinkId, ?extraData);
                 SELECT LAST_INSERT_ID();", true);
 
             return Convert.ToUInt64(addItemFileResult.Rows[0][0]);
@@ -3617,7 +3619,7 @@ WHERE {String.Join(" AND ", where)}";
 
             databaseConnection.AddParameter("Ids", String.Join(",", ids));
             var queryResult = await databaseConnection.GetAsync($@"
-                SELECT `id`, `item_id`, `content_type`, `content`, `content_url`, `width`, `height`, `file_name`, `extension`, `added_on`, `added_by`, `title`, `property_name`, `itemlink_id`, extra_data
+                SELECT `id`, `item_id`, `content_type`, `content`, `content_url`, `width`, `height`, `file_name`, `extension`, `added_on`, `added_by`, `title`, `property_name`, `protected`, `itemlink_id`, extra_data
                 FROM {tablePrefix}{WiserTableNames.WiserItemFile}
                 WHERE {columnName} IN ({String.Join(",", ids)})
                 {propertyNameClause}", true);
@@ -4449,11 +4451,11 @@ WHERE id = ?saveDetailId";
 
                     transactionCompleted = true;
                 }
-                catch (MySqlException mySqlException)
+                catch (GclQueryException queryException)
                 {
                     await databaseConnection.RollbackTransactionAsync(false);
 
-                    if (MySqlDatabaseConnection.MySqlErrorCodesToRetry.Contains(mySqlException.Number) && retries < gclSettings.MaximumRetryCountForQueries)
+                    if (MySqlHelpers.IsErrorToRetry(queryException) && retries < gclSettings.MaximumRetryCountForQueries)
                     {
                         // Exception is a deadlock or something similar, retry the transaction.
                         retries++;
@@ -4621,6 +4623,7 @@ WHERE id = ?saveDetailId";
                 Extension = dataRow.Field<string>("extension"),
                 Title = dataRow.Field<string>("title"),
                 PropertyName = dataRow.Field<string>("property_name"),
+                Protected = dataRow.Field<bool>("protected"),
                 ExtraData = dataRow.IsNull("extra_data") ? null : JsonConvert.DeserializeObject<WiserItemFileExtraDataModel>(dataRow.Field<string>("extra_data")!)
             };
         }

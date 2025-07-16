@@ -13,6 +13,7 @@ using GeeksCoreLibrary.Core.Exceptions;
 using GeeksCoreLibrary.Core.Extensions;
 using GeeksCoreLibrary.Core.Helpers;
 using GeeksCoreLibrary.Core.Models;
+using GeeksCoreLibrary.Modules.Amazon.Interfaces;
 using GeeksCoreLibrary.Modules.Branches.Interfaces;
 using GeeksCoreLibrary.Modules.Databases.Helpers;
 using GeeksCoreLibrary.Modules.Databases.Interfaces;
@@ -31,14 +32,14 @@ namespace GeeksCoreLibrary.Modules.Databases.Services
 {
     public class MySqlDatabaseConnection : IDatabaseConnection, IScopedService
     {
-        public static readonly List<int> MySqlErrorCodesToRetry = new()
+        public static readonly List<MySqlErrorCode> MySqlErrorCodesToRetry = new()
         {
-            (int) MySqlErrorCode.LockDeadlock,
-            (int) MySqlErrorCode.LockWaitTimeout,
-            (int) MySqlErrorCode.UnableToConnectToHost,
-            (int) MySqlErrorCode.TooManyUserConnections,
-            (int) MySqlErrorCode.ConnectionCountError,
-            (int) MySqlErrorCode.TableDefinitionChanged
+            MySqlErrorCode.LockDeadlock,
+            MySqlErrorCode.LockWaitTimeout,
+            MySqlErrorCode.UnableToConnectToHost,
+            MySqlErrorCode.TooManyUserConnections,
+            MySqlErrorCode.ConnectionCountError,
+            MySqlErrorCode.TableDefinitionChanged
         };
 
         private const string Localhost = "127.0.0.1";
@@ -47,6 +48,8 @@ namespace GeeksCoreLibrary.Modules.Databases.Services
         private readonly IWebHostEnvironment webHostEnvironment;
         private readonly ILogger<MySqlDatabaseConnection> logger;
         private readonly IBranchesService branchesService;
+        private readonly IAmazonSecretsManagerService amazonSecretsManagerService;
+        
         private MySqlConnectionStringBuilder connectionStringForReading;
         private MySqlConnectionStringBuilder connectionStringForWriting;
 
@@ -81,6 +84,7 @@ namespace GeeksCoreLibrary.Modules.Databases.Services
         public MySqlDatabaseConnection(IOptions<GclSettings> gclSettings,
             ILogger<MySqlDatabaseConnection> logger,
             IBranchesService branchesService,
+            IAmazonSecretsManagerService amazonSecretsManagerService,
             IHttpContextAccessor httpContextAccessor = null,
             IWebHostEnvironment webHostEnvironment = null)
         {
@@ -88,6 +92,7 @@ namespace GeeksCoreLibrary.Modules.Databases.Services
             this.webHostEnvironment = webHostEnvironment;
             this.logger = logger;
             this.branchesService = branchesService;
+            this.amazonSecretsManagerService = amazonSecretsManagerService;
             this.gclSettings = gclSettings.Value;
 
             instanceId = Guid.NewGuid();
@@ -169,7 +174,7 @@ namespace GeeksCoreLibrary.Modules.Databases.Services
             }
             catch (InvalidOperationException invalidOperationException)
             {
-                if (retryCount >= gclSettings.MaximumRetryCountForQueries || !invalidOperationException.Message.Contains("This MySqlConnection is already in use", StringComparison.OrdinalIgnoreCase))
+                if (retryCount >= gclSettings.MaximumRetryCountForQueries || !MySqlHelpers.IsErrorToRetry(invalidOperationException))
                 {
                     logger.LogError(invalidOperationException, "Error trying to run this query: {query}", query);
                     throw new GclQueryException("Error trying to run query", query, invalidOperationException);
@@ -184,23 +189,15 @@ namespace GeeksCoreLibrary.Modules.Databases.Services
                 // Never retry single queries if we're in a transaction, because transactions will get rolled back when a deadlock occurs,
                 // so retrying a single query in a transaction is not very useful on most/all cases.
                 // Also, if we've reached the maximum number of retries, don't retry anymore.
-                if (HasActiveTransaction() || retryCount >= gclSettings.MaximumRetryCountForQueries)
+                if (HasActiveTransaction() || retryCount >= gclSettings.MaximumRetryCountForQueries || !MySqlHelpers.IsErrorToRetry(mySqlException))
                 {
                     logger.LogError(mySqlException, $"Error trying to run this query: {query}", query);
                     throw new GclQueryException("Error trying to run query", query, mySqlException);
                 }
 
                 // If we're not in a transaction, retry the query if it's a deadlock.
-                if (MySqlErrorCodesToRetry.Contains(mySqlException.Number))
-                {
-                    logger.LogError(mySqlException, $"Retry - (due to mySQL exception) executing query for {retryCount} time", query);
-                    Thread.Sleep(gclSettings.TimeToWaitBeforeRetryingQueryInMilliseconds);
-                    return await GetAsync(query, retryCount + 1, cleanUp, useWritingConnectionIfAvailable);
-                }
-
-                // For any other errors, just throw the exception.
-                logger.LogError(mySqlException, $"Error trying to run this query: {query}", query);
-                throw new GclQueryException("Error trying to run query", query, mySqlException);
+                Thread.Sleep(gclSettings.TimeToWaitBeforeRetryingQueryInMilliseconds);
+                return await GetAsync(query, retryCount + 1, cleanUp, useWritingConnectionIfAvailable);
             }
             finally
             {
@@ -261,7 +258,7 @@ namespace GeeksCoreLibrary.Modules.Databases.Services
             }
             catch (InvalidOperationException invalidOperationException)
             {
-                if (retryCount >= gclSettings.MaximumRetryCountForQueries || !invalidOperationException.Message.Contains("This MySqlConnection is already in use", StringComparison.OrdinalIgnoreCase))
+                if (retryCount >= gclSettings.MaximumRetryCountForQueries || !MySqlHelpers.IsErrorToRetry(invalidOperationException))
                 {
                     logger.LogError(invalidOperationException, "Error trying to run this query: {query}", query);
                     throw new GclQueryException("Error trying to run query", query, invalidOperationException);
@@ -275,22 +272,15 @@ namespace GeeksCoreLibrary.Modules.Databases.Services
                 // Never retry single queries if we're in a transaction, because transactions will get rolled back when a deadlock occurs,
                 // so retrying a single query in a transaction is not very useful on most/all cases.
                 // Also, if we've reached the maximum number of retries, don't retry anymore.
-                if (HasActiveTransaction() || retryCount >= gclSettings.MaximumRetryCountForQueries)
+                if (HasActiveTransaction() || retryCount >= gclSettings.MaximumRetryCountForQueries || !MySqlHelpers.IsErrorToRetry(mySqlException))
                 {
                     logger.LogError(mySqlException, "Error trying to run this query: {query}", query);
                     throw new GclQueryException("Error trying to run query", query, mySqlException);
                 }
 
                 // If we're not in a transaction, retry the query if it's a deadlock.
-                if (MySqlErrorCodesToRetry.Contains(mySqlException.Number))
-                {
-                    Thread.Sleep(gclSettings.TimeToWaitBeforeRetryingQueryInMilliseconds);
-                    return await ExecuteAsync(query, retryCount + 1, useWritingConnectionIfAvailable, cleanUp);
-                }
-
-                // For any other errors, just throw the exception.
-                logger.LogError(mySqlException, "Error trying to run this query: {query}", query);
-                throw new GclQueryException("Error trying to run query", query, mySqlException);
+                Thread.Sleep(gclSettings.TimeToWaitBeforeRetryingQueryInMilliseconds);
+                return await ExecuteAsync(query, retryCount + 1, useWritingConnectionIfAvailable, cleanUp);
             }
             finally
             {
@@ -395,7 +385,7 @@ namespace GeeksCoreLibrary.Modules.Databases.Services
             }
             catch (InvalidOperationException invalidOperationException)
             {
-                if (retryCount >= gclSettings.MaximumRetryCountForQueries || !invalidOperationException.Message.Contains("This MySqlConnection is already in use", StringComparison.OrdinalIgnoreCase))
+                if (retryCount >= gclSettings.MaximumRetryCountForQueries || !MySqlHelpers.IsErrorToRetry(invalidOperationException))
                 {
                     logger.LogError(invalidOperationException, "Error trying to run this query: {query}", query);
                     throw new GclQueryException("Error trying to run query", query, invalidOperationException);
@@ -409,22 +399,15 @@ namespace GeeksCoreLibrary.Modules.Databases.Services
                 // Never retry single queries if we're in a transaction, because transactions will get rolled back when a deadlock occurs,
                 // so retrying a single query in a transaction is not very useful on most/all cases.
                 // Also, if we've reached the maximum number of retries, don't retry anymore.
-                if (HasActiveTransaction() || retryCount >= gclSettings.MaximumRetryCountForQueries)
+                if (HasActiveTransaction() || retryCount >= gclSettings.MaximumRetryCountForQueries || !MySqlHelpers.IsErrorToRetry(mySqlException))
                 {
                     logger.LogError(mySqlException, "Error trying to run this query: {query}", query);
                     throw new GclQueryException("Error trying to run query", query, mySqlException);
                 }
 
                 // If we're not in a transaction, retry the query if it's a deadlock.
-                if (MySqlErrorCodesToRetry.Contains(mySqlException.Number))
-                {
-                    Thread.Sleep(gclSettings.TimeToWaitBeforeRetryingQueryInMilliseconds);
-                    return await InsertRecordAsync(query, retryCount + 1, useWritingConnectionIfAvailable);
-                }
-
-                // For any other errors, just throw the exception.
-                logger.LogError(mySqlException, "Error trying to run this query: {query}", query);
-                throw new GclQueryException("Error trying to run query", query, mySqlException);
+                Thread.Sleep(gclSettings.TimeToWaitBeforeRetryingQueryInMilliseconds);
+                return await InsertRecordAsync(query, retryCount + 1, useWritingConnectionIfAvailable);
             }
             finally
             {
@@ -571,19 +554,17 @@ namespace GeeksCoreLibrary.Modules.Databases.Services
         {
             logger.LogTrace($"Disposing instance of MySqlDatabaseConnection with ID '{instanceId}' on URL {HttpContextHelpers.GetOriginalRequestUri(httpContextAccessor?.HttpContext)}");
             dataReader?.Dispose();
-            AddConnectionCloseLogAsync(false, true);
-            AddConnectionCloseLogAsync(true, true);
+            _ = AddConnectionCloseLogAsync(false, true);
+            _ = AddConnectionCloseLogAsync(true, true);
         }
 
-        /// <summary>
-        /// If the connection is not open yet, open it.
-        /// </summary>
+        /// <inheritdoc />
         public async Task EnsureOpenConnectionForReadingAsync()
         {
             var createdNewConnection = false;
             if (ConnectionForReading == null)
             {
-                var (sshClient, localPort, forwardedPortLocal) = ConnectToSsh(sshSettingsForReading, connectionStringForReading.Server, connectionStringForReading.Port);
+                var (sshClient, localPort, forwardedPortLocal) = await ConnectToSshAsync(sshSettingsForReading, connectionStringForReading.Server, connectionStringForReading.Port);
                 SshClientForReading = sshClient;
                 ForwardedPortLocalForReading = forwardedPortLocal;
                 if (sshClient != null)
@@ -616,10 +597,7 @@ namespace GeeksCoreLibrary.Modules.Databases.Services
             }
         }
 
-        /// <summary>
-        /// If the connection is not open yet, open it.
-        /// </summary>
-        /// <returns></returns>
+        /// <inheritdoc />
         public async Task EnsureOpenConnectionForWritingAsync()
         {
             if (String.IsNullOrWhiteSpace(connectionStringForWriting?.ConnectionString))
@@ -631,7 +609,7 @@ namespace GeeksCoreLibrary.Modules.Databases.Services
             var createdNewConnection = false;
             if (ConnectionForWriting == null)
             {
-                var (sshClient, localPort, forwardedPortLocal) = ConnectToSsh(sshSettingsForWriting, connectionStringForWriting.Server, connectionStringForWriting.Port);
+                var (sshClient, localPort, forwardedPortLocal) = await ConnectToSshAsync(sshSettingsForWriting, connectionStringForWriting.Server, connectionStringForWriting.Port);
                 SshClientForWriting = sshClient;
                 ForwardedPortLocalForWriting = forwardedPortLocal;
                 if (sshClient != null)
@@ -847,7 +825,7 @@ namespace GeeksCoreLibrary.Modules.Databases.Services
             {
                 // Checks if the exception is about the timezone or something else related to MySQL.
                 // Not setting timezones when they are not available should not be logged as en error.
-                if (mySqlException.Number == 1298)
+                if (mySqlException.ErrorCode == MySqlErrorCode.UnknownTimeZone)
                 {
                     logger.LogInformation($"The time zone is not set to '{gclSettings.DatabaseTimeZone}', because that timezone is not available in the database.");
                 }
@@ -1091,18 +1069,21 @@ SELECT LAST_INSERT_ID();";
         /// <param name="databasePort">The database port to use.</param>
         /// <returns>The <see cref="SshClient"/> and the port of the SSH tunnel.</returns>
         /// <exception cref="ArgumentException">When not all required settings have been set.</exception>
-        private (SshClient sshClient, uint BoundPort, ForwardedPortLocal ForwardedPortLocal) ConnectToSsh(SshSettings sshSettings, string databaseServer, uint databasePort)
+        private async Task<(SshClient sshClient, uint BoundPort, ForwardedPortLocal ForwardedPortLocal)> ConnectToSshAsync(SshSettings sshSettings, string databaseServer, uint databasePort)
         {
             // Return null if we have no SSH settings.
-            if (String.IsNullOrEmpty(sshSettings?.Host) || String.IsNullOrEmpty(sshSettings?.Username))
+            if (String.IsNullOrEmpty(sshSettings?.Host) || String.IsNullOrEmpty(sshSettings.Username))
             {
                 return (null, 0, null);
             }
 
             // Make sure that the settings are fully set.
-            if (String.IsNullOrEmpty(sshSettings.Password) && String.IsNullOrEmpty(sshSettings.PrivateKeyPath) && (sshSettings.PrivateKeyBytes is null || sshSettings.PrivateKeyBytes.Length == 0))
+            if (String.IsNullOrEmpty(sshSettings.Password) &&
+                String.IsNullOrEmpty(sshSettings.PrivateKeyPath) &&
+                String.IsNullOrEmpty(sshSettings.PrivateKeyContents) &&
+                sshSettings.RetrievePrivateKeyFromAwsSecretsManager == false)
             {
-                throw new ArgumentException($"One of {nameof(sshSettings.Password)}, {nameof(sshSettings.PrivateKeyPath)} and {nameof(sshSettings.PrivateKeyBytes)} must be specified.");
+                throw new ArgumentException($"One of {nameof(sshSettings.Password)}, {nameof(sshSettings.PrivateKeyPath)}, {nameof(sshSettings.RetrievePrivateKeyFromAwsSecretsManager)}, or {nameof(sshSettings.PrivateKeyContents)} must be specified.");
             }
 
             // Define the authentication methods to use (in order).
@@ -1114,6 +1095,17 @@ SELECT LAST_INSERT_ID();";
             else if (sshSettings.PrivateKeyBytes is { Length: > 0 })
             {
                 using var privateKeyStream = new MemoryStream(sshSettings.PrivateKeyBytes);
+                authenticationMethods.Add(new PrivateKeyAuthenticationMethod(sshSettings.Username, new PrivateKeyFile(privateKeyStream, String.IsNullOrEmpty(sshSettings.PrivateKeyPassphrase) ? null : sshSettings.PrivateKeyPassphrase)));
+            }
+            else if (!String.IsNullOrEmpty(sshSettings.PrivateKeyContents))
+            {
+                using var privateKeyStream = new MemoryStream(Encoding.UTF8.GetBytes(sshSettings.PrivateKeyContents));
+                authenticationMethods.Add(new PrivateKeyAuthenticationMethod(sshSettings.Username, new PrivateKeyFile(privateKeyStream, String.IsNullOrEmpty(sshSettings.PrivateKeyPassphrase) ? null : sshSettings.PrivateKeyPassphrase)));
+            }
+            else if (sshSettings.RetrievePrivateKeyFromAwsSecretsManager)
+            {
+                var privateKey = await amazonSecretsManagerService.GetSshPrivateKeyFromAwsSecretsManagerAsync();
+                using var privateKeyStream = new MemoryStream(Encoding.UTF8.GetBytes(privateKey));
                 authenticationMethods.Add(new PrivateKeyAuthenticationMethod(sshSettings.Username, new PrivateKeyFile(privateKeyStream, String.IsNullOrEmpty(sshSettings.PrivateKeyPassphrase) ? null : sshSettings.PrivateKeyPassphrase)));
             }
 

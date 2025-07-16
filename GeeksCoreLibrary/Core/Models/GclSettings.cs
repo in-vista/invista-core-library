@@ -204,6 +204,11 @@ namespace GeeksCoreLibrary.Core.Models
         /// The amount of time to cache queries.
         /// </summary>
         public TimeSpan DefaultQueryCacheDuration { get; set; } = new(1, 0, 0);
+        
+        /// <summary>
+        /// The amount of time to cache AWS secrets.
+        /// </summary>
+        public TimeSpan DefaultAwsSecretsCacheDuration { get; set; } = new(1, 0, 0);
 
         /// <summary>
         /// The amount of time to cache objects.
@@ -301,8 +306,14 @@ namespace GeeksCoreLibrary.Core.Models
 
         /// <summary>
         /// The settings for the Amazon Web Services.
+        /// The settings for the Amazon S3 Bucket.
         /// </summary>
         public AwsSettings AwsSettings { get; set; }
+
+        /// <summary>
+        /// The settings for the Amazon Secrets Manager.
+        /// </summary>
+        public AwsSecretsManagerSettings AwsSecretsManagerSettings { get; set; }
         
         /// <summary>
         /// The API key used to use Topol's mail editor.

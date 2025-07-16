@@ -34,7 +34,7 @@ namespace GeeksCoreLibrary.Modules.ItemFiles.Controllers
             [FromQuery] string fileType = null, [FromQuery] string type = null,
             [FromQuery] string encryptedId = null, [FromQuery] string tablePrefix = null)
         {
-            if (itemId == 0 || String.IsNullOrWhiteSpace(propertyName))
+            if ((itemId == 0 && String.IsNullOrEmpty(encryptedId)) || String.IsNullOrWhiteSpace(propertyName))
             {
                 return NotFound();
             }
@@ -82,7 +82,7 @@ namespace GeeksCoreLibrary.Modules.ItemFiles.Controllers
             [FromQuery] string filename, [FromQuery] int fileNumber = 1, [FromQuery] string encryptedId = null,
             [FromQuery] string type = null, [FromQuery] string fileType = null)
         {
-            if (itemId == 0 || String.IsNullOrWhiteSpace(propertyName))
+            if ((itemId == 0 && String.IsNullOrEmpty(encryptedId)) || String.IsNullOrWhiteSpace(propertyName))
             {
                 return NotFound();
             }

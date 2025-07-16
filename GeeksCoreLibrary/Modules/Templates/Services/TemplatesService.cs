@@ -197,6 +197,8 @@ namespace GeeksCoreLibrary.Modules.Templates.Services
     template.trigger_table_name,
     template.is_partial,
     template.version,
+    template.robots_no_index,
+    template.robots_no_follow,
     template.allow_call_without_anti_forgery_token
 FROM {WiserTableNames.WiserTemplate} AS template
 {joinPart}
