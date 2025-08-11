@@ -1215,6 +1215,13 @@ namespace GeeksCoreLibrary.Components.Account
                 streamReader.BaseStream.Seek(0, SeekOrigin.Begin);
                 requestBody = await streamReader.ReadToEndAsync();
             }
+            
+            var logPunchOutLogin = (await objectsService.FindSystemObjectByDomainNameAsync("logpunchoutlogin", defaultResult: "0")).Equals("1");
+            if (logPunchOutLogin)
+            {
+                DatabaseConnection.AddParameter("requestBody", requestBody);
+                await DatabaseConnection.ExecuteAsync("INSERT INTO cust_oci_order_log (message, request_body) VALUES ('Incoming cXML punch out login', ?requestBody)");
+            }
 
             var xmlDocument = XDocument.Parse(requestBody);
             var punchOutRequest = xmlDocument.XPathSelectElement("/cXML/Request");

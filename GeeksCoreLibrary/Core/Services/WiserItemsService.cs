@@ -298,7 +298,7 @@ namespace GeeksCoreLibrary.Core.Services
                     if (createNewTransaction && !alreadyHadTransaction) await databaseConnection.BeginTransactionAsync();
                     
                     LinkSettingsModel linkTypeSettings = null;
-                    long ordering = 0;
+                    long ordering = wiserItem.Ordering;
                     if (parentId.HasValue)
                     {
                         databaseConnection.AddParameter("parentId", parentId.Value);
@@ -316,26 +316,29 @@ namespace GeeksCoreLibrary.Core.Services
                         }
                         
                         //Get the linktype settings
-                        linkTypeSettings = await wiserItemsService.GetLinkTypeSettingsAsync(linkTypeNumber>1 ? linkTypeNumber : 0, wiserItem.EntityType, linkTypeNumber <= 1 ? parentEntityType : "");
-                        if (linkTypeSettings is {UseItemParentId: true})
+                        linkTypeSettings = await wiserItemsService.GetLinkTypeSettingsAsync(linkTypeNumber, wiserItem.EntityType,  parentEntityType);
+                        if (linkTypeSettings is { UseItemParentId: true })
                         {
                             // Save parent ID in parent_item_id column of wiser_item.
                             wiserItem.ParentItemId = parentId.Value;
-                        }
-                        
-                        if (entityTypeSettings.DefaultOrdering == EntityOrderingTypes.LinkOrdering)
-                        {
-                            var orderResult = await databaseConnection.GetAsync($"SELECT IFNULL(MAX(ordering), 0) + 1 AS newOrdering FROM {tablePrefix}{WiserTableNames.WiserItem} WHERE parent_item_id = ?parentId", skipCache: true);
-                            if (orderResult.Rows.Count > 0)
+
+                            if (entityTypeSettings.DefaultOrdering == EntityOrderingTypes.LinkOrdering)
                             {
-                                ordering = orderResult.Rows.Count > 0 ? orderResult.Rows[0].Field<long>("newOrdering") : 1;
+                                var orderResult = await databaseConnection.GetAsync(
+                                    $"SELECT IFNULL(MAX(ordering), 0) + 1 AS newOrdering FROM {tablePrefix}{WiserTableNames.WiserItem} WHERE parent_item_id = ?parentId",
+                                    skipCache: true);
+                                if (orderResult.Rows.Count > 0)
+                                {
+                                    ordering = orderResult.Rows.Count > 0
+                                        ? orderResult.Rows[0].Field<long>("newOrdering")
+                                        : 1;
+                                }
                             }
                         }
                     }
                     
                     if (wiserItem.Id > 0) databaseConnection.AddParameter("id", wiserItem.Id);
                     databaseConnection.AddParameter("moduleId", wiserItem.ModuleId);
-                    databaseConnection.AddParameter("ordering", wiserItem.Ordering);
                     databaseConnection.AddParameter("title", wiserItem.Title ?? "");
                     databaseConnection.AddParameter("entityType", wiserItem.EntityType);
                     databaseConnection.AddParameter("parentId", parentId);
@@ -378,7 +381,7 @@ SELECT {(wiserItem.Id > 0 ? "?id" : "LAST_INSERT_ID()")} AS newId;";
                     
                     // If the link type states to not store the link as parent_id, but rather in a dedicated link table.
                     // Additionally check if the link would be valid, by checking if neither the source and type are "0" (invalid).
-                    if(parentId.HasValue && linkTypeSettings.UseItemParentId==false && wiserItem.Id != 0 && linkTypeNumber != 0)
+                    if(linkTypeSettings.UseItemParentId==false && wiserItem.Id != 0 && linkTypeNumber != 0)
                     {
                         var linkTablePrefix = wiserItemsService.GetTablePrefixForLink(linkTypeSettings);
 
