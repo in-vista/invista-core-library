@@ -914,6 +914,9 @@ WHERE id = ?id";
         /// <param name="receiverPhoneNumber">The phone number to send the text message to.</param>
         private async Task SendSpryngSmsDirectlyAsync(SingleCommunicationModel communication, SmsSettings smsSettings, string receiverPhoneNumber)
         {
+            // "Sanitize" the phone number by removing all non-digit characters, except the +
+            receiverPhoneNumber = Regex.Replace(receiverPhoneNumber, @"[^\d+]", "");
+            
             // Format the receiver phone number
             if (receiverPhoneNumber.StartsWith("+"))
             {
@@ -925,14 +928,16 @@ WHERE id = ?id";
                 // Phone number looks something like "0031612345678".
                 receiverPhoneNumber = receiverPhoneNumber[2..];
             }
+            else if (receiverPhoneNumber.StartsWith("06"))
+            {
+                // Change 06 in 316
+                receiverPhoneNumber = $"31{receiverPhoneNumber[1..]}";
+            }
             else
             {
                 throw new ArgumentException("Phone number is missing the country code.");
             }
 
-            // Now "sanitize" the phone number by removing all non-digit characters.
-            receiverPhoneNumber = Regex.Replace(receiverPhoneNumber, @"\D+", "");
-            
             // Set the sender
             var senderName = communication.SenderName ?? smsSettings.SenderName;
             if (Regex.IsMatch(senderName, "^\\d+$") && senderName.Length > 17)
