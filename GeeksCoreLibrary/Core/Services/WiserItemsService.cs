@@ -1745,8 +1745,11 @@ SET @saveHistory = ?saveHistoryGcl;";
                             if (undelete)
                             {
                                 databaseConnection.AddParameter("entityType", entityType);
-                                query += $@" INSERT INTO {WiserTableNames.WiserHistory} (action, tablename, item_id, changed_by, field, oldvalue, newvalue)
-VALUES ('UNDELETE_ITEM', 'wiser_item', ?itemId, IFNULL(@_username, USER()), ?entityType, '', '');";
+                                foreach (var itemId in filteredItemIds)
+                                {
+                                    query += $@" INSERT INTO {WiserTableNames.WiserHistory} (action, tablename, item_id, changed_by, field, oldvalue, newvalue)
+VALUES ('UNDELETE_ITEM', '{tablePrefix}wiser_item', {itemId.ToString()}, IFNULL(@_username, USER()), ?entityType, '', '');";
+                                }
                             }
 
                             result = await databaseConnection.ExecuteAsync(query);
