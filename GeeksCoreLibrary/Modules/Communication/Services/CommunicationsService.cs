@@ -973,15 +973,38 @@ WHERE id = ?id";
             
             request.AddStringBody(body, DataFormat.Json);
             var response = await client.ExecuteAsync(request);
-            Console.WriteLine(response.Content);
             
             if (response.StatusCode == HttpStatusCode.OK)
             {
                 return;
             }
-
+            
+            // Try to read the response if sending is not successful
+            var message = "CTS cannot parse response";
+            try
+            {
+                var resp = JsonDocument.Parse(response.Content);
+                message = resp.RootElement.GetProperty("message").GetString();
+                try
+                {
+                    var recipients = resp.RootElement.GetProperty("errors").GetProperty("recipients");
+                    foreach (var recipientError in recipients.EnumerateArray())
+                    {
+                        message = $"{message} - Recipient error: {recipientError.GetString()}";
+                    }
+                }
+                catch
+                {
+                    // ignored
+                }
+            }
+            catch
+            {
+                // ignored
+            }
+            
             // If request was not success throw the status message as an exception.
-            throw new Exception($"{response.StatusCode}: {response.StatusDescription}");
+            throw new Exception($"Message from Spryng: {message} - Response result: {(int)response.StatusCode}: {response.StatusDescription}");
         }
 
         /// <inheritdoc />
