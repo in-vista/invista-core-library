@@ -156,7 +156,9 @@ namespace GeeksCoreLibrary.Components.OrderProcess.Controllers
                 throw new Exception("Payment update webhook failed.");
             }
 
-            return Content("TRUE", "text/html");
+            // Pay. expects a "TRUE" message, otherwise they will retry pushing the payment status
+            // MultiSafepay sends a "timestamp" variable and expects a "OK" message, otherwise they will retry pushing the payment status
+            return Content(!string.IsNullOrEmpty(HttpContextHelpers.GetRequestValue(httpContextAccessor.HttpContext,"timestamp")) ? "OK" : "TRUE", "text/html");
         }
 
         [Route(Constants.PaymentReturnPage)]
