@@ -140,7 +140,7 @@ namespace GeeksCoreLibrary.Components.OrderProcess.Controllers
             var paymentMethodFromRequest = HttpContextHelpers.GetRequestValue(httpContextAccessor.HttpContext, Constants.SelectedPaymentMethodRequestKey);
             
             // Workaround for Pay. bug, which returns: https://localhost:5001/directpaymentin.gcl?paymentMethodId=24314?orderId=60126295021X734b&statusAction=PAID&etc.
-            if (paymentMethodFromRequest.Contains('?'))
+            if (!string.IsNullOrEmpty(paymentMethodFromRequest) && paymentMethodFromRequest.Contains('?'))
             {
                 paymentMethodFromRequest = paymentMethodFromRequest.Split('?')[0];
             }

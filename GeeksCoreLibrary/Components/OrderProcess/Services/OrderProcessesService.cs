@@ -1389,6 +1389,9 @@ namespace GeeksCoreLibrary.Components.OrderProcess.Services
 
             // Let the payment service provider service handle the status update.
             var pspUpdateResult = await paymentServiceProviderService.ProcessStatusUpdateAsync(orderProcessSettings, paymentMethodSettings);
+            
+            // TODO Rinus: Uit bovenstaande functie moet het betaalde bedrag komen of wellict nog meer info en die moet aan onderstaande functie doorgegeven worden, zodat ik het daadwerkelijk betaalde bedrag af kan schrijven
+            // TODO: Check op service id of iets dergelijks, om fraude tegen te gaan
 
             //var result = await orderProcessesService.HandlePaymentStatusUpdateAsync(orderProcessSettings, conceptOrders, pspUpdateResult);
             var result = await orderProcessesService.HandlePaymentStatusUpdateAsync(orderProcessSettings, conceptOrders, pspUpdateResult.Status, pspUpdateResult.Successful, pspUpdateResult.StatusCode);
@@ -1402,7 +1405,7 @@ namespace GeeksCoreLibrary.Components.OrderProcess.Services
                 await shoppingBasketsService.SaveAsync(main, lines, basketSettings);
             }
 
-            if (paymentMethodSettings.ExternalName == "softpos")
+            /*if (paymentMethodSettings.ExternalName == "softpos")
             {
                 // Do redirect to succes or fail URL after processing status. Visitor is redirected to payment_in.
                 if (pspUpdateResult.Successful)
@@ -1414,7 +1417,7 @@ namespace GeeksCoreLibrary.Components.OrderProcess.Services
                     var queryParameters = new Dictionary<string, string> { { "status", pspUpdateResult.Status } };
                     httpContextAccessor.HttpContext.Response.Redirect(UriHelpers.AddToQueryString(paymentMethodSettings.PaymentServiceProvider.FailUrl, queryParameters));
                 }
-            }
+            }*/
             
             return result && !pspUpdateResult.Status.ToLower().Contains("error");
         }
