@@ -2397,7 +2397,7 @@ VALUES ('UNDELETE_ITEM', '{tablePrefix}wiser_item', {itemId.ToString()}, IFNULL(
         /// <inheritdoc />
         public async Task<WiserItemModel> GetItemDetailsAsync(IWiserItemsService wiserItemsService, ulong itemId = 0, string uniqueId = "", string languageCode = "", ulong userId = 0, string detailKey = "", string detailValue = "", bool returnNullIfDeleted = true, bool skipDetailsWithoutLanguageCode = false, string entityType = null, bool skipPermissionsCheck = false)
         {
-            if (itemId == 0 && String.IsNullOrEmpty(uniqueId))
+            if (itemId == 0 && String.IsNullOrEmpty(uniqueId) && (String.IsNullOrEmpty(detailKey) || String.IsNullOrEmpty(detailValue)))
             {
                 return null;
             }
@@ -2476,6 +2476,11 @@ VALUES ('UNDELETE_ITEM', '{tablePrefix}wiser_item', {itemId.ToString()}, IFNULL(
             databaseConnection.AddParameter("itemId", itemId);
             databaseConnection.AddParameter("uniqueId", uniqueId);
             databaseConnection.AddParameter("languageCode", languageCode);
+            
+            var whereClause = where.Any()
+                ? "WHERE " + string.Join(" AND ", where)
+                : string.Empty;
+
             var query = $@"SELECT 
 	item.*,
 	details.groupname,
@@ -2485,7 +2490,7 @@ VALUES ('UNDELETE_ITEM', '{tablePrefix}wiser_item', {itemId.ToString()}, IFNULL(
 FROM {tablePrefix}{WiserTableNames.WiserItem} AS item
 {join}
 LEFT JOIN {tablePrefix}{WiserTableNames.WiserItemDetail} AS details ON details.item_id = item.id                                        
-WHERE {String.Join(" AND ", where)}";
+{whereClause}";
 
             if (!returnNullIfDeleted)
             {
