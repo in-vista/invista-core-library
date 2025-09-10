@@ -36,6 +36,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Newtonsoft.Json;
+using Twilio.Rest.Messaging.V1.Service;
 using Constants = GeeksCoreLibrary.Components.OrderProcess.Models.Constants;
 
 namespace GeeksCoreLibrary.Components.OrderProcess.Services
@@ -1094,42 +1095,39 @@ namespace GeeksCoreLibrary.Components.OrderProcess.Services
                 };
             }
         }
-
-        /*
+    
         /// <inheritdoc />
-        public async Task<bool> HandlePaymentStatusUpdateAsync(OrderProcessSettingsModel orderProcessSettings, ICollection<(WiserItemModel Main, List<WiserItemModel> Lines)> conceptOrders, StatusUpdateResult statusUpdateResult, int statusCode, bool convertConceptOrderToOrder = true)
-        {
-            return await HandlePaymentStatusUpdateAsync(this, orderProcessSettings, conceptOrders, statusUpdateResult, convertConceptOrderToOrder);
-        }
-        */
-        
-        /// <inheritdoc />
-        public async Task<bool> HandlePaymentStatusUpdateAsync(OrderProcessSettingsModel orderProcessSettings, ICollection<(WiserItemModel Main, List<WiserItemModel> Lines)> conceptOrders, string newStatus, bool isSuccessfulStatus, int statusCode, bool convertConceptOrderToOrder = true)
+        public async Task<bool> HandlePaymentStatusUpdateAsync(OrderProcessSettingsModel orderProcessSettings, ICollection<(WiserItemModel Main, List<WiserItemModel> Lines)> conceptOrders, string newStatus, bool isSuccessfulStatus, int statusCode, bool convertConceptOrderToOrder = true, decimal paidAmount = 0)
         {
             var statusUpdateResult = new StatusUpdateResult()
             {
                 Status = newStatus,
                 Successful = isSuccessfulStatus,
-                StatusCode = statusCode
+                StatusCode = statusCode,
+                PaidAmount = paidAmount
             };
             return await HandlePaymentStatusUpdateAsync(this, orderProcessSettings, conceptOrders, statusUpdateResult, convertConceptOrderToOrder);
         }
 
         /// <inheritdoc />
-        public async Task<bool> HandlePaymentStatusUpdateAsync(IOrderProcessesService orderProcessesService, OrderProcessSettingsModel orderProcessSettings, ICollection<(WiserItemModel Main, List<WiserItemModel> Lines)> conceptOrders, string newStatus, bool isSuccessfulStatus, int statusCode, bool convertConceptOrderToOrder = true)
+        public async Task<bool> HandlePaymentStatusUpdateAsync(IOrderProcessesService orderProcessesService, OrderProcessSettingsModel orderProcessSettings, ICollection<(WiserItemModel Main, List<WiserItemModel> Lines)> conceptOrders, string newStatus, bool isSuccessfulStatus, int statusCode, bool convertConceptOrderToOrder = true, decimal paidAmount = 0)
         {
             var statusUpdateResult = new StatusUpdateResult()
             {
                 Status = newStatus,
                 Successful = isSuccessfulStatus,
-                StatusCode = statusCode
+                StatusCode = statusCode,
+                PaidAmount = paidAmount
             };
             return await HandlePaymentStatusUpdateAsync(orderProcessesService, orderProcessSettings, conceptOrders, statusUpdateResult, convertConceptOrderToOrder);
         }
 
         /// <inheritdoc />
-        public async Task<bool> HandlePaymentStatusUpdateAsync(IOrderProcessesService orderProcessesService, OrderProcessSettingsModel orderProcessSettings, ICollection<(WiserItemModel Main, List<WiserItemModel> Lines)> conceptOrders, StatusUpdateResult statusUpdateResult, bool convertConceptOrderToOrder = true)
+        public async Task<bool> HandlePaymentStatusUpdateAsync(IOrderProcessesService orderProcessesService, OrderProcessSettingsModel orderProcessSettings, ICollection<(WiserItemModel Main, List<WiserItemModel> Lines)> conceptOrders, StatusUpdateResult statusUpdateResult, bool convertConceptOrderToOrder = true, decimal paidAmount = 0)
         {
+            if (conceptOrders.Count == 0) // Set payment update unsuccessful if there is no order or conceptorder
+                return false;
+            
             var mailsToSendToUser = new List<SingleCommunicationModel>();
             var mailsToSendToMerchant = new List<SingleCommunicationModel>();
             var basketSettings = await shoppingBasketsService.GetSettingsAsync();
@@ -1385,16 +1383,11 @@ namespace GeeksCoreLibrary.Components.OrderProcess.Services
             paymentServiceProviderService.LogPaymentActions = paymentMethodSettings.PaymentServiceProvider.LogAllRequests;
 
             var invoiceNumber = paymentServiceProviderService.GetInvoiceNumberFromRequest();
-            var conceptOrders = await shoppingBasketsService.GetOrdersByUniquePaymentNumberAsync(invoiceNumber);
+            var conceptOrders = await shoppingBasketsService.GetOrdersByUniquePaymentNumberAsync(invoiceNumber, paymentMethodSettings.ExternalName == "softpos");
 
             // Let the payment service provider service handle the status update.
             var pspUpdateResult = await paymentServiceProviderService.ProcessStatusUpdateAsync(orderProcessSettings, paymentMethodSettings);
-            
-            // TODO Rinus: Uit bovenstaande functie moet het betaalde bedrag komen of wellict nog meer info en die moet aan onderstaande functie doorgegeven worden, zodat ik het daadwerkelijk betaalde bedrag af kan schrijven
-            // TODO: Check op service id of iets dergelijks, om fraude tegen te gaan
-
-            //var result = await orderProcessesService.HandlePaymentStatusUpdateAsync(orderProcessSettings, conceptOrders, pspUpdateResult);
-            var result = await orderProcessesService.HandlePaymentStatusUpdateAsync(orderProcessSettings, conceptOrders, pspUpdateResult.Status, pspUpdateResult.Successful, pspUpdateResult.StatusCode);
+            var result = await orderProcessesService.HandlePaymentStatusUpdateAsync(orderProcessSettings, conceptOrders, pspUpdateResult.Status, pspUpdateResult.Successful, pspUpdateResult.StatusCode, true, pspUpdateResult.PaidAmount);
 
             var basketSettings = await shoppingBasketsService.GetSettingsAsync();
             foreach (var (main, lines) in conceptOrders)
@@ -1402,6 +1395,8 @@ namespace GeeksCoreLibrary.Components.OrderProcess.Services
                 // Set payment completed to true if the PSP indicated that the payment was successful.
                 // This should not be done in orderProcessesService.HandlePaymentStatusUpdateAsync, because that method is also called for NOPSP.
                 main.SetDetail(Constants.PaymentCompleteProperty, result);
+                if (!string.IsNullOrEmpty(pspUpdateResult.PspTransactionId))
+                    main.SetDetail(Constants.PaymentProviderTransactionId, pspUpdateResult.PspTransactionId);
                 await shoppingBasketsService.SaveAsync(main, lines, basketSettings);
             }
 

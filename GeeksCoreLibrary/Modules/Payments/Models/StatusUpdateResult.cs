@@ -16,5 +16,15 @@
         /// Gets or sets the status code that the PSP gave us.
         /// </summary>
         public int StatusCode { get; set; }
+        
+        /// <summary>
+        /// Gets or sets the paid amount in this status update.
+        /// </summary>
+        public decimal PaidAmount { get; set; }
+        
+        /// <summary>
+        /// Gets or sets the reference of the PSP for the transaction
+        /// </summary>
+        public string PspTransactionId { get; set; }
     }
 }

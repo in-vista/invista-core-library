@@ -77,7 +77,7 @@ namespace GeeksCoreLibrary.Components.ShoppingBasket.Services
         }
 
         /// <inheritdoc />
-        public async Task<List<(WiserItemModel Order, List<WiserItemModel> OrderLines)>> GetOrdersByUniquePaymentNumberAsync(string uniquePaymentNumber)
+        public async Task<List<(WiserItemModel Order, List<WiserItemModel> OrderLines)>> GetOrdersByUniquePaymentNumberAsync(string uniquePaymentNumber, bool alsoGetBaskets = false)
         {
             var result = new List<(WiserItemModel Order, List<WiserItemModel> OrderLines)>();
             if (String.IsNullOrWhiteSpace(uniquePaymentNumber))
@@ -92,7 +92,7 @@ namespace GeeksCoreLibrary.Components.ShoppingBasket.Services
             var query = $@"SELECT `order`.id
 FROM `{tablePrefix}{WiserTableNames.WiserItem}` AS `order`
 JOIN `{tablePrefix}{WiserTableNames.WiserItemDetail}` AS uniquepaymentnumber ON uniquepaymentnumber.item_id = `order`.id AND uniquepaymentnumber.`key` = '{OrderProcess.Models.Constants.UniquePaymentNumberProperty}' AND uniquepaymentnumber.`value` = ?uniquePaymentNumber
-WHERE `order`.entity_type IN ('{OrderProcess.Models.Constants.OrderEntityType}', '{OrderProcess.Models.Constants.ConceptOrderEntityType}');";
+WHERE `order`.entity_type IN ('{OrderProcess.Models.Constants.OrderEntityType}', '{OrderProcess.Models.Constants.ConceptOrderEntityType}'{(alsoGetBaskets ? $",'{Constants.BasketEntityType}'" : "")});";
             var getBasketIdsResult = await databaseConnection.GetAsync(query, true);
 
             if (getBasketIdsResult.Rows.Count == 0)

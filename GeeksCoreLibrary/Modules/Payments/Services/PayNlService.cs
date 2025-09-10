@@ -248,16 +248,66 @@ public class PayNlService : PaymentServiceProviderBaseService, IPaymentServicePr
                 Status = "Error retrieving status: No HttpContext available."
             };
         }
-        
+   
         if (paymentMethodSettings.ExternalName ==  "softpos")
         {
             try
             {
-                // For softpos payments another API has to be used then for iDEAL payments
+                var reference = httpContextAccessor.HttpContext.Request.Query["reference"].FirstOrDefault();
+                var requestForm = httpContextAccessor.HttpContext.Request.Form;
+                var payNlOrderId = requestForm["order_id"].FirstOrDefault();
+                
+                await LogIncomingPaymentActionAsync(PaymentServiceProviders.PayNl, reference, 0);
+                
+                // See this URL for the different action values: https://developer.pay.nl/docs/payouts
+                switch (requestForm["action"].FirstOrDefault())
+                {
+                    case "new_ppt":
+                        return new StatusUpdateResult
+                        {
+                            Successful = true,
+                            Status = "PAID",
+                            StatusCode = 100,
+                            PaidAmount = Convert.ToDecimal(requestForm["amount"], new System.Globalization.CultureInfo("en-US")),
+                            PspTransactionId = payNlOrderId
+                        };
+                    case "pending":
+                    case "add":
+                    case "received":
+                    case "send":
+                        return new StatusUpdateResult
+                        {
+                            Successful = false,
+                            Status = "PENDING",
+                            StatusCode = 20,
+                            PspTransactionId = payNlOrderId
+                        };
+                    case "rejected":
+                    case "storno":
+                    case "failed":
+                        return new StatusUpdateResult
+                        {
+                            Successful = false,
+                            Status = "error",
+                            StatusCode = -1,
+                            PspTransactionId = payNlOrderId
+                        };
+                    default:
+                        return new StatusUpdateResult
+                        {
+                            Successful = false,
+                            Status = "unknown",
+                            StatusCode = 0,
+                            PspTransactionId = payNlOrderId
+                        };
+                }
+                
+                // Don't call API, because all information we process on this moment is present in the webhook 
+                /* //For softpos payments another API has to be used then for iDEAL payments
                 var payNlSettings = (PayNlSettingsModel) paymentMethodSettings.PaymentServiceProvider;
                 var restClient = new RestClient(BaseUrlSoftPos);
-                var payNlOrderId = httpContextAccessor.HttpContext.Request.Query["order_id"].FirstOrDefault() ?? httpContextAccessor.HttpContext.Request.Form["order_id"].FirstOrDefault();
-                var restRequest = new RestRequest($"/v2/transactions/{payNlOrderId}");
+                var restRequestUrl = $"/v2/transactions/{payNlOrderId}";
+                var restRequest = new RestRequest(restRequestUrl);
                 restRequest = AddRequestHeaders(restRequest, payNlSettings);
                 var restResponse = await restClient.ExecuteAsync(restRequest);
                 
@@ -275,7 +325,7 @@ public class PayNlService : PaymentServiceProviderBaseService, IPaymentServicePr
 
                 if (responseJson["status"]?["code"]?.ToString() == "0")
                 {
-                    await LogIncomingPaymentActionAsync(PaymentServiceProviders.PayNl, payNlOrderId, (int) restResponse.StatusCode, responseBody: restResponse.Content, error: $"ErrorId: {responseJson["request"]?["errorId"]}");
+                    await AddLogEntryAsync(PaymentServiceProviders.PayNl, payNlOrderId, (int) restResponse.StatusCode, responseBody: restResponse.Content, error: $"ErrorId: {responseJson["request"]?["errorId"]}", isIncomingRequest: false, url: restRequestUrl);
                     return new StatusUpdateResult
                     {
                         Successful = false,
@@ -283,26 +333,15 @@ public class PayNlService : PaymentServiceProviderBaseService, IPaymentServicePr
                     }; 
                 }
                 
-                var invoiceNumber = responseJson["orderId"]?.ToString();
-                await LogIncomingPaymentActionAsync(PaymentServiceProviders.PayNl, invoiceNumber, (int) restResponse.StatusCode, responseBody: restResponse.Content);
+                await AddLogEntryAsync(PaymentServiceProviders.PayNl, payNlOrderId, (int) restResponse.StatusCode, responseBody: restResponse.Content, isIncomingRequest: false, url: restRequestUrl);
 
                 return new StatusUpdateResult
                 {
                     Successful = responseJson["status"]?["code"]?.ToString() == "100",
                     Status = responseJson["status"]?["action"]?.ToString(),
-                    StatusCode = Convert.ToInt32(responseJson["status"]?["code"]?.ToString()) 
-                };
-                
-                // Save Pay. transaction id
-                //foreach (var order in conceptOrders)
-                //{
-                //    var transactionId = new WiserItemDetailModel()
-                //    {
-                //        Key = "uniquePaymentNumber",
-                //        Value = HttpContextHelpers.GetRequestValue(httpContextAccessor?.HttpContext, "orderId")
-                //    };
-                //    await wiserItemsService.SaveItemDetailAsync(transactionId, order.Main.Id, entityType: "ConceptOrder");
-                //}
+                    StatusCode = Convert.ToInt32(responseJson["status"]?["code"]?.ToString()),
+                    PaidAmount = Convert.ToDecimal(responseJson["amountPaid"]?["value"]) / 100
+                };*/
             }
             catch (Exception e)
             {

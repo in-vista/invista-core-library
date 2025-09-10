@@ -101,6 +101,11 @@ public class PaymentServiceProviderBaseService
     /// <param name="isIncomingRequest">Optional: Whether the request was to our webhook (true) or it was a request to the API of the PSP (false).</param>
     protected async Task AddLogEntryAsync(PaymentServiceProviders paymentServiceProvider, string uniquePaymentNumber = "", int status = 0, string requestHeaders = "", string requestQueryString = "", string requestFormValues = "", string requestBody = "", string responseBody = "", string error = "", string url = "", bool isIncomingRequest = true)
     {
+        if (!LogPaymentActions)
+        {
+            return;
+        }
+        
         try
         {
             await databaseHelpersService.CheckAndUpdateTablesAsync(new List<string> {Constants.PaymentServiceProviderLogTableName});

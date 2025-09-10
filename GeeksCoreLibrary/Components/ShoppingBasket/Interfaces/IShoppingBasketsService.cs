@@ -15,8 +15,9 @@ namespace GeeksCoreLibrary.Components.ShoppingBasket.Interfaces
         /// Get all orders via unique payment number.
         /// </summary>
         /// <param name="uniquePaymentNumber">The value of the UniquePaymentNumber detail of the order item.</param>
+        /// <param name="alsoGetBaskets">Set to true if you also want baskets returned</param>
         /// <returns>A <see cref="List{WiserItemModel}"/> of <see cref="WiserItemModel"/> objects.</returns>
-        Task<List<(WiserItemModel Order, List<WiserItemModel> OrderLines)>> GetOrdersByUniquePaymentNumberAsync(string uniquePaymentNumber);
+        Task<List<(WiserItemModel Order, List<WiserItemModel> OrderLines)>> GetOrdersByUniquePaymentNumberAsync(string uniquePaymentNumber, bool alsoGetBaskets = false);
 
         /// <summary>
         /// Get all orders via unique payment number.
