@@ -258,8 +258,8 @@ public class ReplacementsMediator : IReplacementsMediator, IScopedService
             var value = Convert.ToString(replaceData[variableName], new CultureInfo("en-US"));
             
             // If the value comes from un untrusted source (e.g. user input), we need to strip HTML tags to prevent XSS attacks.
-            if (isFromUnsafeSource)
-                value = value.StripHtml();
+            //if (isFromUnsafeSource)
+            //    value = value.StripHtml();
             
             if (String.IsNullOrWhiteSpace(value))
             {
