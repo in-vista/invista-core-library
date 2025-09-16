@@ -108,17 +108,12 @@ namespace GeeksCoreLibrary.Core.Extensions
             var gclSettings = configurationSection?.Get<GclSettings>();
             if (!gclSettings?.DisableOrderProcessMiddleWare ?? true)
                 builder.UseMiddleware<RewriteUrlToOrderProcessMiddleware>();
-            
-            builder.UseWhen(
-                context => !context.Request.Path.StartsWithSegments("/api"),
-                appBuilder =>
-                {
-                    appBuilder.UseMiddleware<RewriteUrlToWebPageMiddleware>();
-                    appBuilder.UseMiddleware<RewriteUrlToTemplateMiddleware>();
-                    appBuilder.UseMiddleware<AddAntiForgeryMiddleware>();
-                    appBuilder.UseMiddleware<OutputCachingMiddleware>();
-                });
-            
+
+            builder.UseMiddleware<RewriteUrlToWebPageMiddleware>();
+            builder.UseMiddleware<RewriteUrlToTemplateMiddleware>();
+
+            builder.UseMiddleware<AddAntiForgeryMiddleware>();
+            builder.UseMiddleware<OutputCachingMiddleware>();
             builder.UseMiddleware<AddCacheHeaderValueMiddleware>();
             builder.UseStaticFiles();
 
