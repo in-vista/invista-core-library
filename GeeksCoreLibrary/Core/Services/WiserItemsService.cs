@@ -3470,23 +3470,26 @@ WHERE {String.Join(" AND ", where)}";
             var newLinkTablePrefix = await wiserItemsService.GetTablePrefixForLinkAsync(newLinkType);
             if (!String.Equals(oldLinkTablePrefix, newLinkTablePrefix, StringComparison.OrdinalIgnoreCase))
             {
-                throw new Exception($"The old link type has the table prefix '{oldLinkTablePrefix}' and the new link type has the table prefix '{newLinkTablePrefix}'.");
+                //throw new Exception($"The old link type has the table prefix '{oldLinkTablePrefix}' and the new link type has the table prefix '{newLinkTablePrefix}'.");
             }
+            else
+            {
+                databaseConnection.AddParameter("destinationItemId", destinationItemId);
+                databaseConnection.AddParameter("sourceItemId", sourceItemId);
+                databaseConnection.AddParameter("oldLinkType", oldLinkType);
+                databaseConnection.AddParameter("newLinkType", newLinkType);
+                databaseConnection.AddParameter("username", username);
+                databaseConnection.AddParameter("userId", userId);
+                databaseConnection.AddParameter("saveHistoryGcl", saveHistory); // This is used in triggers.
+                databaseConnection.AddParameter("performParentUpdate", false); // This is used in triggers. (always set this to false since the wiseritem service takes care of the parent updates in this case)
 
-            databaseConnection.AddParameter("destinationItemId", destinationItemId);
-            databaseConnection.AddParameter("sourceItemId", sourceItemId);
-            databaseConnection.AddParameter("oldLinkType", oldLinkType);
-            databaseConnection.AddParameter("newLinkType", newLinkType);
-            databaseConnection.AddParameter("username", username);
-            databaseConnection.AddParameter("userId", userId);
-            databaseConnection.AddParameter("saveHistoryGcl", saveHistory); // This is used in triggers.
-            databaseConnection.AddParameter("performParentUpdate", false); // This is used in triggers. (always set this to false since the wiseritem service takes care of the parent updates in this case)
-
-            await databaseConnection.ExecuteAsync($@"SET @_username = ?username;
+                await databaseConnection.ExecuteAsync($@"SET @_username = ?username;
                                                         SET @_userId = ?userId;
                                                         SET @saveHistory = ?saveHistoryGcl;
                                                         UPDATE {newLinkTablePrefix}{WiserTableNames.WiserItemLink} SET type = ?newLinkType 
                                                         WHERE destination_item_id = ?destinationItemId AND type = ?oldLinkType AND item_id = ?sourceItemId");
+            }
+
         }
 
         /// <inheritdoc />
