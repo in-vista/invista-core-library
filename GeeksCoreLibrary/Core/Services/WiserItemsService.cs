@@ -1597,7 +1597,8 @@ SET @saveHistory = ?saveHistoryGcl;
                     string query;
                     if (entityTypeSettings.DeleteAction == EntityDeletionTypes.Hide)
                     {
-                        query = $"UPDATE {tablePrefix}{WiserTableNames.WiserItem} SET published_environment = {(undelete ? 15 : 0)} WHERE id IN ({formattedItemIds})";
+                       
+                        query = $"SET @_username = ?username; SET @saveHistory = ?saveHistoryGcl; UPDATE {tablePrefix}{WiserTableNames.WiserItem} SET published_environment = {(undelete ? 15 : 0)} WHERE id IN ({formattedItemIds})";
                         result = await databaseConnection.ExecuteAsync(query);
                     }
                     else
