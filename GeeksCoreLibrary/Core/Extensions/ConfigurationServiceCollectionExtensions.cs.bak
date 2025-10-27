@@ -115,6 +115,15 @@ namespace GeeksCoreLibrary.Core.Extensions
             var gclSettings = configurationSection?.Get<GclSettings>();
             if (!gclSettings?.DisableOrderProcessMiddleWare ?? true)
                 builder.UseMiddleware<RewriteUrlToOrderProcessMiddleware>();
+<<<<<<< HEAD
+
+            builder.UseMiddleware<RewriteUrlToWebPageMiddleware>();
+            builder.UseMiddleware<RewriteUrlToTemplateMiddleware>();
+
+            builder.UseMiddleware<AddAntiForgeryMiddleware>();
+            builder.UseMiddleware<OutputCachingMiddleware>();
+            builder.UseMiddleware<AddCacheHeaderValueMiddleware>();
+=======
             
             builder.UseMiddlewareWithExclude<RewriteUrlToWebPageMiddleware>();
             builder.UseMiddlewareWithExclude<RewriteUrlToTemplateMiddleware>();
@@ -122,7 +131,7 @@ namespace GeeksCoreLibrary.Core.Extensions
             builder.UseMiddlewareWithExclude<OutputCachingMiddleware>();
             builder.UseMiddlewareWithExclude<AddCacheHeaderValueMiddleware>();
             
-            builder.UseMiddleware<AddCacheHeaderValueMiddleware>();
+>>>>>>> develop
             builder.UseStaticFiles();
 
             builder.UseRouting();
