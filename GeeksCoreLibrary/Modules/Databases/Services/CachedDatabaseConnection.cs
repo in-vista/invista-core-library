@@ -71,7 +71,7 @@ namespace GeeksCoreLibrary.Modules.Databases.Services
         }
 
         /// <inheritdoc />
-        public async Task<DataTable> GetAsync(string query, bool skipCache = false, bool cleanUp = true, bool useWritingConnectionIfAvailable = false, string cacheName = "")
+        public async Task<DataTable> GetAsync(string query, bool skipCache = false, bool cleanUp = true, bool useWritingConnectionIfAvailable = false, string cacheName = "", int cachingMinutes = 0)
         {
             // TODO: This skipCache parameter is temporary, and will be removed once a better solution is found to skip cache.
             if (skipCache)
@@ -109,7 +109,7 @@ namespace GeeksCoreLibrary.Modules.Databases.Services
             return await cache.GetOrAddAsync(cacheName,
                 async cacheEntry =>
                 {
-                    cacheEntry.AbsoluteExpirationRelativeToNow = gclSettings.DefaultQueryCacheDuration;
+                    cacheEntry.AbsoluteExpirationRelativeToNow = cachingMinutes > 0 ? TimeSpan.FromMinutes(cachingMinutes) : gclSettings.DefaultQueryCacheDuration;
                     return await databaseConnection.GetAsync(query, cleanUp: cleanUp, useWritingConnectionIfAvailable: useWritingConnectionIfAvailable);
                 }, cacheService.CreateMemoryCacheEntryOptions(CacheAreas.Database));
         }

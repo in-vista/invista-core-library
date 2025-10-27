@@ -140,7 +140,7 @@ namespace GeeksCoreLibrary.Modules.Databases.Services
         }
 
         /// <inheritdoc />
-        public async Task<DataTable> GetAsync(string query, bool skipCache = false, bool cleanUp = true, bool useWritingConnectionIfAvailable = false, string cacheName = "")
+        public async Task<DataTable> GetAsync(string query, bool skipCache = false, bool cleanUp = true, bool useWritingConnectionIfAvailable = false, string cacheName = "", int cachingMinutes = 0)
         {
             return await GetAsync(query, 0, cleanUp, useWritingConnectionIfAvailable, cacheName);
         }

@@ -33,7 +33,7 @@ namespace GeeksCoreLibrary.Modules.Databases.Interfaces
         /// <param name="cleanUp">Optional: Clean up after the query has been completed.</param>
         /// <param name="useWritingConnectionIfAvailable">Optional: Use the writing connection to get information, if there is one available. If we detect that your query contains a database modification, then we will always use the write connection string, no matter what you enter here.</param>
         /// <param name="cacheName">Optional: Give cache name if the function should not generate a cache name by itself</param>
-        Task<DataTable> GetAsync(string query, bool skipCache = false, bool cleanUp = true, bool useWritingConnectionIfAvailable = false, string cacheName = "");
+        Task<DataTable> GetAsync(string query, bool skipCache = false, bool cleanUp = true, bool useWritingConnectionIfAvailable = false, string cacheName = "", int cachingMinutes = 0);
 
         /// <summary>
         /// Gets results from a query as a JSON string.

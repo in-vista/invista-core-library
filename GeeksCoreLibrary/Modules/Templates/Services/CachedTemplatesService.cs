@@ -84,6 +84,11 @@ namespace GeeksCoreLibrary.Modules.Templates.Services
             var foundInOutputCache = false;
             string fullCachePath = null;
             var cacheSettings = !includeContent ? new Template() : await GetTemplateCacheSettingsAsync(id, name, parentId, parentName);
+            var cachingMintesForTemplate = cacheSettings.CachingMinutes;
+            if (type == TemplateTypes.Query) // The caching minutes saved with the template, are the minutes to cache the result of query in the template, not the template itself
+            {
+                cachingMintesForTemplate = Convert.ToInt32(gclSettings.DefaultTemplateCacheDuration.TotalMinutes);
+            }
             string contentCacheKey = null;
 
             // Check if cache should be skipped:
@@ -136,7 +141,7 @@ namespace GeeksCoreLibrary.Modules.Templates.Services
                             }
                             else if (fileInfo.Exists)
                             {
-                                if (fileInfo.LastWriteTimeUtc.AddMinutes(cacheSettings.CachingMinutes) > DateTime.UtcNow)
+                                if (fileInfo.LastWriteTimeUtc.AddMinutes(cachingMintesForTemplate) > DateTime.UtcNow)
                                 {
                                     using var fileReader = new StreamReader(fileInfo.OpenRead(), Encoding.UTF8);
                                     var fileContents = await fileReader.ReadToEndAsync();
@@ -203,7 +208,7 @@ namespace GeeksCoreLibrary.Modules.Templates.Services
                     case TemplateCachingLocations.InMemory:
                         if (!String.IsNullOrWhiteSpace(contentCacheKey))
                         {
-                            cache.Add(contentCacheKey, template.Content, DateTimeOffset.UtcNow.AddMinutes(cacheSettings.CachingMinutes));
+                            cache.Add(contentCacheKey, template.Content, DateTimeOffset.UtcNow.AddMinutes(cachingMintesForTemplate));
                         }
 
                         break;

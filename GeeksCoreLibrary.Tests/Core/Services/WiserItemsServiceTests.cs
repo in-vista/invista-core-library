@@ -49,7 +49,7 @@ public class WiserItemsServiceTests
         wiserItemsService = new WiserItemsService(databaseConnectionMock.Object, objectsServiceMock.Object, stringReplacementsServiceMock.Object, dataSelectorsServiceMock.Object, databaseHelpersServiceMock.Object, gclSettingsMock, loggerMock.Object, entityTypesServiceMock.Object, linkTypesServiceMock.Object);
 
         // Setup the mocks.
-        databaseConnectionMock.Setup(x => x.GetAsync(It.Is<string>(query => query.Contains("SELECT permission.permissions")), It.IsAny<bool>(), It.IsAny<bool>(), It.IsAny<bool>(), It.IsAny<string>()))
+        databaseConnectionMock.Setup(x => x.GetAsync(It.Is<string>(query => query.Contains("SELECT permission.permissions")), It.IsAny<bool>(), It.IsAny<bool>(), It.IsAny<bool>(), It.IsAny<string>(), It.IsAny<int>()))
             .ReturnsAsync(() =>
             {
                 var dataTable = new DataTable();
@@ -58,7 +58,7 @@ public class WiserItemsServiceTests
                 return dataTable;
             });
 
-        databaseConnectionMock.Setup(x => x.GetAsync(It.Is<string>(query => query.Contains("SELECT readonly")), It.IsAny<bool>(), It.IsAny<bool>(), It.IsAny<bool>(), It.IsAny<string>()))
+        databaseConnectionMock.Setup(x => x.GetAsync(It.Is<string>(query => query.Contains("SELECT readonly")), It.IsAny<bool>(), It.IsAny<bool>(), It.IsAny<bool>(), It.IsAny<string>(), It.IsAny<int>()))
             .ReturnsAsync(() =>
             {
                 var dataTable = new DataTable();
