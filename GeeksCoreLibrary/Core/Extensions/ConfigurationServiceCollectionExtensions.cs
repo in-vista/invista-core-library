@@ -82,13 +82,6 @@ namespace GeeksCoreLibrary.Core.Extensions
             if (env.IsDevelopment())
             {
                 builder.UseDeveloperExceptionPage();
-                
-                builder.UseCors(policy =>
-                {
-                    policy.AllowAnyOrigin()
-                        .AllowAnyHeader()
-                        .AllowAnyMethod();
-                });
             }
             else
             {
