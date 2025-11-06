@@ -1963,7 +1963,6 @@ LIMIT 1";
         private async Task DoRedirect(HttpResponse response)
         {
             var returnUrl = HttpContext.Session.GetString("ReturnUrl");
-            Settings.RedirectBackAfterLogin = true;
             if (Settings.RedirectBackAfterLogin && returnUrl != null)
             {
                 var hostPrefix = $"https://{Request.Host}";
