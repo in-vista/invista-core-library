@@ -974,7 +974,22 @@ namespace GeeksCoreLibrary.Components.Account.Models
             ComponentMode = "LoginSingleStep,LoginMultipleSteps,ResetPassword,CreateOrUpdateAccount"
         )]
         public string RedirectAfterAction { get; set; }
-
+        
+        /// <summary>
+        /// After the user successfully logged in redirect them back to the page they initially came from.
+        /// </summary>
+        [DefaultValue(true),
+         CmsProperty(
+             PrettyName = "Redirect to previous page after login",
+             Description = "After the user successfully logged in redirect them back to the page they initially came from.",
+             DeveloperRemarks = "",
+             TabName = CmsAttributes.CmsTabName.Behavior,
+             GroupName = CmsAttributes.CmsGroupName.Basic,
+             DisplayOrder = 66,
+             ComponentMode = "LoginSingleStep,LoginMultipleSteps,ResetPassword,CreateOrUpdateAccount"
+         )]
+        public bool RedirectBackAfterLogin { get; set; } = true;
+        
         /// <summary>
         /// If the user leaves a field empty when submitting it, ignore it so that empty values will never be saved.
         /// </summary>

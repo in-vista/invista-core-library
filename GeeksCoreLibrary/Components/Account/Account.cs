@@ -313,7 +313,10 @@ namespace GeeksCoreLibrary.Components.Account
             {
                 throw new Exception("Account component requires an http context, but it's null, so can't continue!");
             }
-
+            
+            if(Request.Method == "GET")
+                HttpContext.Session.SetString("ReturnUrl", Request.Headers.Referer.ToString());
+            
             ComponentId = dynamicContent.Id;
             ExtraDataForReplacements = extraData;
             ParseSettingsJson(dynamicContent.SettingsJson, forcedComponentMode);
@@ -1959,8 +1962,20 @@ LIMIT 1";
         /// <param name="response">The response to use for the redirect.</param>
         private async Task DoRedirect(HttpResponse response)
         {
+            var returnUrl = HttpContext.Session.GetString("ReturnUrl");
+            Settings.RedirectBackAfterLogin = true;
+            if (Settings.RedirectBackAfterLogin && returnUrl != null)
+            {
+                var hostPrefix = $"https://{Request.Host}";
+
+                var result = returnUrl.StartsWith(hostPrefix)
+                    ? returnUrl.Substring(hostPrefix.Length)
+                    : returnUrl;
+                
+                response?.Redirect(result, false);
+            }
             //If a redirect after action URL is provided, redirect to that URL instead of the default. Only redirect to an URL that is on the same domain as the current URL to prevent cross-site request forgery.
-            if (Request.Query.TryGetValue("redirectAfterAction", out var redirectAfterActionFromQueryString) && !String.IsNullOrWhiteSpace(redirectAfterActionFromQueryString) && redirectAfterActionFromQueryString.ToString().StartsWith(Request.GetDisplayUrl().Replace($"{Request.Path}{Request.QueryString}", "")))
+            else if (Request.Query.TryGetValue("redirectAfterAction", out var redirectAfterActionFromQueryString) && !String.IsNullOrWhiteSpace(redirectAfterActionFromQueryString) && redirectAfterActionFromQueryString.ToString().StartsWith(Request.GetDisplayUrl().Replace($"{Request.Path}{Request.QueryString}", "")))
             {
                 response?.Redirect(redirectAfterActionFromQueryString, false);
             }
