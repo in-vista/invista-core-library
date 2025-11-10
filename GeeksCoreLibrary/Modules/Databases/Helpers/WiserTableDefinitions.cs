@@ -212,6 +212,7 @@ public class WiserTableDefinitions
                 new("visible_in_overview", MySqlDbType.Int16, 1, notNull: true, defaultValue: "0"),
                 new("overview_width", MySqlDbType.Int24, notNull: true, defaultValue: "100"),
                 new("tab_name", MySqlDbType.VarChar, 100, notNull: true, defaultValue: ""),
+                new("tab_html", MySqlDbType.VarChar, 1000, notNull: false),
                 new("group_name", MySqlDbType.VarChar, 100, notNull: true, defaultValue: ""),
                 new("inputtype", MySqlDbType.Enum, notNull: true, defaultValue: "input", enumValues: new List<string> {"input", "secure-input", "textbox", "radiobutton", "checkbox", "combobox", "multiselect", "numeric-input", "file-upload", "HTMLeditor", "querybuilder", "date-time picker", "grid", "imagecoords", "button", "image-upload", "gpslocation", "daterange", "sub-entities-grid", "item-linker", "color-picker", "auto-increment", "linked-item", "action-button", "data-selector", "chart", "scheduler", "timeline", "empty", "iframe"}),
                 new("display_name", MySqlDbType.VarChar, 100, notNull: true, defaultValue: ""),
