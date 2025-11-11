@@ -121,6 +121,39 @@ public class PayNlService : PaymentServiceProviderBaseService, IPaymentServicePr
         // Build and execute payment request.
         var restRequest = new RestRequest("/v1/orders", Method.Post);
         restRequest = AddRequestHeaders(restRequest, payNlSettings);
+
+        // TODO:hier moet de class name gebruikt worden!
+        var PayNLPaymentMethodID = 10;
+        switch (paymentMethodSettings.ExternalName.ToLower())
+        {
+            case "ideal": 
+                PayNLPaymentMethodID = 10;
+                break;
+            case "wero": 
+                PayNLPaymentMethodID = 3762;
+                break;
+            case "payconiq": 
+                PayNLPaymentMethodID = 2379;
+                break;
+            case "bizum": 
+                PayNLPaymentMethodID = 3843;
+                break;
+            case "paypal": 
+                PayNLPaymentMethodID = 138;
+                break;
+            case "creditcard":
+                PayNLPaymentMethodID = 706;
+                break;
+            case "mistercash":
+                PayNLPaymentMethodID = 436;
+                break;
+            case "applepay":
+                PayNLPaymentMethodID = 2277;
+                break;
+            case "googlepay":
+                PayNLPaymentMethodID = 2558;
+                break;
+        }
         
         var requestBody = new PayNLOrderCreateRequestModel()
         {
@@ -131,7 +164,7 @@ public class PayNlService : PaymentServiceProviderBaseService, IPaymentServicePr
             ReturnUrl = payNlSettings.SuccessUrl,
             ExchangeUrl = payNlSettings.WebhookUrl,
             Integration = new Integration { Test = gclSettings.Environment.InList(Environments.Test, Environments.Development)},
-            PaymentMethod = new PaymentMethod { Id = 10 }
+            PaymentMethod = new PaymentMethod { Id = PayNLPaymentMethodID }
         };
         restRequest.AddJsonBody(requestBody);
         
