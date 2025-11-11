@@ -175,9 +175,15 @@ public class PayNlService : PaymentServiceProviderBaseService, IPaymentServicePr
             responseJson = String.IsNullOrWhiteSpace(restResponse.Content) ? new JObject() : JObject.Parse(restResponse.Content);
             var responseSuccessful = restResponse.StatusCode == HttpStatusCode.Created;
 
+            if (!responseSuccessful)
+            {
+                throw new Exception(responseJson.ToString());
+            }
+
             // Save transaction id, because we need it for the status update.
             foreach (var order in conceptOrders)
             {
+                if (responseJson["orderId"]?.ToString() == null) continue;
                 var transactionId = new WiserItemDetailModel()
                 {
                     Key = "uniquePaymentNumber",
