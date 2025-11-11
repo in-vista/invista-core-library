@@ -82,14 +82,15 @@ public class PayNlService : PaymentServiceProviderBaseService, IPaymentServicePr
 
         var totalPrice = await CalculatePriceAsync(conceptOrders);
         var error = string.Empty;
-        
+        var description = conceptOrders.First().Main.GetDetailValue("TransactionReference");
+        description = string.IsNullOrWhiteSpace(description) ? $"Order #{invoiceNumber}" : description.Replace("{invoiceNumber}", invoiceNumber);
         
         if (paymentMethodSettings.ExternalName == "softpos")
         {
             var finalUrl = string.Empty;
             try
             {
-                finalUrl = HandleSoftPos(payNlSettings, invoiceNumber, totalPrice, gclSettings);
+                finalUrl = HandleSoftPos(payNlSettings, invoiceNumber, totalPrice, gclSettings, transactionReference: description);
                 return new PaymentRequestResult
                 {
                     Successful = true,
@@ -114,7 +115,7 @@ public class PayNlService : PaymentServiceProviderBaseService, IPaymentServicePr
             }
         }
 
-        // Else: iDEAL
+        // Else: iDEAL or other Pay. payment methods (not softpos)
         RestResponse restResponse = null;
         JObject responseJson = null;
 
@@ -159,7 +160,7 @@ public class PayNlService : PaymentServiceProviderBaseService, IPaymentServicePr
         {
             Amount = new Amount { Value = (int) Math.Round(totalPrice * 100) },
             ServiceId = payNlSettings.ServiceId,
-            Description = $"Order #{invoiceNumber}",
+            Description = description, // Maximum of 32 characters, otherwise Pay. will shorten the description
             Reference = invoiceNumber.Replace("-","X"), // dash is not allowed
             ReturnUrl = payNlSettings.SuccessUrl,
             ExchangeUrl = payNlSettings.WebhookUrl,
@@ -218,17 +219,19 @@ public class PayNlService : PaymentServiceProviderBaseService, IPaymentServicePr
     }
     
     // Build and return URL for softpos payment
-    public static string HandleSoftPos(PayNlSettingsModel payNlSettings, string invoiceNumber, decimal totalPrice, GclSettings gclSettings, bool offline = false, string returnUrl = "", string exchangeUrl = "")
+    public static string HandleSoftPos(PayNlSettingsModel payNlSettings, string invoiceNumber, decimal totalPrice, GclSettings gclSettings, bool offline = false, string returnUrl = "", string exchangeUrl = "", string transactionReference = "")
     {
         // Define the transaction and layout objects
         
         // Add the order id to the webhook URL, because the softpos exchange doesn't return it.
         //payNlSettings.WebhookUrl = QueryHelpers.AddQueryString(payNlSettings.WebhookUrl, "object[orderId]", invoiceNumber);
+
+        transactionReference = string.IsNullOrWhiteSpace(transactionReference) ? (offline ? "Order #{invoiceNumber}" : $"Order #{invoiceNumber}") : (offline ? transactionReference : transactionReference.Replace("{invoiceNumber}", invoiceNumber));
         
         var transaction = new
         {
             serviceId = payNlSettings.ServiceId,
-            description = offline ? "Order #{invoiceNumber}" : $"Order #{invoiceNumber}",
+            description = transactionReference,
             reference = offline ? "{invoiceNumber}" : invoiceNumber.Replace("-","X"), // dash is not allowed
             returnUrl = string.IsNullOrEmpty(returnUrl) ? payNlSettings.SuccessUrl : returnUrl,
             exchangeUrl = string.IsNullOrEmpty(exchangeUrl) ? payNlSettings.WebhookUrl : exchangeUrl,
