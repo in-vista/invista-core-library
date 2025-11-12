@@ -134,7 +134,7 @@ namespace GeeksCoreLibrary.Modules.Databases.Services
             await EnsureOpenConnectionForReadingAsync();
             await using var command = new MySqlCommand(query, ConnectionForReading);
             SetupMySqlCommand(command);
-            dataReader = await command.ExecuteReaderAsync(CommandBehavior.CloseConnection);
+            dataReader = await command.ExecuteReaderAsync();
 
             return dataReader;
         }
