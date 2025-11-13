@@ -82,14 +82,15 @@ public class PayNlService : PaymentServiceProviderBaseService, IPaymentServicePr
 
         var totalPrice = await CalculatePriceAsync(conceptOrders);
         var error = string.Empty;
-        
+        var description = conceptOrders.First().Main.GetDetailValue("TransactionReference");
+        description = string.IsNullOrWhiteSpace(description) ? $"Order #{invoiceNumber}" : description.Replace("{invoiceNumber}", invoiceNumber);
         
         if (paymentMethodSettings.ExternalName == "softpos")
         {
             var finalUrl = string.Empty;
             try
             {
-                finalUrl = HandleSoftPos(payNlSettings, invoiceNumber, totalPrice, gclSettings);
+                finalUrl = HandleSoftPos(payNlSettings, invoiceNumber, totalPrice, gclSettings, transactionReference: description);
                 return new PaymentRequestResult
                 {
                     Successful = true,
@@ -114,24 +115,57 @@ public class PayNlService : PaymentServiceProviderBaseService, IPaymentServicePr
             }
         }
 
-        // Else: iDEAL
+        // Else: iDEAL or other Pay. payment methods (not softpos)
         RestResponse restResponse = null;
         JObject responseJson = null;
 
         // Build and execute payment request.
         var restRequest = new RestRequest("/v1/orders", Method.Post);
         restRequest = AddRequestHeaders(restRequest, payNlSettings);
+
+        // TODO:hier moet de class name gebruikt worden!
+        var PayNLPaymentMethodID = 10;
+        switch (paymentMethodSettings.ExternalName.ToLower())
+        {
+            case "ideal": 
+                PayNLPaymentMethodID = 10;
+                break;
+            case "wero": 
+                PayNLPaymentMethodID = 3762;
+                break;
+            case "payconiq": 
+                PayNLPaymentMethodID = 2379;
+                break;
+            case "bizum": 
+                PayNLPaymentMethodID = 3843;
+                break;
+            case "paypal": 
+                PayNLPaymentMethodID = 138;
+                break;
+            case "creditcard":
+                PayNLPaymentMethodID = 706;
+                break;
+            case "mistercash":
+                PayNLPaymentMethodID = 436;
+                break;
+            case "applepay":
+                PayNLPaymentMethodID = 2277;
+                break;
+            case "googlepay":
+                PayNLPaymentMethodID = 2558;
+                break;
+        }
         
         var requestBody = new PayNLOrderCreateRequestModel()
         {
             Amount = new Amount { Value = (int) Math.Round(totalPrice * 100) },
             ServiceId = payNlSettings.ServiceId,
-            Description = $"Order #{invoiceNumber}",
+            Description = description, // Maximum of 32 characters, otherwise Pay. will shorten the description
             Reference = invoiceNumber.Replace("-","X"), // dash is not allowed
             ReturnUrl = payNlSettings.SuccessUrl,
             ExchangeUrl = payNlSettings.WebhookUrl,
             Integration = new Integration { Test = gclSettings.Environment.InList(Environments.Test, Environments.Development)},
-            PaymentMethod = new PaymentMethod { Id = 10 }
+            PaymentMethod = new PaymentMethod { Id = PayNLPaymentMethodID }
         };
         restRequest.AddJsonBody(requestBody);
         
@@ -142,9 +176,15 @@ public class PayNlService : PaymentServiceProviderBaseService, IPaymentServicePr
             responseJson = String.IsNullOrWhiteSpace(restResponse.Content) ? new JObject() : JObject.Parse(restResponse.Content);
             var responseSuccessful = restResponse.StatusCode == HttpStatusCode.Created;
 
+            if (!responseSuccessful)
+            {
+                throw new Exception(responseJson.ToString());
+            }
+
             // Save transaction id, because we need it for the status update.
             foreach (var order in conceptOrders)
             {
+                if (responseJson["orderId"]?.ToString() == null) continue;
                 var transactionId = new WiserItemDetailModel()
                 {
                     Key = "uniquePaymentNumber",
@@ -179,17 +219,19 @@ public class PayNlService : PaymentServiceProviderBaseService, IPaymentServicePr
     }
     
     // Build and return URL for softpos payment
-    public static string HandleSoftPos(PayNlSettingsModel payNlSettings, string invoiceNumber, decimal totalPrice, GclSettings gclSettings, bool offline = false, string returnUrl = "", string exchangeUrl = "")
+    public static string HandleSoftPos(PayNlSettingsModel payNlSettings, string invoiceNumber, decimal totalPrice, GclSettings gclSettings, bool offline = false, string returnUrl = "", string exchangeUrl = "", string transactionReference = "")
     {
         // Define the transaction and layout objects
         
         // Add the order id to the webhook URL, because the softpos exchange doesn't return it.
         //payNlSettings.WebhookUrl = QueryHelpers.AddQueryString(payNlSettings.WebhookUrl, "object[orderId]", invoiceNumber);
+
+        transactionReference = string.IsNullOrWhiteSpace(transactionReference) ? (offline ? "Order #{invoiceNumber}" : $"Order #{invoiceNumber}") : (offline ? transactionReference : transactionReference.Replace("{invoiceNumber}", invoiceNumber));
         
         var transaction = new
         {
             serviceId = payNlSettings.ServiceId,
-            description = offline ? "Order #{invoiceNumber}" : $"Order #{invoiceNumber}",
+            description = transactionReference,
             reference = offline ? "{invoiceNumber}" : invoiceNumber.Replace("-","X"), // dash is not allowed
             returnUrl = string.IsNullOrEmpty(returnUrl) ? payNlSettings.SuccessUrl : returnUrl,
             exchangeUrl = string.IsNullOrEmpty(exchangeUrl) ? payNlSettings.WebhookUrl : exchangeUrl,

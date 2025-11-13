@@ -31,7 +31,7 @@ public class PayNlController : Controller
     /// </summary>
     /// <returns>Softpos URL with variables, which can be used to process softpos transactions</returns>
     [HttpGet, Route("get-softpos-url")]
-    public async Task<IActionResult> GetSoftposUrl([FromQuery] ulong paymentMethodId, [FromQuery] string returnUrl, [FromQuery] string exchangeUrl)
+    public async Task<IActionResult> GetSoftposUrl([FromQuery] ulong paymentMethodId, [FromQuery] string returnUrl, [FromQuery] string exchangeUrl, [FromQuery] string transactionReference)
     {
         var paymentMethodIdInternal = paymentMethodId; //Convert.ToUInt64(paymentMethodId.DecryptWithAesWithSalt(withDateTime: false)); 
         
@@ -53,7 +53,7 @@ public class PayNlController : Controller
         try
         {
             var payNlSettings = (PayNlSettingsModel) paymentMethodSettings.PaymentServiceProvider;
-            var result = HandleSoftPos(payNlSettings, "", 0, gclSettings, true, returnUrl, exchangeUrl);
+            var result = HandleSoftPos(payNlSettings, "", 0, gclSettings, true, returnUrl, exchangeUrl, transactionReference);
             return Ok(new { softposurl = result});
         }
         catch (Exception e)
