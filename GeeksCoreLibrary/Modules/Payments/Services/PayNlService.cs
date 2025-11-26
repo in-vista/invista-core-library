@@ -170,6 +170,9 @@ public class PayNlService : PaymentServiceProviderBaseService, IPaymentServicePr
             case "applepay":
                 PayNLPaymentMethodID = 2277;
                 break;
+            case "googlewallet":
+                PayNLPaymentMethodID = 2558;
+                break;
             case "alipayplus":
                 PayNLPaymentMethodID = 2907;
                 break;
