@@ -83,6 +83,8 @@ public class PayNlService : PaymentServiceProviderBaseService, IPaymentServicePr
         var totalPrice = await CalculatePriceAsync(conceptOrders);
         var error = string.Empty;
         
+        
+        // Get currency from first basket
         var currency = conceptOrders.First().Main.GetDetailValue("currency");
         switch (currency)
         {
@@ -100,6 +102,11 @@ public class PayNlService : PaymentServiceProviderBaseService, IPaymentServicePr
                 break;
         }
         
+        // Get language from first basket
+        var language = conceptOrders.First().Main.GetDetailValue("language");
+        language = string.IsNullOrWhiteSpace(language) ? "en_GB" : language.ToLower();
+        
+        // Get descriptin from first basket
         var description = conceptOrders.First().Main.GetDetailValue("TransactionReference");
         description = string.IsNullOrWhiteSpace(description) ? $"Order #{invoiceNumber}" : description.Replace("{invoiceNumber}", invoiceNumber);
         
@@ -250,6 +257,7 @@ public class PayNlService : PaymentServiceProviderBaseService, IPaymentServicePr
             ReturnUrl = payNlSettings.SuccessUrl,
             ExchangeUrl = payNlSettings.WebhookUrl,
             Integration = new Integration { Test = gclSettings.Environment.InList(Environments.Test, Environments.Development)},
+            Customer = new Customer { Locale = language },
             PaymentMethod = new PaymentMethod { Id = PayNLPaymentMethodID }
         };
         restRequest.AddJsonBody(requestBody);

@@ -9,6 +9,8 @@ public class PayNLOrderCreateRequestModel
         public string ReturnUrl { get; set; }
         public string ExchangeUrl { get; set; }
         public Integration Integration { get; set; }
+        
+        public Customer Customer { get; set; }
         public PaymentMethod PaymentMethod { get; set; }
 }
 
@@ -21,6 +23,11 @@ public class Amount
 public class Integration
 {
     public bool Test { get; set; }
+}
+
+public class Customer
+{
+    public string Locale { get; set; }
 }
 
 public class PaymentMethod
