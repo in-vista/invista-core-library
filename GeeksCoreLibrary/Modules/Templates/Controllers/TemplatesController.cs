@@ -141,7 +141,7 @@ namespace GeeksCoreLibrary.Modules.Templates.Controllers
                     case TemplateTypes.Css:
                         return Content(contentTemplate.Content, "text/css");
                     case TemplateTypes.Query:
-                        var jsonResult = await templatesService.GetJsonResponseFromQueryAsync((QueryTemplate) contentTemplate);
+                        var jsonResult = await templatesService.GetJsonResponseFromQueryAsync((QueryTemplate) contentTemplate, allowValueDecryption: true);
                         return Content(JsonConvert.SerializeObject(jsonResult), "application/json");
                     case TemplateTypes.Normal:
                     case TemplateTypes.Unknown:
