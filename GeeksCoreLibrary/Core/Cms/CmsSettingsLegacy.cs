@@ -83,6 +83,6 @@
         
         public string Html { get; set; } 
         
-        public string SQLQuery { get; set; }
+        public string SqlQuery { get; set; }
     }
 }

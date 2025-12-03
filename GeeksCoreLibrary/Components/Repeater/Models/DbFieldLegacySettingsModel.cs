@@ -18,7 +18,7 @@ namespace GeeksCoreLibrary.Components.Repeater.Models
 
         public string RandomVeldNamen { get; set; }
 
-        public string SQLQuery { get; set; }
+        public new string SqlQuery { get; set; }
 
         /// <summary>
         /// Convert FROM Legacy TO regular
@@ -26,7 +26,7 @@ namespace GeeksCoreLibrary.Components.Repeater.Models
         /// <returns></returns>
         public RepeaterCmsSettingsModel ToSettingsModel()
         {
-            var query = SQLQuery;
+            var query = SqlQuery;
             if (String.IsNullOrWhiteSpace(query))
             {
                 if (String.IsNullOrWhiteSpace(VeldNaam) && !String.IsNullOrWhiteSpace(RandomVeldNamen))

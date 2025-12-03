@@ -314,7 +314,6 @@ namespace GeeksCoreLibrary.Core.Extensions
 
             // Manual additions.
             services.AddHttpContextAccessor();
-            services.AddSingleton<IActionContextAccessor, ActionContextAccessor>();
 
             // Templates service.
             if (gclSettings.UseLegacyWiser1TemplateModule)

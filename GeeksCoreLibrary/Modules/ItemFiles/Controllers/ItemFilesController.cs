@@ -5,6 +5,7 @@ using GeeksCoreLibrary.Core.Helpers;
 using GeeksCoreLibrary.Core.Models;
 using GeeksCoreLibrary.Modules.ItemFiles.Enums;
 using GeeksCoreLibrary.Modules.ItemFiles.Interfaces;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -71,8 +72,8 @@ namespace GeeksCoreLibrary.Modules.ItemFiles.Controllers
                 return NotFound();
             }
 
-            Response.Headers.Add("Last-Modified", lastModified.ToString("R"));
-            Response.Headers.Add("Expires", lastModified.Add(gclSettings.DefaultItemFileCacheDuration).ToString("R"));
+            Response.Headers.Append("Last-Modified", lastModified.ToString("R"));
+            Response.Headers.Append("Expires", lastModified.Add(gclSettings.DefaultItemFileCacheDuration).ToString("R"));
             return File(fileBytes, FileSystemHelpers.GetMediaTypeByMagicNumber(fileBytes));
         }
 
@@ -110,8 +111,8 @@ namespace GeeksCoreLibrary.Modules.ItemFiles.Controllers
                 return NotFound();
             }
 
-            Response.Headers.Add("Last-Modified", lastModified.ToString("R"));
-            Response.Headers.Add("Expires", lastModified.Add(gclSettings.DefaultItemFileCacheDuration).ToString("R"));
+            Response.Headers.Append("Last-Modified", lastModified.ToString("R"));
+            Response.Headers.Append("Expires", lastModified.Add(gclSettings.DefaultItemFileCacheDuration).ToString("R"));
             return File(fileBytes, MediaTypeNames.Application.Octet);
         }
     }

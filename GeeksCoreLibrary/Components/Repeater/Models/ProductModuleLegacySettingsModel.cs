@@ -58,7 +58,7 @@ namespace GeeksCoreLibrary.Components.Repeater.Models
                         }
                     }
                 },
-                DataQuery = SQLQuery,
+                DataQuery = SqlQuery,
                 RemoveUnknownVariables = true,
                 EvaluateIfElseInTemplates = true,
                 PlaceProductBanners = PlaceProductBanners,

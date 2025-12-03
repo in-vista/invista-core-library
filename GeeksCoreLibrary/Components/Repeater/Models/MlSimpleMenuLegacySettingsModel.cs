@@ -97,7 +97,7 @@ namespace GeeksCoreLibrary.Components.Repeater.Models
                         }
                     }
                 },
-                DataQuery = SQLQuery,
+                DataQuery = SqlQuery,
                 RemoveUnknownVariables = ReplaceUnknownVariablesWithEmptyString,
                 EvaluateIfElseInTemplates = DoEvaluateTemplates,
 

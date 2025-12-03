@@ -1443,7 +1443,7 @@ SET @saveHistory = ?saveHistoryGcl;
                         throw;
                     }
                 }
-                catch(Exception exp)
+                catch(Exception)
                 {
                     if (createNewTransaction && !alreadyHadTransaction) await databaseConnection.RollbackTransactionAsync();
                     throw;

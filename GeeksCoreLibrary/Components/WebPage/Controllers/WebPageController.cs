@@ -28,7 +28,6 @@ namespace GeeksCoreLibrary.Components.WebPage.Controllers
         private readonly ILogger<WebPageController> logger;
         private readonly ITemplatesService templatesService;
         private readonly IPagesService pagesService;
-        private readonly IActionContextAccessor actionContextAccessor;
         private readonly IHttpContextAccessor httpContextAccessor;
         private readonly ITempDataProvider tempDataProvider;
         private readonly IViewComponentHelper viewComponentHelper;
@@ -40,7 +39,6 @@ namespace GeeksCoreLibrary.Components.WebPage.Controllers
                                  IPagesService pagesService,
                                  IDataSelectorsService dataSelectorsService,
                                  IWiserItemsService wiserItemsService,
-                                 IActionContextAccessor actionContextAccessor = null,
                                  IHttpContextAccessor httpContextAccessor = null,
                                  ITempDataProvider tempDataProvider = null,
                                  IViewComponentHelper viewComponentHelper = null)
@@ -48,7 +46,6 @@ namespace GeeksCoreLibrary.Components.WebPage.Controllers
             this.logger = logger;
             this.templatesService = templatesService;
             this.pagesService = pagesService;
-            this.actionContextAccessor = actionContextAccessor;
             this.httpContextAccessor = httpContextAccessor;
             this.tempDataProvider = tempDataProvider;
             this.viewComponentHelper = viewComponentHelper;
@@ -60,7 +57,7 @@ namespace GeeksCoreLibrary.Components.WebPage.Controllers
         [Route("cmspage.jcl")]
         public async Task<IActionResult> WebPageAsync()
         {
-            if (httpContextAccessor?.HttpContext == null || actionContextAccessor?.ActionContext == null)
+            if (httpContextAccessor?.HttpContext == null || ControllerContext == null)
             {
                 throw new Exception("No httpContext found. Did you add the dependency in Program.cs or Startup.cs?");
             }
@@ -115,7 +112,7 @@ namespace GeeksCoreLibrary.Components.WebPage.Controllers
 
             // Create a fake ViewContext (but with a real ActionContext and a real HttpContext).
             var viewContext = new ViewContext(
-                actionContextAccessor.ActionContext,
+                ControllerContext,
                 NullView.Instance,
                 new ViewDataDictionary(new EmptyModelMetadataProvider(), new ModelStateDictionary()),
                 new TempDataDictionary(httpContextAccessor.HttpContext, tempDataProvider),

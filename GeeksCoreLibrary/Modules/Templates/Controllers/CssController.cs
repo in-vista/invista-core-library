@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using GeeksCoreLibrary.Core.Extensions;
 using GeeksCoreLibrary.Modules.Templates.Enums;
 using GeeksCoreLibrary.Modules.Templates.Interfaces;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 
 namespace GeeksCoreLibrary.Modules.Templates.Controllers
@@ -31,8 +32,8 @@ namespace GeeksCoreLibrary.Modules.Templates.Controllers
             }
 
             var cssContent = await templatesService.GetGeneralTemplateValueAsync(TemplateTypes.Css, mode);
-            Response.Headers.Add("Last-Modified", cssContent.LastChangeDate.ToUniversalTime().ToString("R"));
-            Response.Headers.Add("Expires", DateTime.Now.AddDays(7).ToUniversalTime().ToString("R"));
+            Response.Headers.Append("Last-Modified", cssContent.LastChangeDate.ToUniversalTime().ToString("R"));
+            Response.Headers.Append("Expires", DateTime.Now.AddDays(7).ToUniversalTime().ToString("R"));
             return Content(cssContent.Content, "text/css", Encoding.UTF8);
         }
         
@@ -47,8 +48,8 @@ namespace GeeksCoreLibrary.Modules.Templates.Controllers
                 return StatusCode((int) HttpStatusCode.NotModified);
             }
             
-            Response.Headers.Add("Last-Modified", cssContent.LastChangeDate.ToUniversalTime().ToString("R"));
-            Response.Headers.Add("Expires", DateTime.Now.AddDays(7).ToUniversalTime().ToString("R"));
+            Response.Headers.Append("Last-Modified", cssContent.LastChangeDate.ToUniversalTime().ToString("R"));
+            Response.Headers.Append("Expires", DateTime.Now.AddDays(7).ToUniversalTime().ToString("R"));
             return Content(cssContent.Content, "text/css", Encoding.UTF8);
         }
     }

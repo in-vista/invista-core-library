@@ -95,7 +95,7 @@ namespace GeeksCoreLibrary.Components.ShoppingBasket.Models
                 ExtraLineFieldsQuery = ExtraLineFieldsQuery,
                 AddToBasketQuery = AddToBasketQuery,
 
-                SqlQuery = SQLQuery,
+                SqlQuery = SqlQuery,
                 GetBasketQuery = GetBasketQuery,
 
                 TemplateEmpty = EmptyWinkelmandje,
@@ -143,7 +143,7 @@ namespace GeeksCoreLibrary.Components.ShoppingBasket.Models
                 ExtraLineFieldsQuery = settings.ExtraLineFieldsQuery,
                 AddToBasketQuery = settings.AddToBasketQuery,
 
-                SQLQuery = settings.SqlQuery,
+                SqlQuery = settings.SqlQuery,
                 GetBasketQuery = settings.GetBasketQuery,
 
                 EmptyWinkelmandje = settings.TemplateEmpty,

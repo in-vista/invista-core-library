@@ -39,7 +39,7 @@ public class PayNlService : PaymentServiceProviderBaseService, IPaymentServicePr
     private const string BaseUrlSoftPos = "https://rest.pay.nl";
     private readonly IDatabaseConnection databaseConnection;
     private readonly ILogger<PaymentServiceProviderBaseService> logger;
-    private readonly IHttpContextAccessor? httpContextAccessor;
+    private readonly IHttpContextAccessor httpContextAccessor;
     private readonly GclSettings gclSettings;
     private IWiserItemsService wiserItemsService;
     private readonly IShoppingBasketsService shoppingBasketsService;

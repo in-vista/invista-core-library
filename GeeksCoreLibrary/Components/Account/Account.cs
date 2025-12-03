@@ -1301,7 +1301,6 @@ namespace GeeksCoreLibrary.Components.Account
         public async Task<string> HandleSSOModeAsync()
         {
             string resultHtml = Settings.Template;
-            string errorType = null;
             
             try
             {
