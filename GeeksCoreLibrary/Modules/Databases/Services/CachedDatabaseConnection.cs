@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.Data;
 using System.Data.Common;
 using System.Linq;
@@ -193,6 +194,19 @@ namespace GeeksCoreLibrary.Modules.Databases.Services
             }
 
             parameters.TryAdd(key, value);
+        }
+        
+        /// <inheritdoc />
+        public string AddInParameters(string key, IEnumerable<object> collection)
+        {
+            string joinedEntries = string.Join(", ", collection.Select((entry, entryIndex) =>
+            {
+                string parameterName = $"{key}_{entryIndex}";
+                AddParameter(parameterName, entry);
+                return $"?{parameterName}";
+            }));
+            
+            return $"({joinedEntries})";
         }
 
         /// <inheritdoc />

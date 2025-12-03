@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Data;
 using System.Data.Common;
 using System.Threading.Tasks;
@@ -110,6 +111,14 @@ namespace GeeksCoreLibrary.Modules.Databases.Interfaces
         /// <param name="key"></param>
         /// <param name="value"></param>
         void AddParameter(string key, object value);
+        
+        /// <summary>
+        /// Adds parameters for the given collection under the given key and returns the IN expression value.
+        /// </summary>
+        /// <param name="key">The base key used for all entries in the IN expression.</param>
+        /// <param name="collection">A collection of entries to populate the IN expression value with.</param>
+        /// <returns>The IN expression value to use in a query.</returns>
+        string AddInParameters(string key, IEnumerable<object> collection);
 
         /// <summary>
         /// Clear all previously added parameters from the <see cref="MySqlCommand"/>.
