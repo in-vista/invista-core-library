@@ -17,6 +17,7 @@ using GeeksCoreLibrary.Modules.Templates.Models;
 using GeeksCoreLibrary.Modules.Templates.Services;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.Abstractions;
 using Microsoft.AspNetCore.Mvc.Infrastructure;
 using Microsoft.AspNetCore.Mvc.ModelBinding;
 using Microsoft.AspNetCore.Mvc.Rendering;
@@ -33,7 +34,6 @@ namespace GeeksCoreLibrary.Components.OrderProcess.Controllers
         private readonly ILogger<OrderProcessesController> logger;
         private readonly ITemplatesService templatesService;
         private readonly IPagesService pagesService;
-        private readonly IActionContextAccessor actionContextAccessor;
         private readonly IHttpContextAccessor httpContextAccessor;
         private readonly ITempDataProvider tempDataProvider;
         private readonly IViewComponentHelper viewComponentHelper;
@@ -47,7 +47,6 @@ namespace GeeksCoreLibrary.Components.OrderProcess.Controllers
                                         IDataSelectorsService dataSelectorsService,
                                         IOrderProcessesService orderProcessesService,
                                         IWiserItemsService wiserItemsService,
-                                        IActionContextAccessor actionContextAccessor = null,
                                         IHttpContextAccessor httpContextAccessor = null,
                                         IViewComponentHelper viewComponentHelper = null,
                                         ITempDataProvider tempDataProvider = null)
@@ -55,7 +54,6 @@ namespace GeeksCoreLibrary.Components.OrderProcess.Controllers
             this.logger = logger;
             this.templatesService = templatesService;
             this.pagesService = pagesService;
-            this.actionContextAccessor = actionContextAccessor;
             this.httpContextAccessor = httpContextAccessor;
             this.tempDataProvider = tempDataProvider;
             this.viewComponentHelper = viewComponentHelper;
@@ -297,14 +295,14 @@ namespace GeeksCoreLibrary.Components.OrderProcess.Controllers
 
         private async Task<string> RenderAndExecuteComponentAsync(OrderProcess.ComponentModes componentMode, ulong orderProcessId)
         {
-            if (httpContextAccessor?.HttpContext == null || actionContextAccessor?.ActionContext == null)
+            if (httpContextAccessor?.HttpContext == null)
             {
                 throw new Exception("No httpContext found. Did you add the dependency in Program.cs or Startup.cs?");
             }
 
             // Create a fake ViewContext (but with a real ActionContext and a real HttpContext).
             var viewContext = new ViewContext(
-                actionContextAccessor.ActionContext,
+                ControllerContext,
                 NullView.Instance,
                 new ViewDataDictionary(new EmptyModelMetadataProvider(), new ModelStateDictionary()),
                 new TempDataDictionary(httpContextAccessor.HttpContext, tempDataProvider),
