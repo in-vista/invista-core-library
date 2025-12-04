@@ -229,60 +229,46 @@ namespace GeeksCoreLibrary.Core.Extensions
             {
                 // Salt of at least 8 bytes is required to derive key.
                 // If no salt is set in the appsettings, a basic 0-salt will be used.
-                var saltString = GclSettings.Current.DefaultEncryptionSalt;
-                var salt = !String.IsNullOrWhiteSpace(saltString) ? Encoding.UTF8.GetBytes(saltString) : new byte[8];
+                string saltString = GclSettings.Current.DefaultEncryptionSalt;
+                byte[] salt = !string.IsNullOrWhiteSpace(saltString) ? Encoding.UTF8.GetBytes(saltString) : new byte[8];
 
                 // Salt must be at least 8 bytes.
                 if (salt.Length < 8)
                 {
-                    var tempSalt = new byte[8];
+                    byte[] tempSalt = new byte[8];
                     Buffer.BlockCopy(salt, 0, tempSalt, 0, salt.Length);
                     salt = tempSalt;
                 }
-                
-                // Determine the bit size.
-                const int KeySize = 256;
-                const int BlockSize = 128;
-                
-                // Determine the byte size.
-                int keySizeBytes = KeySize / 8;
-                int ivSizeBytes  = BlockSize / 8;
-                
-                // Derive key.
-                byte[] keyBytes = Rfc2898DeriveBytes.Pbkdf2(
+
+                // Derive key and IV using Pbkdf2.
+                const int keySize = 256;
+                const int blockSize = 128;
+                byte[] totalBytes = Rfc2898DeriveBytes.Pbkdf2(
                     password: encryptionKey,
                     salt: salt,
                     iterations: 2,
-                    hashAlgorithm: HashAlgorithmName.SHA256,
-                    outputLength: keySizeBytes
+                    hashAlgorithm: HashAlgorithmName.SHA1,
+                    outputLength: (keySize + blockSize) / 8
                 );
-                
-                // Derive IV
-                byte[] ivBytes = Rfc2898DeriveBytes.Pbkdf2(
-                    password: encryptionKey,
-                    salt: salt,
-                    iterations: 2,
-                    hashAlgorithm: HashAlgorithmName.SHA256,
-                    outputLength: ivSizeBytes
-                );
-                
+
+                byte[] keyBytes = totalBytes[..(keySize / 8)];
+                byte[] ivBytes = totalBytes[(keySize / 8)..];
+
                 using Aes aesManaged = Aes.Create();
-                aesManaged.KeySize = KeySize;
-                aesManaged.BlockSize = BlockSize;
+                aesManaged.KeySize = keySize;
+                aesManaged.BlockSize = blockSize;
                 aesManaged.Key = keyBytes;
                 aesManaged.IV = ivBytes;
-                
+
                 using ICryptoTransform encryptor = aesManaged.CreateEncryptor(aesManaged.Key, aesManaged.IV);
-                
                 using MemoryStream ms = new();
-                using (CryptoStream cs = new(ms, encryptor, CryptoStreamMode.Write))
-                {
-                    using StreamWriter sw = new(cs);
-                    sw.Write(stringToEncrypt);
-                }
-                
+                using CryptoStream cs = new(ms, encryptor, CryptoStreamMode.Write);
+                using StreamWriter sw = new(cs);
+                sw.Write(stringToEncrypt.ToString());
+                sw.Flush();
+                cs.FlushFinalBlock();
+
                 byte[] encryptedBytes = ms.ToArray();
-                
                 return Convert.ToBase64String(encryptedBytes);
             }
         }
@@ -336,56 +322,43 @@ namespace GeeksCoreLibrary.Core.Extensions
             {
                 // Salt of at least 8 bytes is required to derive key.
                 // If no salt is set in the appsettings, a basic 0-salt will be used.
-                var saltString = GclSettings.Current.DefaultEncryptionSalt;
-                var salt = !String.IsNullOrWhiteSpace(saltString) ? Encoding.UTF8.GetBytes(saltString) : new byte[8];
+                string saltString = GclSettings.Current.DefaultEncryptionSalt;
+                byte[] salt = !String.IsNullOrWhiteSpace(saltString) ? Encoding.UTF8.GetBytes(saltString) : new byte[8];
 
                 // Salt must be at least 8 bytes.
                 if (salt.Length < 8)
                 {
-                    var tempSalt = new byte[8];
+                    byte[] tempSalt = new byte[8];
                     Buffer.BlockCopy(salt, 0, tempSalt, 0, salt.Length);
                     salt = tempSalt;
                 }
 
-                var inputBytes = Convert.FromBase64String(input);
-                
-                // Determine the bit size.
+                byte[] inputBytes = Convert.FromBase64String(input);
+
+                // Derive key and IV using Pbkdf2.
                 const int KeySize = 256;
                 const int BlockSize = 128;
-                
-                // Determine the byte size.
-                int keySizeBytes = KeySize / 8;
-                int ivSizeBytes  = BlockSize / 8;
-                
-                // Derive key.
-                byte[] keyBytes = Rfc2898DeriveBytes.Pbkdf2(
+                byte[] totalBytes = Rfc2898DeriveBytes.Pbkdf2(
                     password: encryptionKey,
                     salt: salt,
                     iterations: 2,
-                    hashAlgorithm: HashAlgorithmName.SHA256,
-                    outputLength: keySizeBytes
+                    hashAlgorithm: HashAlgorithmName.SHA1,
+                    outputLength: (KeySize + BlockSize) / 8
                 );
-                
-                // Derive IV.
-                byte[] ivBytes = Rfc2898DeriveBytes.Pbkdf2(
-                    password: encryptionKey,
-                    salt: salt,
-                    iterations: 2,
-                    hashAlgorithm: HashAlgorithmName.SHA256,
-                    outputLength: ivSizeBytes
-                );
-                
+
+                byte[] keyBytes = totalBytes[..(KeySize / 8)];
+                byte[] ivBytes = totalBytes[(KeySize / 8)..];
+
                 using Aes aesManaged = Aes.Create();
                 aesManaged.KeySize = KeySize;
                 aesManaged.BlockSize = BlockSize;
                 aesManaged.Key = keyBytes;
                 aesManaged.IV = ivBytes;
-                
+
                 using ICryptoTransform decryptor = aesManaged.CreateDecryptor(aesManaged.Key, aesManaged.IV);
-                
-                using MemoryStream ms = new (inputBytes);
-                using CryptoStream cs = new (ms, decryptor, CryptoStreamMode.Read);
-                using StreamReader sr = new (cs);
+                using MemoryStream ms = new(inputBytes);
+                using CryptoStream cs = new(ms, decryptor, CryptoStreamMode.Read);
+                using StreamReader sr = new(cs);
                 output = sr.ReadToEnd();
             }
 
@@ -481,50 +454,42 @@ namespace GeeksCoreLibrary.Core.Extensions
             else
             {
                 // Create salt.
-                var random = new Random();
-                var saltSize = random.Next(8, 12);
-                var saltBytes = new byte[saltSize];
-                using (var rng = RandomNumberGenerator.Create())
-                {
+                Random random = new();
+                int saltSize = random.Next(8, 12);
+                byte[] saltBytes = new byte[saltSize];
+                using (RandomNumberGenerator rng = RandomNumberGenerator.Create())
                     rng.GetBytes(saltBytes);
-                }
-
+                
+                // Create an AES instance.
                 using Aes aes = Aes.Create();
                 aes.Mode = CipherMode.CBC;
 
-                // Derive the key and IV from the password and the salt.
-                int keySizeBytes = aes.KeySize / 8;
-                int ivSizeBytes  = aes.BlockSize / 8;
-                
-                // Derive key.
-                byte[] keyBytes = Rfc2898DeriveBytes.Pbkdf2(
+                // Derive key and IV using Pbkdf2.
+                byte[] totalBytes = Rfc2898DeriveBytes.Pbkdf2(
                     password: encryptionKey,
                     salt: saltBytes,
                     iterations: 2,
-                    hashAlgorithm: HashAlgorithmName.SHA256,
-                    outputLength: keySizeBytes
+                    hashAlgorithm: HashAlgorithmName.SHA1,
+                    outputLength: (aes.KeySize + aes.BlockSize) / 8
                 );
                 
-                // Derive IV.
-                byte[] ivBytes = Rfc2898DeriveBytes.Pbkdf2(
-                    password: encryptionKey,
-                    salt: saltBytes,
-                    iterations: 2,
-                    hashAlgorithm: HashAlgorithmName.SHA256,
-                    outputLength: ivSizeBytes
-                );
+                // Retrieve the key and IV bytes from the derived bytes.
+                byte[] keyBytes = totalBytes[..(aes.KeySize / 8)];
+                byte[] ivBytes = totalBytes[(aes.KeySize / 8)..];
                 
+                // Set the key of the AES instance.
                 aes.Key = keyBytes;
 
-                // Encrypt.
-                var resultBytes = aes.EncryptCbc(inputBytes, ivBytes);
-                
-                // Append salt to output.
-                var outputBytes = new byte[resultBytes.Length + saltBytes.Length];
+                // Encrypt the input.
+                byte[] resultBytes = aes.EncryptCbc(inputBytes, ivBytes);
+
+                // Combine the encrypted bytes with the salt.
+                byte[] outputBytes = new byte[resultBytes.Length + saltBytes.Length];
                 Buffer.BlockCopy(resultBytes, 0, outputBytes, 0, resultBytes.Length);
                 Buffer.BlockCopy(saltBytes, 0, outputBytes, resultBytes.Length, saltBytes.Length);
 
-                var output = new StringBuilder(Convert.ToBase64String(outputBytes));
+                // Base64 encode and make the output URL-safe.
+                StringBuilder output = new(Convert.ToBase64String(outputBytes));
                 output.Replace("/", "-");
 
                 return output.ToString();
@@ -588,51 +553,43 @@ namespace GeeksCoreLibrary.Core.Extensions
             }
             else
             {
-                var stringToDecrypt = new StringBuilder(input);
+                // Unescape the input string.
+                StringBuilder stringToDecrypt = new(input);
                 stringToDecrypt.Replace("-", "/");
-
-                var inputWithSaltBytes = Convert.FromBase64String(Uri.UnescapeDataString(stringToDecrypt.ToString()));
-
+                
+                // Retrieve the byte array from the input.
+                byte[] inputWithSaltBytes = Convert.FromBase64String(Uri.UnescapeDataString(stringToDecrypt.ToString()));
+                
+                // Determine the salt and input lengths for the byte arrays.
                 var saltByteLength = inputWithSaltBytes.Length % 16;
-
                 var inputBytes = new byte[16 * (inputWithSaltBytes.Length / 16)];
                 var saltBytes = new byte[saltByteLength];
-
+                
                 Buffer.BlockCopy(inputWithSaltBytes, 0, inputBytes, 0, inputBytes.Length);
                 Buffer.BlockCopy(inputWithSaltBytes, inputBytes.Length, saltBytes, 0, saltBytes.Length);
-
-                using var aes = Aes.Create();
+                
+                // Create an AES instance to perform the decryption.
+                using Aes aes = Aes.Create();
                 aes.Mode = CipherMode.CBC;
-
-                // Determine the amount of bytes required.
-                int keySizeBytes = aes.KeySize / 8;
-                int ivSizeBytes  = aes.BlockSize / 8;
                 
-                // Derive key.
-                byte[] keyBytes = Rfc2898DeriveBytes.Pbkdf2(
+                // Retrieve derived bytes from the encryption key.
+                byte[] totalBytes = Rfc2898DeriveBytes.Pbkdf2(
                     password: encryptionKey,
                     salt: saltBytes,
                     iterations: 2,
-                    hashAlgorithm: HashAlgorithmName.SHA256,
-                    outputLength: keySizeBytes
+                    hashAlgorithm: HashAlgorithmName.SHA1,
+                    outputLength: (aes.KeySize + aes.BlockSize) / 8
                 );
                 
-                // Derive IV.
-                byte[] ivBytes = Rfc2898DeriveBytes.Pbkdf2(
-                    password: encryptionKey,
-                    salt: saltBytes,
-                    iterations: 2,
-                    hashAlgorithm: HashAlgorithmName.SHA256,
-                    outputLength: ivSizeBytes
-                );
+                // Split key and IV bytes from the total derived bytes.
+                var keyBytes = totalBytes[..(aes.KeySize / 8)];
+                var ivBytes = totalBytes[(aes.KeySize / 8)..];
                 
-                // Set the key to the key as byte array.
+                // Set the AES key to the key bytes.
                 aes.Key = keyBytes;
                 
-                // Perform the decryption.
+                // Decrypt the input.
                 byte[] decryptedBytes = aes.DecryptCbc(inputBytes, ivBytes);
-
-                // Turn the decrypted bytes into a string. It is assumed here that the string was encrypted with UTF-8.
                 output = Encoding.UTF8.GetString(decryptedBytes);
             }
 
