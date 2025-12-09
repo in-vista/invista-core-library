@@ -1852,7 +1852,7 @@ VALUES ('UNDELETE_ITEM', '{tablePrefix}wiser_item', {itemId.ToString()}, IFNULL(
 
             // Create list of replacements to make it a bit easier to add new replacements.
             // When adding an item, make sure the argument of the constructor of the dictionary reflects the amount of entries!
-            var replacements = new Dictionary<string, string>(6)
+            var replacements = new Dictionary<string, string>
             {
                 { "id", itemId.ToString() },
                 { "itemId", itemId.ToString() },
@@ -2063,8 +2063,25 @@ VALUES ('UNDELETE_ITEM', '{tablePrefix}wiser_item', {itemId.ToString()}, IFNULL(
                 // If there is no query, then we don't need to check anything, so return true.
                 return (true, "", permissions);
             }
-
+            
+            // Retrieve the before query string.
             var queryToExecute = queryResult.Rows[0].Field<string>("query");
+            
+            // Create list of replacements to make it a bit easier to add new replacements.
+            // When adding an item, make sure the argument of the constructor of the dictionary reflects the amount of entries!
+            var replacements = new Dictionary<string, object>
+            {
+                { "id", itemId },
+                { "itemId", itemId },
+                { "title", "?workFlowItemTitle" },
+                { "moduleId", wiserItem?.ModuleId },
+                { "userId", userId },
+                { "ordering", wiserItem?.Ordering }
+            };
+            
+            // Apply default replacements for the before query string.
+            queryToExecute = stringReplacementsService.DoReplacements(queryToExecute, replacements);
+            
             if (String.IsNullOrWhiteSpace(queryToExecute))
             {
                 // If there is no query, then we don't need to check anything, so return true.

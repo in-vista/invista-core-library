@@ -933,9 +933,11 @@ WHERE id = ?id";
                 // Change 06 in 316
                 receiverPhoneNumber = $"31{receiverPhoneNumber[1..]}";
             }
-            else
+
+            // If phone number has less then 8 characters, then throw exception
+            if (receiverPhoneNumber.Length < 8)
             {
-                throw new ArgumentException("Phone number is missing the country code.");
+                throw new ArgumentException("Phone number is too short.");
             }
 
             // Set the sender

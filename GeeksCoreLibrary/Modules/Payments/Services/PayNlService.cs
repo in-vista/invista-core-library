@@ -82,8 +82,34 @@ public class PayNlService : PaymentServiceProviderBaseService, IPaymentServicePr
 
         var totalPrice = await CalculatePriceAsync(conceptOrders);
         var error = string.Empty;
+        
+        
+        // Get currency from first basket
+        var currency = conceptOrders.First().Main.GetDetailValue("currency");
+        switch (currency)
+        {
+            case "$":
+                currency = "USD";
+                break;
+            case "UK$":
+                currency = "GBP";
+                break;
+            case "zł":
+                currency = "PLN";
+                break;
+            default:
+                currency = "EUR";
+                break;
+        }
+        
+        // Get language from first basket
+        var language = conceptOrders.First().Main.GetDetailValue("language");
+        language = string.IsNullOrWhiteSpace(language) ? "en_GB" : language.ToLower();
+        
+        // Get descriptin from first basket
         var description = conceptOrders.First().Main.GetDetailValue("TransactionReference");
         description = string.IsNullOrWhiteSpace(description) ? $"Order #{invoiceNumber}" : description.Replace("{invoiceNumber}", invoiceNumber);
+        
         
         if (paymentMethodSettings.ExternalName == "softpos")
         {
@@ -151,20 +177,87 @@ public class PayNlService : PaymentServiceProviderBaseService, IPaymentServicePr
             case "applepay":
                 PayNLPaymentMethodID = 2277;
                 break;
-            case "googlepay":
+            case "googlewallet":
                 PayNLPaymentMethodID = 2558;
+                break;
+            case "alipayplus":
+                PayNLPaymentMethodID = 2907;
+                break;
+            case "multibanco":
+                PayNLPaymentMethodID = 2271;
+                break;
+            case "vipps":
+                PayNLPaymentMethodID = 3834;
+                break;
+            case "swish":
+                PayNLPaymentMethodID = 3837;
+                break;
+            case "satispay":
+                PayNLPaymentMethodID = 4146;
+                break;
+            case "blik":
+                PayNLPaymentMethodID = 2856;
+                break;
+            case "twint":
+                PayNLPaymentMethodID = 3840;
+                break;
+            case "eps":
+                PayNLPaymentMethodID = 2062;
+                break;
+            case "mbway":
+                PayNLPaymentMethodID = 3846;
+                break;
+            case "przelewy24":
+                PayNLPaymentMethodID = 2151;
+                break;
+            case "paybybank":
+                PayNLPaymentMethodID = 2970;
+                break;
+            case "mobilepay":
+                PayNLPaymentMethodID = 3558;
+                break;
+            case "wechatpay":
+                PayNLPaymentMethodID = 1978;
+                break;
+            case "britepayments":
+                PayNLPaymentMethodID = 4287;
+                break;
+            case "mastercard":
+                PayNLPaymentMethodID = 3138;
+                break;
+            case "visa":
+                PayNLPaymentMethodID = 3141;
+                break;
+            case "americanexpress":
+                PayNLPaymentMethodID = 1705;
+                break;
+            case "cartebancaire":
+                PayNLPaymentMethodID = 710;
+                break;
+            case "maestro":
+                PayNLPaymentMethodID = 712;
+                break;
+            case "postepay":
+                PayNLPaymentMethodID = 707;
+                break;
+            case "dankort":
+                PayNLPaymentMethodID = 1939;
+                break;
+            case "nexi":
+                PayNLPaymentMethodID = 1945;
                 break;
         }
         
         var requestBody = new PayNLOrderCreateRequestModel()
         {
-            Amount = new Amount { Value = (int) Math.Round(totalPrice * 100) },
+            Amount = new Amount { Value = (int) Math.Round(totalPrice * 100), Currency = currency },
             ServiceId = payNlSettings.ServiceId,
             Description = description, // Maximum of 32 characters, otherwise Pay. will shorten the description
             Reference = invoiceNumber.Replace("-","X"), // dash is not allowed
             ReturnUrl = payNlSettings.SuccessUrl,
             ExchangeUrl = payNlSettings.WebhookUrl,
             Integration = new Integration { Test = gclSettings.Environment.InList(Environments.Test, Environments.Development)},
+            Customer = new Customer { Locale = language },
             PaymentMethod = new PaymentMethod { Id = PayNLPaymentMethodID }
         };
         restRequest.AddJsonBody(requestBody);

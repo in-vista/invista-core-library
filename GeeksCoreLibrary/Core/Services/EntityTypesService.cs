@@ -153,6 +153,12 @@ public class EntityTypesService : IEntityTypesService, IScopedService
                             "document_store" => StoreType.DocumentStore,
                             "hybrid" => StoreType.Hybrid,
                             _ => throw new ArgumentOutOfRangeException("store_type", dataRow.Field<string>("store_type"))
+                        },
+                        ItemWindowMode = dataRow.Field<uint>("item_window_mode") switch
+                        {
+                            0 => ItemWindowMode.Default,
+                            1 => ItemWindowMode.Side,
+                            _ => throw new ArgumentOutOfRangeException("item_window_mode", dataRow.Field<uint>("item_window_mode").ToString())
                         }
                     };
 
