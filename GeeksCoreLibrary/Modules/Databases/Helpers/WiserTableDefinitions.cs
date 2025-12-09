@@ -154,7 +154,7 @@ public class WiserTableDefinitions
         new WiserTableDefinitionModel
         {
             Name = WiserTableNames.WiserEntity,
-            LastUpdate = new DateTime(2025, 9, 12),
+            LastUpdate = new DateTime(2025, 12, 9),
             Columns = new List<ColumnSettingsModel>
             {
                 new("id", MySqlDbType.Int32, notNull: true, isPrimaryKey: true, autoIncrement: true),
