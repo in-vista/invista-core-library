@@ -154,7 +154,7 @@ public class WiserTableDefinitions
         new WiserTableDefinitionModel
         {
             Name = WiserTableNames.WiserEntity,
-            LastUpdate = new DateTime(2023, 6, 20),
+            LastUpdate = new DateTime(2025, 9, 12),
             Columns = new List<ColumnSettingsModel>
             {
                 new("id", MySqlDbType.Int32, notNull: true, isPrimaryKey: true, autoIncrement: true),
@@ -187,7 +187,8 @@ public class WiserTableDefinitions
                 new("icon_expanded", MySqlDbType.VarChar, 25, notNull: true, defaultValue: ""),
                 new("dedicated_table_prefix", MySqlDbType.VarChar, 25, notNull: true, defaultValue: ""),
                 new("delete_action", MySqlDbType.Enum, notNull: true, defaultValue: "archive", enumValues: new List<string> {"archive", "permanent", "hide", "disallow"}),
-                new("show_in_dashboard", MySqlDbType.Int16, 1, notNull: true, defaultValue: "0")
+                new("show_in_dashboard", MySqlDbType.Int16, 1, notNull: true, defaultValue: "0"),
+                new("item_window_mode", MySqlDbType.UInt32, notNull: true, defaultValue: "0")
             },
             Indexes = new List<IndexSettingsModel>
             {

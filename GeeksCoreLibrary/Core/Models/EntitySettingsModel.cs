@@ -178,5 +178,10 @@ namespace GeeksCoreLibrary.Core.Models
         /// Gets or Sets the where item details of this entity type get stored.
         /// </summary>
         public StoreType StoreType { get; set; } = StoreType.Table;
+        
+        /// <summary>
+        /// Gets or sets the type of window to display when opening this entity in a window.
+        /// </summary>
+        public ItemWindowMode ItemWindowMode { get; set; }
     }
 }
