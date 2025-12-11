@@ -766,6 +766,15 @@ namespace GeeksCoreLibrary.Modules.Databases.Services
 
             return await ExecuteAsync(query.ToString(), useWritingConnectionIfAvailable);
         }
+        
+        /// <inheritdoc/>
+        public async Task<T> ExecuteScalarAsync<T>(string query)
+        {
+            DbDataReader reader = await GetReaderAsync(query);
+            T value = await reader.ReadAsync() ? reader.GetFieldValue<T>(0) : default;
+            await reader.CloseAsync();
+            return value;
+        }
 
         /// <summary>
         /// Checks whether or not the log table (for logging the opening and closing of database connections) exists.

@@ -185,5 +185,13 @@ namespace GeeksCoreLibrary.Modules.Databases.Interfaces
         /// <param name="useWritingConnectionIfAvailable">Optional: Use the writing connection to get information, if there is one available. If we detect that your query contains a database modification, then we will always use the write connection string, no matter what you enter here.</param>
         /// <param name="useInsertIgnore">Optional: Whether to use INSERT IGNORE instead of INSERT, to ignore errors such as duplicate keys.</param>
         Task<int> BulkInsertAsync(DataTable dataTable, string tableName, bool useWritingConnectionIfAvailable = true, bool useInsertIgnore = false);
+        
+        /// <summary>
+        /// Retrieves the value in the first column of the first row of a query's result.
+        /// </summary>
+        /// <param name="query">The query to select the value from in the result set.</param>
+        /// <typeparam name="T">The type to cast the value to.</typeparam>
+        /// <returns>The value in the first column of the first row of the query's result set.</returns>
+        Task<T> ExecuteScalarAsync<T>(string query);
     }
 }
