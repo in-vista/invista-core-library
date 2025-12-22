@@ -269,5 +269,8 @@ namespace GeeksCoreLibrary.Modules.Databases.Services
         {
             return await databaseConnection.BulkInsertAsync(dataTable, tableName, useWritingConnectionIfAvailable, useInsertIgnore);
         }
+        
+        /// <inheritdoc/>
+        public async Task<T> ExecuteScalarAsync<T>(string query) => await databaseConnection.ExecuteScalarAsync<T>(query);
     }
 }
