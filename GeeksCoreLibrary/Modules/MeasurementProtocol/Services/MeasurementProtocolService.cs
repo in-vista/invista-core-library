@@ -79,6 +79,30 @@ namespace GeeksCoreLibrary.Modules.MeasurementProtocol.Services
 
             await SendMeasurement(orderProcessSettings, orderProcessSettings.MeasurementProtocolPurchaseJson, orderProcessSettings.MeasurementProtocolItemJson, replaceData, shoppingBasket, shoppingBasketLines, shoppingBasketSettings);
         }
+        
+        public async Task AddMeasurementOnReservation(string measurementId, string apiSecret, string payload)
+        {
+            if (String.IsNullOrWhiteSpace(measurementId) || String.IsNullOrWhiteSpace(apiSecret) || String.IsNullOrWhiteSpace(payload))
+            {
+                return;
+            }
+  
+            try
+            {
+                var client = new RestClient("https://www.google-analytics.com");
+                var request = new RestRequest("/mp/collect", Method.Post);
+                request.AddParameter("measurement_id", measurementId.DecryptWithAesWithSalt(), ParameterType.QueryString);
+                request.AddParameter("api_secret", apiSecret.DecryptWithAesWithSalt(), ParameterType.QueryString);
+                request.AddParameter(MediaTypeNames.Application.Json, payload, ParameterType.RequestBody);
+
+                var response = await client.ExecuteAsync(request);
+                logger.LogInformation($"Measurement Protocol (GA4): Received response with status code '{response.StatusCode}' while sending a measurement protocol request to Google with data:\n{payload}");
+            }
+            catch (Exception e)
+            {
+                logger.LogError($"Measurement Protocol (GA4): An error has occurred while sending a measurement protocol request to Google with data:\n{payload}\n\nGiving error: {e}");
+            }
+        }
 
         /// <summary>
         /// Build the request and send it to Google Analytics.
