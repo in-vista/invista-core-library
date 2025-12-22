@@ -15,6 +15,7 @@ using System.Web;
 using System.Xml.Linq;
 using System.Xml.Serialization;
 using System.Xml.XPath;
+using DocumentFormat.OpenXml.Bibliography;
 using GeeksCoreLibrary.Components.Account.Interfaces;
 using GeeksCoreLibrary.Components.Account.Models;
 using GeeksCoreLibrary.Core.Cms;
@@ -43,6 +44,7 @@ using Microsoft.Extensions.Primitives;
 using MySqlConnector;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
+using WebMarkupMin.Core.Utilities;
 using Constants = GeeksCoreLibrary.Components.Account.Models.Constants;
 using HttpMethod = System.Net.Http.HttpMethod;
 using QueryHelpers = Microsoft.AspNetCore.WebUtilities.QueryHelpers;
@@ -1237,6 +1239,7 @@ namespace GeeksCoreLibrary.Components.Account
 
             // Build CXml Response
             var responseDoc = new CXmlPunchOutSetupResponseModel();
+            responseDoc.PayloadID = $"{DateTime.Now.ToString("yyyyMMddHHmmss")}-{Guid.NewGuid()}@{HttpContextHelpers.GetUserIpAddress(httpContext)}";
 
             if (!string.IsNullOrEmpty(userName) && !string.IsNullOrEmpty(password))
             {
@@ -1278,7 +1281,7 @@ namespace GeeksCoreLibrary.Components.Account
             
             // Set XML answer to response
             var serializer = new XmlSerializer(typeof(CXmlPunchOutSetupResponseModel));
-            await using (var stringWriter = new StringWriter())
+            await using (var stringWriter = new Utf8StringWriter())
             {
                 serializer.Serialize(stringWriter, responseDoc);
                 httpContext.Response.Clear();
@@ -2456,4 +2459,9 @@ LIMIT 1";
                 Replace("</jform", "</form", StringComparison.OrdinalIgnoreCase);
         }
     }
+}
+
+public sealed class Utf8StringWriter : StringWriter
+{
+    public override Encoding Encoding => Encoding.UTF8;
 }
