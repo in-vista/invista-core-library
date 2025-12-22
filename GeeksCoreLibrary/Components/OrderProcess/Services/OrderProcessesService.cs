@@ -1153,6 +1153,15 @@ namespace GeeksCoreLibrary.Components.OrderProcess.Services
                     if (!hasAlreadyBeenConvertedToOrderBefore && statusUpdateResult.Successful && convertConceptOrderToOrder)
                     {
                         await shoppingBasketsService.ConvertConceptOrderToOrderAsync(main, basketSettings, false);
+                        
+                        // Set lines to orderlines if softpos payment, because then no conceptorder is created, so lines are still basketlines.
+                        if (main.GetDetailValue<string>("paymentMethodCode") == "softpos")
+                        {
+                            foreach (var line in lines)
+                            {  
+                                await wiserItemsService.ChangeEntityTypeAsync(line.Id, line.EntityType, "orderline", skipPermissionsCheck: true, saveHistory: false, resetAddedOnDate: true);
+                            }   
+                        }
                     }
                     else if (!hasAlreadyBeenConvertedToOrderBefore && statusUpdateResult.StatusCode<0) // StatusCode<0 is a Pay. final status (not pending) that the payment failed or is canceled.
                     {

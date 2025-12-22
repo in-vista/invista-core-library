@@ -89,7 +89,7 @@ namespace GeeksCoreLibrary.Components.ShoppingBasket.Services
 
             databaseConnection.ClearParameters();
             databaseConnection.AddParameter("uniquePaymentNumber", uniquePaymentNumber);
-            var query = $@"SELECT `order`.id
+            var query = $@"SELECT `order`.id, `order`.entity_type
 FROM `{tablePrefix}{WiserTableNames.WiserItem}` AS `order`
 JOIN `{tablePrefix}{WiserTableNames.WiserItemDetail}` AS uniquepaymentnumber ON uniquepaymentnumber.item_id = `order`.id AND uniquepaymentnumber.`key` = '{OrderProcess.Models.Constants.UniquePaymentNumberProperty}' AND uniquepaymentnumber.`value` = ?uniquePaymentNumber
 WHERE `order`.entity_type IN ('{OrderProcess.Models.Constants.OrderEntityType}', '{OrderProcess.Models.Constants.ConceptOrderEntityType}'{(alsoGetBaskets ? $",'{Constants.BasketEntityType}'" : "")});";
@@ -114,7 +114,11 @@ WHERE `order`.entity_type IN ('{OrderProcess.Models.Constants.OrderEntityType}',
                     linkTypeOrderLineToOrder = Constants.BasketLineToBasketLinkType;
                 }
 
-                result.Add((await wiserItemsService.GetItemDetailsAsync(itemId, entityType: OrderProcess.Models.Constants.OrderEntityType, skipPermissionsCheck: true), await wiserItemsService.GetLinkedItemDetailsAsync(itemId, linkTypeOrderLineToOrder, OrderProcess.Models.Constants.OrderLineEntityType, itemIdEntityType: OrderProcess.Models.Constants.OrderEntityType, skipPermissionsCheck: true)));
+                var orderLines = await wiserItemsService.GetLinkedItemDetailsAsync(itemId, linkTypeOrderLineToOrder,
+                    (dataRow.Field<string>("entity_type") == OrderProcess.Models.Constants.OrderEntityType ? OrderProcess.Models.Constants.OrderLineEntityType : Constants.BasketLineEntityType),
+                    itemIdEntityType: dataRow.Field<string>("entity_type"), skipPermissionsCheck: true);
+                
+                result.Add((await wiserItemsService.GetItemDetailsAsync(itemId, entityType: OrderProcess.Models.Constants.OrderEntityType, skipPermissionsCheck: true), orderLines));
             }
 
             return result;
