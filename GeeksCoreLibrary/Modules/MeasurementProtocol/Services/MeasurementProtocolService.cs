@@ -89,11 +89,10 @@ namespace GeeksCoreLibrary.Modules.MeasurementProtocol.Services
   
             try
             {
-                // todo: encrypt parameters, then decrypt here with .DecryptWithAesWithSalt()
                 var client = new RestClient("https://www.google-analytics.com");
                 var request = new RestRequest("/mp/collect", Method.Post);
-                request.AddParameter("measurement_id", measurementId, ParameterType.QueryString);
-                request.AddParameter("api_secret", apiSecret, ParameterType.QueryString);
+                request.AddParameter("measurement_id", measurementId.DecryptWithAesWithSalt(), ParameterType.QueryString);
+                request.AddParameter("api_secret", apiSecret.DecryptWithAesWithSalt(), ParameterType.QueryString);
                 request.AddParameter(MediaTypeNames.Application.Json, payload, ParameterType.RequestBody);
 
                 var response = await client.ExecuteAsync(request);
