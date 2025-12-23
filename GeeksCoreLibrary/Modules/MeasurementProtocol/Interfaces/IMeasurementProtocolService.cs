@@ -39,5 +39,14 @@ namespace GeeksCoreLibrary.Modules.MeasurementProtocol.Interfaces
         /// <param name="transactionId">The ID of the payment transaction.</param>
         /// <returns></returns>
         Task PurchaseEventAsync(OrderProcessSettingsModel orderProcessSettings, WiserItemModel shoppingBasket, List<WiserItemModel> shoppingBasketLines, ShoppingBasketCmsSettingsModel shoppingBasketSettings, string transactionId);
+
+        /// <summary>
+        /// Send the "purchase" event for reservations to Google Analytics.
+        /// </summary>
+        /// <param name="measurementId">The measurement ID associated with a stream.</param>
+        /// <param name="apiSecret">The API SECRET generated in the Google Analytics UI</param>
+        /// <param name="gaClientId">The Client ID is a unique identifier stored in a browser cookie (_ga)</param>
+        /// <returns></returns>
+        Task AddMeasurementOnReservation(string measurementId, string apiSecret, string payload);
     }
 }
