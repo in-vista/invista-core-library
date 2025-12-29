@@ -114,9 +114,10 @@ WHERE `order`.entity_type IN ('{OrderProcess.Models.Constants.OrderEntityType}',
                     linkTypeOrderLineToOrder = Constants.BasketLineToBasketLinkType;
                 }
 
+                // For conceptorder entity type the order entitytype is send to function, so only record orderline-order have to exist in wiser_link
                 var orderLines = await wiserItemsService.GetLinkedItemDetailsAsync(itemId, linkTypeOrderLineToOrder,
-                    (dataRow.Field<string>("entity_type") == OrderProcess.Models.Constants.OrderEntityType ? OrderProcess.Models.Constants.OrderLineEntityType : Constants.BasketLineEntityType),
-                    itemIdEntityType: dataRow.Field<string>("entity_type"), skipPermissionsCheck: true);
+                    (dataRow.Field<string>("entity_type").EndsWith(OrderProcess.Models.Constants.OrderEntityType) ? OrderProcess.Models.Constants.OrderLineEntityType : Constants.BasketLineEntityType),
+                    itemIdEntityType: dataRow.Field<string>("entity_type") == Constants.BasketEntityType ? Constants.BasketEntityType : OrderProcess.Models.Constants.OrderEntityType, skipPermissionsCheck: true);
                 
                 result.Add((await wiserItemsService.GetItemDetailsAsync(itemId, entityType: OrderProcess.Models.Constants.OrderEntityType, skipPermissionsCheck: true), orderLines));
             }
