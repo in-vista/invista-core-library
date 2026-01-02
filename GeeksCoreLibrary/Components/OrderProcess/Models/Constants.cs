@@ -160,6 +160,8 @@
         public const string PaymentMethodProperty = "paymentMethod";
 
         public const string PaymentMethodExternalNameProperty = "paymentmethodexternalname";
+        
+        public const string PaymentMethodClassProperty = "class";
 
         public const string PaymentMethodMinimalAmountProperty = "paymentmethodminimalamount";
 

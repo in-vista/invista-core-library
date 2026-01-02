@@ -492,6 +492,7 @@ namespace GeeksCoreLibrary.Components.OrderProcess.Services
                                 CAST(paymentMethodFee.value AS DECIMAL(65,30)) AS paymentMethodFee,
                                 paymentMethodVisibility.`value` AS paymentMethodVisibility,
                                 paymentMethodExternalName.`value` AS paymentMethodExternalName,
+                                paymentMethodClass.`value` AS paymentMethodClass,
                                 CAST(paymentMethodMinimalAmount.value AS DECIMAL(65,30)) AS paymentMethodMinimalAmount,
                                 CAST(paymentMethodMaximumAmount.value AS DECIMAL(65,30)) AS paymentMethodMaximumAmount,
                                 IF(paymentMethodUseMinimalAmount.`value` = 1, TRUE, FALSE) AS paymentMethodUseMinimalAmount,
@@ -511,6 +512,7 @@ namespace GeeksCoreLibrary.Components.OrderProcess.Services
                             LEFT JOIN {WiserTableNames.WiserItemDetail} AS paymentMethodFee ON paymentMethodFee.item_id = paymentMethod.id AND paymentMethodFee.`key` = '{Constants.PaymentMethodFeeProperty}'
                             LEFT JOIN {WiserTableNames.WiserItemDetail} AS paymentMethodVisibility ON paymentMethodVisibility.item_id = paymentMethod.id AND paymentMethodVisibility.`key` = '{Constants.PaymentMethodVisibilityProperty}'
                             LEFT JOIN {WiserTableNames.WiserItemDetail} AS paymentMethodExternalName ON paymentMethodExternalName.item_id = paymentMethod.id AND paymentMethodExternalName.`key` = '{Constants.PaymentMethodExternalNameProperty}'
+                            LEFT JOIN {WiserTableNames.WiserItemDetail} AS paymentMethodClass ON paymentMethodClass.item_id = paymentMethod.id AND paymentMethodClass.`key` = '{Constants.PaymentMethodClassProperty}'
                             LEFT JOIN {WiserTableNames.WiserItemDetail} AS paymentMethodMinimalAmount ON paymentMethodMinimalAmount.item_id = paymentMethod.id AND paymentMethodMinimalAmount.`key` = '{Constants.PaymentMethodMinimalAmountProperty}'
                             LEFT JOIN {WiserTableNames.WiserItemDetail} AS paymentMethodMaximumAmount ON paymentMethodMaximumAmount.item_id = paymentMethod.id AND paymentMethodMaximumAmount.`key` = '{Constants.PaymentMethodMaximumAmountProperty}'
                             LEFT JOIN {WiserTableNames.WiserItemDetail} AS paymentMethodUseMinimalAmount ON paymentMethodUseMinimalAmount.item_id = paymentMethod.id AND paymentMethodUseMinimalAmount.`key` = '{Constants.PaymentMethodUseMinimalAmountProperty}'
@@ -675,6 +677,7 @@ namespace GeeksCoreLibrary.Components.OrderProcess.Services
                                 CAST(paymentMethodFee.value AS decimal(65,30)) AS paymentMethodFee,
                                 paymentMethodVisibility.`value` AS paymentMethodVisibility,
                                 paymentMethodExternalName.`value` AS paymentMethodExternalName,
+                                paymentMethodClass.`value` AS paymentMethodClass,
                                 CAST(paymentMethodMinimalAmount.value AS decimal(65,30)) AS paymentMethodMinimalAmount,
                                 CAST(paymentMethodMaximumAmount.value AS decimal(65,30)) AS paymentMethodMaximumAmount,
                                 CAST(IFNULL(paymentMethodUseMinimalAmount.`value`, 0) AS SIGNED) AS paymentMethodUseMinimalAmount,
@@ -690,6 +693,7 @@ namespace GeeksCoreLibrary.Components.OrderProcess.Services
                             LEFT JOIN {WiserTableNames.WiserItemDetail} AS paymentMethodFee ON paymentMethodFee.item_id = paymentMethod.id AND paymentMethodFee.`key` = '{Constants.PaymentMethodFeeProperty}'
                             LEFT JOIN {WiserTableNames.WiserItemDetail} AS paymentMethodVisibility ON paymentMethodVisibility.item_id = paymentMethod.id AND paymentMethodVisibility.`key` = '{Constants.PaymentMethodVisibilityProperty}'
                             LEFT JOIN {WiserTableNames.WiserItemDetail} AS paymentMethodExternalName ON paymentMethodExternalName.item_id = paymentMethod.id AND paymentMethodExternalName.`key` = '{Constants.PaymentMethodExternalNameProperty}'
+                            LEFT JOIN {WiserTableNames.WiserItemDetail} AS paymentMethodClass ON paymentMethodClass.item_id = paymentMethod.id AND paymentMethodClass.`key` = '{Constants.PaymentMethodClassProperty}'
                             LEFT JOIN {WiserTableNames.WiserItemDetail} AS paymentMethodMinimalAmount ON paymentMethodMinimalAmount.item_id = paymentMethod.id AND paymentMethodMinimalAmount.`key` = '{Constants.PaymentMethodMinimalAmountProperty}'
                             LEFT JOIN {WiserTableNames.WiserItemDetail} AS paymentMethodMaximumAmount ON paymentMethodMaximumAmount.item_id = paymentMethod.id AND paymentMethodMaximumAmount.`key` = '{Constants.PaymentMethodMaximumAmountProperty}'
                             LEFT JOIN {WiserTableNames.WiserItemDetail} AS paymentMethodUseMinimalAmount ON paymentMethodUseMinimalAmount.item_id = paymentMethod.id AND paymentMethodUseMinimalAmount.`key` = '{Constants.PaymentMethodUseMinimalAmountProperty}'
@@ -1390,9 +1394,9 @@ namespace GeeksCoreLibrary.Components.OrderProcess.Services
             // Create the correct service for the payment service provider using the factory.
             var paymentServiceProviderService = paymentServiceProviderServiceFactory.GetPaymentServiceProviderService(paymentMethodSettings.PaymentServiceProvider.Type);
             paymentServiceProviderService.LogPaymentActions = paymentMethodSettings.PaymentServiceProvider.LogAllRequests;
-
+            
             var invoiceNumber = paymentServiceProviderService.GetInvoiceNumberFromRequest();
-            var conceptOrders = await shoppingBasketsService.GetOrdersByUniquePaymentNumberAsync(invoiceNumber, paymentMethodSettings.ExternalName == "softpos");
+            var conceptOrders = await shoppingBasketsService.GetOrdersByUniquePaymentNumberAsync(invoiceNumber, string.Equals(paymentMethodSettings.ExternalName, "softpos", StringComparison.OrdinalIgnoreCase));
 
             // Let the payment service provider service handle the status update.
             var pspUpdateResult = await paymentServiceProviderService.ProcessStatusUpdateAsync(orderProcessSettings, paymentMethodSettings);
@@ -1408,8 +1412,8 @@ namespace GeeksCoreLibrary.Components.OrderProcess.Services
                     main.SetDetail(Constants.PaymentProviderTransactionId, pspUpdateResult.PspTransactionId);
                 await shoppingBasketsService.SaveAsync(main, lines, basketSettings);
             }
-
-            /*if (paymentMethodSettings.ExternalName == "softpos")
+            
+            /*if (string.Equals(paymentMethodSettings.ExternalName, "softpos", StringComparison.OrdinalIgnoreCase))
             {
                 // Do redirect to succes or fail URL after processing status. Visitor is redirected to payment_in.
                 if (pspUpdateResult.Successful)
@@ -1595,10 +1599,17 @@ namespace GeeksCoreLibrary.Components.OrderProcess.Services
                     FailUrl = dataRow.Field<string>("paymentServiceProviderFailUrl") 
                 }
             };
-
+            
             if (String.IsNullOrEmpty(result.ExternalName))
             {
-                result.ExternalName = result.Title;
+                if (String.IsNullOrEmpty(dataRow.Field<string>("paymentMethodClass")))
+                {
+                    result.ExternalName = result.Title;    
+                }
+                else
+                {
+                    result.ExternalName = dataRow.Field<string>("paymentMethodClass");
+                }
             }
 
             // Build the PSP settings model based on the type of PSP.

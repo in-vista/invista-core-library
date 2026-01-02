@@ -110,8 +110,7 @@ public class PayNlService : PaymentServiceProviderBaseService, IPaymentServicePr
         var description = conceptOrders.First().Main.GetDetailValue("TransactionReference");
         description = string.IsNullOrWhiteSpace(description) ? $"Order #{invoiceNumber}" : description.Replace("{invoiceNumber}", invoiceNumber);
         
-        
-        if (paymentMethodSettings.ExternalName == "softpos")
+        if (string.Equals(paymentMethodSettings.ExternalName, "softpos", StringComparison.OrdinalIgnoreCase))
         {
             var finalUrl = string.Empty;
             try
@@ -149,7 +148,6 @@ public class PayNlService : PaymentServiceProviderBaseService, IPaymentServicePr
         var restRequest = new RestRequest("/v1/orders", Method.Post);
         restRequest = AddRequestHeaders(restRequest, payNlSettings);
 
-        // TODO:hier moet de class name gebruikt worden!
         var PayNLPaymentMethodID = 10;
         switch (paymentMethodSettings.ExternalName.ToLower())
         {
@@ -171,12 +169,15 @@ public class PayNlService : PaymentServiceProviderBaseService, IPaymentServicePr
             case "creditcard":
                 PayNLPaymentMethodID = 706;
                 break;
+            case "bancontact":
             case "mistercash":
                 PayNLPaymentMethodID = 436;
                 break;
+            case "apple pay":
             case "applepay":
                 PayNLPaymentMethodID = 2277;
                 break;
+            case "google pay":
             case "googlewallet":
                 PayNLPaymentMethodID = 2558;
                 break;
@@ -210,6 +211,7 @@ public class PayNlService : PaymentServiceProviderBaseService, IPaymentServicePr
             case "przelewy24":
                 PayNLPaymentMethodID = 2151;
                 break;
+            case "mybank":
             case "paybybank":
                 PayNLPaymentMethodID = 2970;
                 break;
@@ -384,7 +386,7 @@ public class PayNlService : PaymentServiceProviderBaseService, IPaymentServicePr
             };
         }
    
-        if (paymentMethodSettings.ExternalName ==  "softpos")
+        if (string.Equals(paymentMethodSettings.ExternalName, "softpos", StringComparison.OrdinalIgnoreCase))
         {
             try
             {
