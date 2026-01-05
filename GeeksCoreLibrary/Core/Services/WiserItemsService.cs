@@ -1503,30 +1503,30 @@ SET @saveHistory = ?saveHistoryGcl;
         }
 
         /// <inheritdoc />
-        public async Task<int> DeleteAsync(ulong itemId, bool undelete = false, string username = "GCL", ulong userId = 0, bool saveHistory = true, string entityType = null, bool createNewTransaction = true, bool skipPermissionsCheck = false)
+        public async Task<DeletedItemResult> DeleteAsync(ulong itemId, bool undelete = false, string username = "GCL", ulong userId = 0, bool saveHistory = true, string entityType = null, bool createNewTransaction = true, bool skipPermissionsCheck = false)
         {
             return await DeleteAsync(this, new List<ulong> { itemId }, undelete, username, userId, saveHistory, entityType, createNewTransaction, skipPermissionsCheck);
         }
 
         /// <inheritdoc />
-        public async Task<int> DeleteAsync(IWiserItemsService wiserItemsService, ulong itemId, bool undelete = false, string username = "GCL", ulong userId = 0, bool saveHistory = true, string entityType = null, bool createNewTransaction = true, bool skipPermissionsCheck = false)
+        public async Task<DeletedItemResult> DeleteAsync(IWiserItemsService wiserItemsService, ulong itemId, bool undelete = false, string username = "GCL", ulong userId = 0, bool saveHistory = true, string entityType = null, bool createNewTransaction = true, bool skipPermissionsCheck = false)
         {
             return await DeleteAsync(wiserItemsService, new List<ulong> { itemId }, undelete, username, userId, saveHistory, entityType, createNewTransaction, skipPermissionsCheck);
         }
 
         /// <inheritdoc />
-        public async Task<int> DeleteAsync(List<ulong> itemIds, bool undelete = false, string username = "GCL", ulong userId = 0, bool saveHistory = true, string entityType = null, bool createNewTransaction = true, bool skipPermissionsCheck = false)
+        public async Task<DeletedItemResult> DeleteAsync(List<ulong> itemIds, bool undelete = false, string username = "GCL", ulong userId = 0, bool saveHistory = true, string entityType = null, bool createNewTransaction = true, bool skipPermissionsCheck = false)
         {
             return await DeleteAsync(this, itemIds, undelete, username, userId, saveHistory, entityType, createNewTransaction, skipPermissionsCheck);
         }
 
         /// <inheritdoc />
-        public async Task<int> DeleteAsync(IWiserItemsService wiserItemsService, List<ulong> itemIds, bool undelete = false, string username = "GCL", ulong userId = 0, bool saveHistory = true, string entityType = null, bool createNewTransaction = true, bool skipPermissionsCheck = false)
+        public async Task<DeletedItemResult> DeleteAsync(IWiserItemsService wiserItemsService, List<ulong> itemIds, bool undelete = false, string username = "GCL", ulong userId = 0, bool saveHistory = true, string entityType = null, bool createNewTransaction = true, bool skipPermissionsCheck = false)
         {
             var filteredItemIds = itemIds.Where(id => id > 0).ToList();
             if (!filteredItemIds.Any())
             {
-                return 0;
+                return DeletedItemResult.FromSuccess(0);
             }
 
             if (!skipPermissionsCheck)
@@ -1799,7 +1799,7 @@ VALUES ('UNDELETE_ITEM', '{tablePrefix}wiser_item', {itemId.ToString()}, IFNULL(
                     if (createNewTransaction && !alreadyHadTransaction) await databaseConnection.CommitTransactionAsync();
                     transactionCompleted = true;
 
-                    return result;
+                    return DeletedItemResult.FromSuccess(result);
                 }
                 catch (GclQueryException queryException)
                 {
@@ -1829,7 +1829,7 @@ VALUES ('UNDELETE_ITEM', '{tablePrefix}wiser_item', {itemId.ToString()}, IFNULL(
                 }
             }
 
-            return result;
+            return DeletedItemResult.FromSuccess(result);
         }
 
         /// <inheritdoc />
