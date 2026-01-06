@@ -13,10 +13,12 @@ using GeeksCoreLibrary.Components.Account.Interfaces;
 using GeeksCoreLibrary.Components.WebPage.Interfaces;
 using GeeksCoreLibrary.Core.Extensions;
 using GeeksCoreLibrary.Core.Helpers;
+using GeeksCoreLibrary.Core.Models;
 using GeeksCoreLibrary.Modules.Databases.Interfaces;
 using GeeksCoreLibrary.Modules.Templates.Interfaces;
 using Microsoft.Extensions.Logging;
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Options;
 
 namespace GeeksCoreLibrary.Components.WebPage
 {
@@ -45,6 +47,7 @@ namespace GeeksCoreLibrary.Components.WebPage
             IAccountsService accountsService,
             IPagesService pagesService,
             IWebPagesService webPagesService,
+            IOptions<GclSettings> gclSettings,
             IHttpContextAccessor httpContextAccessor = null)
         {
             this.httpContextAccessor = httpContextAccessor;
@@ -56,6 +59,7 @@ namespace GeeksCoreLibrary.Components.WebPage
             DatabaseConnection = databaseConnection;
             TemplatesService = templatesService;
             AccountsService = accountsService;
+            GclSettings = gclSettings.Value;
 
             Settings = new WebPageCmsSettingsModel();
         }

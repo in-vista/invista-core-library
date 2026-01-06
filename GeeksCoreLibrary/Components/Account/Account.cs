@@ -57,7 +57,6 @@ namespace GeeksCoreLibrary.Components.Account
     )]
     public class Account : CmsComponent<AccountCmsSettingsModel, Account.ComponentModes>
     {
-        private readonly GclSettings gclSettings;
         private readonly IObjectsService objectsService;
         private readonly ICommunicationsService communicationsService;
         private readonly IWiserItemsService wiserItemsService;
@@ -270,7 +269,7 @@ namespace GeeksCoreLibrary.Components.Account
             IAccountsService accountsService,
             IWiserItemsService wiserItemsService)
         {
-            this.gclSettings = gclSettings.Value;
+            GclSettings = gclSettings.Value;
             this.objectsService = objectsService;
             this.communicationsService = communicationsService;
             this.wiserItemsService = wiserItemsService;
@@ -706,7 +705,7 @@ namespace GeeksCoreLibrary.Components.Account
                 {
                     try
                     {
-                        userIdFromQueryString = Convert.ToUInt64(encryptedUerId.DecryptWithAes(gclSettings.AccountUserIdEncryptionKey));
+                        userIdFromQueryString = Convert.ToUInt64(encryptedUerId.DecryptWithAes(GclSettings.AccountUserIdEncryptionKey));
                     }
                     catch (Exception exception)
                     {
@@ -900,11 +899,11 @@ namespace GeeksCoreLibrary.Components.Account
                             {
                                 await DatabaseConnection.RollbackTransactionAsync(false);
 
-                                if (MySqlHelpers.IsErrorToRetry(queryException) && retries < gclSettings.MaximumRetryCountForQueries)
+                                if (MySqlHelpers.IsErrorToRetry(queryException) && retries < GclSettings.MaximumRetryCountForQueries)
                                 {
                                     // Exception is a deadlock or something similar, retry the transaction.
                                     retries++;
-                                    Thread.Sleep(gclSettings.TimeToWaitBeforeRetryingQueryInMilliseconds);
+                                    Thread.Sleep(GclSettings.TimeToWaitBeforeRetryingQueryInMilliseconds);
                                 }
                                 else
                                 {
@@ -951,7 +950,7 @@ namespace GeeksCoreLibrary.Components.Account
                     var isLoggedIn = false;
                     if (creatingUserThatCannotLogin && createOrUpdateAccountResult.Result == CreateOrUpdateAccountResults.Success)
                     {
-                        HttpContextHelpers.WriteCookie(HttpContext, Constants.CreatedAccountCookieName, createOrUpdateAccountResult.UserId.ToString().EncryptWithAes(gclSettings.AccountUserIdEncryptionKey), isEssential: true);
+                        HttpContextHelpers.WriteCookie(HttpContext, Constants.CreatedAccountCookieName, createOrUpdateAccountResult.UserId.ToString().EncryptWithAes(GclSettings.AccountUserIdEncryptionKey), isEssential: true);
                     }
                     else if (userData.UserId == 0 && createOrUpdateAccountResult.Result == CreateOrUpdateAccountResults.Success && changePasswordResult == ResetOrChangePasswordResults.Success && Settings.AutoLoginUserAfterAction)
                     {
@@ -1765,11 +1764,11 @@ LIMIT 1";
 
                     await DatabaseConnection.RollbackTransactionAsync(false);
 
-                    if (MySqlHelpers.IsErrorToRetry(queryException) && retries < gclSettings.MaximumRetryCountForQueries)
+                    if (MySqlHelpers.IsErrorToRetry(queryException) && retries < GclSettings.MaximumRetryCountForQueries)
                     {
                         // Exception is a deadlock or something similar, retry the transaction.
                         retries++;
-                        Thread.Sleep(gclSettings.TimeToWaitBeforeRetryingQueryInMilliseconds);
+                        Thread.Sleep(GclSettings.TimeToWaitBeforeRetryingQueryInMilliseconds);
                     }
                     else
                     {
@@ -2341,7 +2340,7 @@ LIMIT 1";
 
             var uriBuilder = new UriBuilder(baseUrl);
             var queryString = HttpUtility.ParseQueryString(uriBuilder.Query);
-            queryString[Constants.UserIdQueryStringKey] = userId.ToString().EncryptWithAes(gclSettings.AccountUserIdEncryptionKey);
+            queryString[Constants.UserIdQueryStringKey] = userId.ToString().EncryptWithAes(GclSettings.AccountUserIdEncryptionKey);
             queryString[Constants.ResetPasswordTokenQueryStringKey] = token;
             uriBuilder.Query = queryString.ToString();
 

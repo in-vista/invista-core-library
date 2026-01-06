@@ -13,6 +13,7 @@ using GeeksCoreLibrary.Core.Cms;
 using GeeksCoreLibrary.Core.Cms.Attributes;
 using GeeksCoreLibrary.Core.Extensions;
 using GeeksCoreLibrary.Core.Helpers;
+using GeeksCoreLibrary.Core.Models;
 using GeeksCoreLibrary.Modules.Databases.Interfaces;
 using GeeksCoreLibrary.Modules.GclReplacements.Interfaces;
 using GeeksCoreLibrary.Modules.Templates.Interfaces;
@@ -20,6 +21,7 @@ using GeeksCoreLibrary.Modules.Templates.Models;
 using Microsoft.AspNetCore.Html;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Newtonsoft.Json;
 
 namespace GeeksCoreLibrary.Components.Repeater
@@ -83,6 +85,7 @@ namespace GeeksCoreLibrary.Components.Repeater
             IAccountsService accountsService,
             IFiltersService filtersService,
             IPagesService pagesService,
+            IOptions<GclSettings> gclSettings,
             IHttpContextAccessor httpContextAccessor = null)
         {
             this.repeatersService = repeatersService;
@@ -95,6 +98,7 @@ namespace GeeksCoreLibrary.Components.Repeater
             DatabaseConnection = databaseConnection;
             TemplatesService = templatesService;
             AccountsService = accountsService;
+            GclSettings = gclSettings.Value;
 
             Settings = new RepeaterCmsSettingsModel();
         }

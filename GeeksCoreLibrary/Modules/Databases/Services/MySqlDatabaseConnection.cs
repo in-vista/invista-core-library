@@ -732,6 +732,12 @@ namespace GeeksCoreLibrary.Modules.Databases.Services
         {
             return String.IsNullOrWhiteSpace(connectionStringForWriting?.ConnectionString) ? ConnectionForReading : ConnectionForWriting;
         }
+        
+        /// <inheritdoc />
+        public string GetConnectionStringForReading() => connectionStringForReading?.ConnectionString;
+        
+        /// <inheritdoc />
+        public string GetConnectionStringForWriting() => string.IsNullOrEmpty(connectionStringForWriting?.ConnectionString) ? connectionStringForReading.ConnectionString :  connectionStringForWriting?.ConnectionString;
 
         /// <inheritdoc />
         public async Task<int> BulkInsertAsync(DataTable dataTable, string tableName, bool useWritingConnectionIfAvailable = true, bool useInsertIgnore = false)
