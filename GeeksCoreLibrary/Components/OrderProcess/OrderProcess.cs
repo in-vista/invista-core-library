@@ -41,7 +41,6 @@ namespace GeeksCoreLibrary.Components.OrderProcess
     [ViewComponent(Name = "OrderProcess")]
     public class OrderProcess : CmsComponent<OrderProcessCmsSettingsModel, OrderProcess.ComponentModes>
     {
-        private readonly GclSettings gclSettings;
         private readonly ILanguagesService languagesService;
         private readonly IHttpContextAccessor httpContextAccessor;
         private readonly IOrderProcessesService orderProcessesService;
@@ -94,7 +93,6 @@ namespace GeeksCoreLibrary.Components.OrderProcess
             IMeasurementProtocolService measurementProtocolService,
             IHttpContextAccessor httpContextAccessor = null)
         {
-            this.gclSettings = gclSettings.Value;
             this.languagesService = languagesService;
             this.httpContextAccessor = httpContextAccessor;
             this.orderProcessesService = orderProcessesService;
@@ -107,6 +105,7 @@ namespace GeeksCoreLibrary.Components.OrderProcess
             DatabaseConnection = databaseConnection;
             TemplatesService = templatesService;
             AccountsService = accountsService;
+            GclSettings = gclSettings.Value;
 
             Settings = new OrderProcessCmsSettingsModel();
         }
@@ -363,11 +362,11 @@ namespace GeeksCoreLibrary.Components.OrderProcess
                         {
                             await DatabaseConnection.RollbackTransactionAsync(false);
 
-                            if (MySqlHelpers.IsErrorToRetry(queryException) && retries < gclSettings.MaximumRetryCountForQueries)
+                            if (MySqlHelpers.IsErrorToRetry(queryException) && retries < GclSettings.MaximumRetryCountForQueries)
                             {
                                 // Exception is a deadlock or something similar, retry the transaction.
                                 retries++;
-                                Thread.Sleep(gclSettings.TimeToWaitBeforeRetryingQueryInMilliseconds);
+                                Thread.Sleep(GclSettings.TimeToWaitBeforeRetryingQueryInMilliseconds);
                             }
                             else
                             {

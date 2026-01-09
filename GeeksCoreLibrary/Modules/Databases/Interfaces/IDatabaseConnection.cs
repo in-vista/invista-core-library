@@ -176,6 +176,18 @@ namespace GeeksCoreLibrary.Modules.Databases.Interfaces
         /// </summary>
         /// <returns>The <see cref="DbConnection"/> for the writing connection.</returns>
         DbConnection GetConnectionForWriting();
+        
+        /// <summary>
+        /// Retrieves the connection string that is used for reading.
+        /// </summary>
+        /// <returns>The connection string as it is currently used for reading.</returns>
+        string GetConnectionStringForReading();
+        
+        /// <summary>
+        /// Retrieves the connection string that is used for writing.
+        /// </summary>
+        /// <returns>The connection string as it is currently used for writing.</returns>
+        string GetConnectionStringForWriting();
 
         /// <summary>
         /// Bulk insert a <see cref="DataTable"/> into a table in the database.

@@ -29,6 +29,7 @@ using Microsoft.AspNetCore.Html;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Newtonsoft.Json.Linq;
 using OrderProcessConstants = GeeksCoreLibrary.Components.OrderProcess.Models.Constants;
 
@@ -198,8 +199,10 @@ namespace GeeksCoreLibrary.Components.ShoppingBasket
 
         #region Constructor
 
-        public ShoppingBasket()
+        public ShoppingBasket(IOptions<GclSettings> gclSettings)
         {
+            GclSettings = gclSettings.Value;
+            
             Settings = new ShoppingBasketCmsSettingsModel();
 
             Main = new WiserItemModel();
