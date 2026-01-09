@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Newtonsoft.Json;
 using Newtonsoft.Json.Serialization;
 
 namespace GeeksCoreLibrary.Modules.Communication.Models.MailerSend;
@@ -14,6 +15,7 @@ public class MailerSendRequestModel
     /// <summary>
     /// Gets or sets the reply to contact
     /// </summary>
+    [JsonProperty("reply_to")]
     public MailerSendContactModel ReplyTo { get; set; }
     
     /// <summary>
@@ -83,8 +85,11 @@ public class MailerSendAttachmentModel
 
 public class MailerSendSettingsModel
 {
+    [JsonProperty("track_clicks")]
     public bool TrackClicks { get; set; }
+    [JsonProperty("track_opens")]
     public bool TrackOpens { get; set; }
+    [JsonProperty("track_content")]
     public bool TrackContent  { get; set; }
 }
 
