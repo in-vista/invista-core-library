@@ -1087,7 +1087,7 @@ public class WiserTableDefinitions
         new WiserTableDefinitionModel
         {
             Name = WiserTableNames.WiserModule,
-            LastUpdate = new DateTime(2026, 1, 13),
+            LastUpdate = new DateTime(2026, 1, 14),
             Columns = new List<ColumnSettingsModel>
             {
                 new("id", MySqlDbType.UInt64, notNull: true, isPrimaryKey: true, autoIncrement: true),
@@ -1099,9 +1099,10 @@ public class WiserTableDefinitions
                 new("color", MySqlDbType.VarChar, 8),
                 new("type", MySqlDbType.VarChar, 255),
                 new("group", MySqlDbType.VarChar, 100),
-                new("group_icon", MySqlDbType.VarChar, 255),
+                new("group_options", MySqlDbType.MediumText),
                 new("custom_script", MySqlDbType.MediumText),
-                new("is_fullscreen", MySqlDbType.Int16, 4, notNull: true, defaultValue: "0")
+                new("is_fullscreen", MySqlDbType.Int16, 4, notNull: true, defaultValue: "0"),
+                new("ordering", MySqlDbType.UInt32, notNull: true, defaultValue: "0")
             }
         }
     };
