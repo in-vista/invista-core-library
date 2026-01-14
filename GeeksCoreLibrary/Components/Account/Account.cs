@@ -12,6 +12,7 @@ using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Web;
+using System.Xml;
 using System.Xml.Linq;
 using System.Xml.Serialization;
 using System.Xml.XPath;
@@ -1280,13 +1281,29 @@ namespace GeeksCoreLibrary.Components.Account
             
             // Set XML answer to response
             var serializer = new XmlSerializer(typeof(CXmlPunchOutSetupResponseModel));
-            await using (var stringWriter = new Utf8StringWriter())
+
+            var settings = new XmlWriterSettings
             {
-                serializer.Serialize(stringWriter, responseDoc);
-                httpContext.Response.Clear();
-                httpContext.Response.ContentType = "text/xml";
-                await httpContext.Response.WriteAsync(stringWriter.ToString());
+                Encoding = Encoding.UTF8,
+                Indent = true,
+                OmitXmlDeclaration = false
+            };
+
+            await using var stringWriter = new Utf8StringWriter();
+            using (var xmlWriter = XmlWriter.Create(stringWriter, settings))
+            {
+                xmlWriter.WriteDocType(
+                    "cXML",
+                    null,
+                    "http://xml.cxml.org/schemas/cXML/1.2.014/cXML.dtd",
+                    null);
+
+                serializer.Serialize(xmlWriter, responseDoc);
             }
+
+            httpContext.Response.Clear();
+            httpContext.Response.ContentType = "text/xml";
+            await httpContext.Response.WriteAsync(stringWriter.ToString());
         }
 
         /// <summary>
