@@ -1091,16 +1091,16 @@ public class WiserTableDefinitions
             Columns = new List<ColumnSettingsModel>
             {
                 new("id", MySqlDbType.UInt64, notNull: true, isPrimaryKey: true, autoIncrement: true),
-                new("custom_query", MySqlDbType.MediumText),
-                new("count_query", MySqlDbType.MediumText),
-                new("options", MySqlDbType.MediumText),
+                new("custom_query", MySqlDbType.Text),
+                new("count_query", MySqlDbType.Text),
+                new("options", MySqlDbType.Text),
                 new("name", MySqlDbType.VarChar, 255),
                 new("icon", MySqlDbType.VarChar, 100),
                 new("color", MySqlDbType.VarChar, 8),
                 new("type", MySqlDbType.VarChar, 255),
                 new("group", MySqlDbType.VarChar, 100),
-                new("group_options", MySqlDbType.MediumText),
-                new("custom_script", MySqlDbType.MediumText),
+                new("group_options", MySqlDbType.Text),
+                new("custom_script", MySqlDbType.Text),
                 new("is_fullscreen", MySqlDbType.Int16, 4, notNull: true, defaultValue: "0"),
                 new("ordering", MySqlDbType.UInt32, notNull: true, defaultValue: "0")
             }
