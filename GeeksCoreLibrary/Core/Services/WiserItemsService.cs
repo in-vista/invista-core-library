@@ -4655,7 +4655,7 @@ WHERE id = ?saveDetailId";
                 Extension = dataRow.Field<string>("extension"),
                 Title = dataRow.Field<string>("title"),
                 PropertyName = dataRow.Field<string>("property_name"),
-                Protected = dataRow.Field<bool>("protected"),
+                Protected = Convert.ToBoolean(dataRow["protected"]),
                 ExtraData = dataRow.IsNull("extra_data") ? null : JsonConvert.DeserializeObject<WiserItemFileExtraDataModel>(dataRow.Field<string>("extra_data")!)
             };
         }
