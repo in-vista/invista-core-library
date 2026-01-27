@@ -362,6 +362,8 @@ WHERE id = ?id";
         {
             databaseConnection.ClearParameters();
             databaseConnection.AddParameter("communication_id", communication.CommunicationId);
+            databaseConnection.AddParameter("item_id", communication.ItemId);
+            databaseConnection.AddParameter("customer_id", communication.CustomerId);
             databaseConnection.AddParameter("receiver", String.Join(";", communication.Receivers.Select(r => r.Address)));
             databaseConnection.AddParameter("receiver_name", String.Join(";", communication.Receivers.Select(r => r.DisplayName)));
             databaseConnection.AddParameter("subject", communication.Subject);

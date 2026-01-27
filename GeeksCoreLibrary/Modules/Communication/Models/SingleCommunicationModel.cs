@@ -15,6 +15,16 @@ namespace GeeksCoreLibrary.Modules.Communication.Models
         /// Gets or sets the ID of the corresponding communication row from "wiser_communication", if applicable.
         /// </summary>
         public int CommunicationId { get; set; }
+        
+        /// <summary>
+        /// Gets or sets the ID of the order of which this communication is sent for.
+        /// </summary>
+        public uint ItemId { get; set; }
+        
+        /// <summary>
+        /// Gets or sets the ID of the customer of which this communication is sent to.
+        /// </summary>
+        public uint CustomerId { get; set; }
 
         /// <summary>
         /// Gets or sets the communication type.
