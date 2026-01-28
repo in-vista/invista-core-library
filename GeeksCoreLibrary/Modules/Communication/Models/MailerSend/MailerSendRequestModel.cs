@@ -86,11 +86,11 @@ public class MailerSendAttachmentModel
 public class MailerSendSettingsModel
 {
     [JsonProperty("track_clicks")]
-    public bool TrackClicks { get; set; }
+    public bool? TrackClicks { get; set; }
     [JsonProperty("track_opens")]
-    public bool TrackOpens { get; set; }
+    public bool? TrackOpens { get; set; }
     [JsonProperty("track_content")]
-    public bool TrackContent  { get; set; }
+    public bool? TrackContent  { get; set; }
 }
 
 public class MailerSendHeadersModel
