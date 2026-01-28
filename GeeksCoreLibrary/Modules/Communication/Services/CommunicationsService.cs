@@ -362,6 +362,8 @@ WHERE id = ?id";
         {
             databaseConnection.ClearParameters();
             databaseConnection.AddParameter("communication_id", communication.CommunicationId);
+            databaseConnection.AddParameter("item_id", communication.ItemId);
+            databaseConnection.AddParameter("customer_id", communication.CustomerId);
             databaseConnection.AddParameter("receiver", String.Join(";", communication.Receivers.Select(r => r.Address)));
             databaseConnection.AddParameter("receiver_name", String.Join(";", communication.Receivers.Select(r => r.DisplayName)));
             databaseConnection.AddParameter("subject", communication.Subject);
@@ -591,6 +593,7 @@ WHERE id = ?id";
             // Keys must be lowered case
             var settings = new JsonSerializerSettings();
             settings.ContractResolver = new LowercaseContractResolver();
+            settings.NullValueHandling = NullValueHandling.Ignore;
             var content = JsonConvert.SerializeObject(mailerSendRequest, Formatting.Indented, settings);
             
             var request = new HttpRequestMessage(HttpMethod.Post, $"https://api.mailersend.com/v1/{endpoint}")
@@ -637,12 +640,7 @@ WHERE id = ?id";
                 Bcc = communication.Bcc.Select(receiver => new MailerSendContactModel{ Email = receiver}).ToList(),
                 Subject = communication.Subject,
                 Html = communication.Content,
-                Settings = new MailerSendSettingsModel()
-                {
-                    TrackClicks = false,
-                    TrackContent = false,
-                    TrackOpens = false
-                },
+                Settings = new MailerSendSettingsModel(),
                 Tags = communication.Tags
             };
 
