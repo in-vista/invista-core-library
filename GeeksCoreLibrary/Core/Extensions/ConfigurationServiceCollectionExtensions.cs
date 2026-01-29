@@ -183,9 +183,12 @@ namespace GeeksCoreLibrary.Core.Extensions
                         WiserTableNames.WiserTemplateExternalFiles,
                         WiserTableNames.WiserItem,
                         WiserTableNames.WiserItemDetail,
+                        WiserTableNames.AgendaWiserItem,
+                        WiserTableNames.AgendaWiserItemDetail,
                         WiserTableNames.WiserItemFile,
                         WiserTableNames.WiserItemLink,
-                        WiserTableNames.WiserItemLinkDetail
+                        WiserTableNames.WiserItemLinkDetail,
+                        WiserTableNames.WiserModule
                     };
 
                     if (gclSettings.Value.LogOpeningAndClosingOfConnections)

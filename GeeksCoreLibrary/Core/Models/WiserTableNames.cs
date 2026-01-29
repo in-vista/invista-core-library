@@ -10,9 +10,17 @@ namespace GeeksCoreLibrary.Core.Models
         /// </summary>
         public const string WiserItem = "wiser_item";
         /// <summary>
+        /// This table contains all agenda wiser items.
+        /// </summary>
+        public const string AgendaWiserItem = $"agendering_{WiserItem}";
+        /// <summary>
         /// This table contains all details/properties for all items.
         /// </summary>
         public const string WiserItemDetail = "wiser_itemdetail";
+        /// <summary>
+        /// This table contains all details/properties for agenda items.
+        /// </summary>
+        public const string AgendaWiserItemDetail = $"agendering_{WiserItemDetail}";
         /// <summary>
         /// This table contains all connections between items.
         /// For example, an order can contain order lines. The order lines are then connected to the order via this table.
