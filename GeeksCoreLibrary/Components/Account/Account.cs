@@ -1239,7 +1239,8 @@ namespace GeeksCoreLibrary.Components.Account
 
             // Build CXml Response
             var responseDoc = new CXmlPunchOutSetupResponseModel();
-            responseDoc.PayloadID = $"{DateTime.Now.ToString("yyyyMMddHHmmss")}-{Guid.NewGuid()}@{HttpContextHelpers.GetUserIpAddress(httpContext)}";
+            //responseDoc.PayloadID = $"{DateTime.Now.ToString("yyyyMMddHHmmss")}-{Guid.NewGuid()}@{HttpContextHelpers.GetUserIpAddress(httpContext)}";
+            responseDoc.PayloadID = $"{DateTime.Now.ToString("yyMMddHHmmss")}{HttpContextHelpers.GetUserIpAddress(httpContext).Replace(".","")}";
 
             if (!string.IsNullOrEmpty(userName) && !string.IsNullOrEmpty(password))
             {
@@ -1259,7 +1260,7 @@ namespace GeeksCoreLibrary.Components.Account
                     var punchOutId = await DatabaseConnection.InsertOrUpdateRecordBasedOnParametersAsync("wiser_cxml_punch_out", 0UL);
                     
                     responseDoc.Response.Status.Code = 200;
-                    responseDoc.Response.Status.Text = "OK";
+                    responseDoc.Response.Status.Text = "success";
                     
                     // ?cxmlpunchout={punchOutId.ToString()}";
                     var url = Settings.RedirectAfterAction.TrimStart('/');
