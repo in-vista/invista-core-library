@@ -8,6 +8,7 @@ using Newtonsoft.Json.Linq;
 using System;
 using System.Collections.Generic;
 using System.Data;
+using System.Data.Common;
 using System.Globalization;
 using System.IO;
 using System.Linq;
@@ -1503,30 +1504,30 @@ SET @saveHistory = ?saveHistoryGcl;
         }
 
         /// <inheritdoc />
-        public async Task<int> DeleteAsync(ulong itemId, bool undelete = false, string username = "GCL", ulong userId = 0, bool saveHistory = true, string entityType = null, bool createNewTransaction = true, bool skipPermissionsCheck = false)
+        public async Task<DeletedItemResult> DeleteAsync(ulong itemId, bool undelete = false, string username = "GCL", ulong userId = 0, bool saveHistory = true, string entityType = null, bool createNewTransaction = true, bool skipPermissionsCheck = false)
         {
             return await DeleteAsync(this, new List<ulong> { itemId }, undelete, username, userId, saveHistory, entityType, createNewTransaction, skipPermissionsCheck);
         }
 
         /// <inheritdoc />
-        public async Task<int> DeleteAsync(IWiserItemsService wiserItemsService, ulong itemId, bool undelete = false, string username = "GCL", ulong userId = 0, bool saveHistory = true, string entityType = null, bool createNewTransaction = true, bool skipPermissionsCheck = false)
+        public async Task<DeletedItemResult> DeleteAsync(IWiserItemsService wiserItemsService, ulong itemId, bool undelete = false, string username = "GCL", ulong userId = 0, bool saveHistory = true, string entityType = null, bool createNewTransaction = true, bool skipPermissionsCheck = false)
         {
             return await DeleteAsync(wiserItemsService, new List<ulong> { itemId }, undelete, username, userId, saveHistory, entityType, createNewTransaction, skipPermissionsCheck);
         }
 
         /// <inheritdoc />
-        public async Task<int> DeleteAsync(List<ulong> itemIds, bool undelete = false, string username = "GCL", ulong userId = 0, bool saveHistory = true, string entityType = null, bool createNewTransaction = true, bool skipPermissionsCheck = false)
+        public async Task<DeletedItemResult> DeleteAsync(List<ulong> itemIds, bool undelete = false, string username = "GCL", ulong userId = 0, bool saveHistory = true, string entityType = null, bool createNewTransaction = true, bool skipPermissionsCheck = false)
         {
             return await DeleteAsync(this, itemIds, undelete, username, userId, saveHistory, entityType, createNewTransaction, skipPermissionsCheck);
         }
 
         /// <inheritdoc />
-        public async Task<int> DeleteAsync(IWiserItemsService wiserItemsService, List<ulong> itemIds, bool undelete = false, string username = "GCL", ulong userId = 0, bool saveHistory = true, string entityType = null, bool createNewTransaction = true, bool skipPermissionsCheck = false)
+        public async Task<DeletedItemResult> DeleteAsync(IWiserItemsService wiserItemsService, List<ulong> itemIds, bool undelete = false, string username = "GCL", ulong userId = 0, bool saveHistory = true, string entityType = null, bool createNewTransaction = true, bool skipPermissionsCheck = false)
         {
             var filteredItemIds = itemIds.Where(id => id > 0).ToList();
             if (!filteredItemIds.Any())
             {
-                return 0;
+                return DeletedItemResult.FromSuccess(0);
             }
 
             if (!skipPermissionsCheck)
@@ -1603,49 +1604,60 @@ SET @saveHistory = ?saveHistoryGcl;
                     }
                     else
                     {
-                        /*
-                         * NOTE: In all queries below we have hard-coded all columns. This is on purpose and should stay this way.
-                         * It's the only way we can be 100% sure that we're inserting the correct data into the correct columns.
-                         * Otherwise, if someone manually created an archive table and adds the columns in a different order than the original table,
-                         * we could end up inserting data in the wrong columns (if we would have used SELECT *).
-                         */
-
                         if (entityTypeSettings.DeleteAction == EntityDeletionTypes.Archive)
                         {
+                            // Create a list of fixed columns that are always present on the table.
+                            // When passing a non-null value to the column name, we are able to overwrite the value.
+                            Dictionary<string, object> itemColumns = new Dictionary<string, object>()
+                            {
+                                { "id", null },
+                                { "original_item_id", null },
+                                { "parent_item_id", null },
+                                { "ordering", null },
+                                { "unique_uuid", null },
+                                { "entity_type", null },
+                                { "moduleid", null },
+                                { "published_environment", null },
+                                { "readonly", null },
+                                { "title", null },
+                                { "added_on", null },
+                                { "added_by", null },
+                                { "changed_on", "?now" },
+                                { "changed_by", "?username" },
+                                { "json", null },
+                                { "json_last_processed_date", null }
+                            };
+                            
+                            // Check whether the entity has a dedicated table, which could insinuate that the entity has aggregated columns.
+                            if (!string.IsNullOrEmpty(entityTypeSettings.DedicatedTablePrefix))
+                            {
+                                // Prepare a query to retrieve additional columns in the item table.
+                                string extraColumnsQuery = "SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ?tableName";
+                                databaseConnection.AddParameter("tableName", $"{tablePrefix}{WiserTableNames.WiserItem}");
+                                
+                                // Fetch all extra column names from the query.
+                                List<string> extraColumns = new List<string>();
+                                DbDataReader extraColumnsReader = await databaseConnection.GetReaderAsync(extraColumnsQuery);
+                                while(await extraColumnsReader.ReadAsync())
+                                    extraColumns.Add(extraColumnsReader.GetString(0));
+                                await extraColumnsReader.CloseAsync();
+                                
+                                // Filter-out fixed columns from the extra columns list.
+                                extraColumns = extraColumns.Except(itemColumns.Keys).ToList();
+                                
+                                // Add the extra columns to the item columns to include in the moving process.
+                                foreach(string extraColumn in extraColumns)
+                                    itemColumns.Add(extraColumn, null);
+                            }
+                            
                             // Copy the item itself to the archive (or vice versa, when undeleting).
                             query = $@"SET @_username = ?username;
 SET @_userId = ?userId;
 SET @saveHistory = ?saveHistoryGcl;
-INSERT INTO {tablePrefix}{WiserTableNames.WiserItem}{(undelete ? "" : WiserTableNames.ArchiveSuffix)} 
-(
-    id, 
-    original_item_id, 
-    parent_item_id, 
-    unique_uuid, 
-    entity_type, 
-    moduleid, 
-    published_environment, 
-    readonly, 
-    title, 
-    added_on, 
-    added_by, 
-    changed_on, 
-    changed_by
-)
+INSERT INTO {tablePrefix}{WiserTableNames.WiserItem}{(undelete ? "" : WiserTableNames.ArchiveSuffix)}
+({string.Join(",", itemColumns.Select(c => c.Key))})
 SELECT
-    id, 
-    original_item_id, 
-    parent_item_id, 
-    unique_uuid, 
-    entity_type, 
-    moduleid, 
-    published_environment, 
-    readonly, 
-    title, 
-    added_on, 
-    added_by, 
-    ?now AS changed_on, 
-    ?username AS changed_by
+    {string.Join(",", itemColumns.Select(c => $"{c.Value ?? c.Key}"))}
 FROM {tablePrefix}{WiserTableNames.WiserItem}{(undelete ? WiserTableNames.ArchiveSuffix : "")}
 WHERE id IN({formattedItemIds})";
 
@@ -1799,7 +1811,7 @@ VALUES ('UNDELETE_ITEM', '{tablePrefix}wiser_item', {itemId.ToString()}, IFNULL(
                     if (createNewTransaction && !alreadyHadTransaction) await databaseConnection.CommitTransactionAsync();
                     transactionCompleted = true;
 
-                    return result;
+                    return DeletedItemResult.FromSuccess(result);
                 }
                 catch (GclQueryException queryException)
                 {
@@ -1829,7 +1841,7 @@ VALUES ('UNDELETE_ITEM', '{tablePrefix}wiser_item', {itemId.ToString()}, IFNULL(
                 }
             }
 
-            return result;
+            return DeletedItemResult.FromSuccess(result);
         }
 
         /// <inheritdoc />
@@ -4655,7 +4667,7 @@ WHERE id = ?saveDetailId";
                 Extension = dataRow.Field<string>("extension"),
                 Title = dataRow.Field<string>("title"),
                 PropertyName = dataRow.Field<string>("property_name"),
-                Protected = dataRow.Field<bool>("protected"),
+                Protected = Convert.ToBoolean(dataRow["protected"]),
                 ExtraData = dataRow.IsNull("extra_data") ? null : JsonConvert.DeserializeObject<WiserItemFileExtraDataModel>(dataRow.Field<string>("extra_data")!)
             };
         }

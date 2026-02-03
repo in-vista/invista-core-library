@@ -28,7 +28,6 @@ namespace GeeksCoreLibrary.Components.WebForm
 {
     public class WebForm : CmsComponent<WebFormCmsSettingsModel, WebForm.ComponentModes>
     {
-        private readonly GclSettings gclSettings;
         private readonly IWiserItemsService wiserItemsService;
         private readonly ICommunicationsService communicationsService;
         private readonly ILanguagesService languagesService;
@@ -57,9 +56,16 @@ namespace GeeksCoreLibrary.Components.WebForm
 
         #region Constructor
 
-        public WebForm(ILogger<WebForm> logger, IOptions<GclSettings> gclSettings, IStringReplacementsService stringReplacementsService, IWiserItemsService wiserItemsService, ICommunicationsService communicationsService, ILanguagesService languagesService, ITemplatesService templatesService, IObjectsService objectsService)
+        public WebForm(
+            ILogger<WebForm> logger,
+            IOptions<GclSettings> gclSettings,
+            IStringReplacementsService stringReplacementsService,
+            IWiserItemsService wiserItemsService,
+            ICommunicationsService communicationsService,
+            ILanguagesService languagesService,
+            ITemplatesService templatesService,
+            IObjectsService objectsService)
         {
-            this.gclSettings = gclSettings.Value;
             this.wiserItemsService = wiserItemsService;
             this.communicationsService = communicationsService;
             this.languagesService = languagesService;
@@ -68,6 +74,7 @@ namespace GeeksCoreLibrary.Components.WebForm
             Logger = logger;
             StringReplacementsService = stringReplacementsService;
             TemplatesService = templatesService;
+            GclSettings = gclSettings.Value;
 
             Settings = new WebFormCmsSettingsModel();
         }
@@ -295,7 +302,7 @@ namespace GeeksCoreLibrary.Components.WebForm
 
             try
             {
-                if (gclSettings.SmtpSettings != null)
+                if (GclSettings.SmtpSettings != null)
                 {
                     try
                     {

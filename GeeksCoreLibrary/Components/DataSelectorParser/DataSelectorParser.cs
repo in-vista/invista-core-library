@@ -7,11 +7,13 @@ using GeeksCoreLibrary.Components.DataSelectorParser.Interfaces;
 using GeeksCoreLibrary.Components.DataSelectorParser.Models;
 using GeeksCoreLibrary.Core.Cms;
 using GeeksCoreLibrary.Core.Cms.Attributes;
+using GeeksCoreLibrary.Core.Models;
 using GeeksCoreLibrary.Modules.GclReplacements.Interfaces;
 using GeeksCoreLibrary.Modules.Templates.Interfaces;
 using GeeksCoreLibrary.Modules.Templates.Models;
 using Microsoft.AspNetCore.Html;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Newtonsoft.Json.Linq;
 
 namespace GeeksCoreLibrary.Components.DataSelectorParser
@@ -37,7 +39,13 @@ namespace GeeksCoreLibrary.Components.DataSelectorParser
 
         #region Constructor
 
-        public DataSelectorParser(ILogger<DataSelectorParser> logger, ITemplatesService templatesService, IStringReplacementsService stringReplacementsService, IDataSelectorParsersService dataSelectorParsersService, IPagesService pagesService)
+        public DataSelectorParser(
+            ILogger<DataSelectorParser> logger,
+            ITemplatesService templatesService,
+            IStringReplacementsService stringReplacementsService,
+            IDataSelectorParsersService dataSelectorParsersService,
+            IPagesService pagesService,
+            IOptions<GclSettings> gclSettings)
         {
             this.dataSelectorParsersService = dataSelectorParsersService;
             this.pagesService = pagesService;
@@ -45,6 +53,7 @@ namespace GeeksCoreLibrary.Components.DataSelectorParser
             Logger = logger;
             TemplatesService = templatesService;
             StringReplacementsService = stringReplacementsService;
+            GclSettings = gclSettings.Value;
 
             Settings = new DataSelectorParserCmsSettingsModel();
         }

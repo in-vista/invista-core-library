@@ -12,9 +12,11 @@ using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Web;
+using System.Xml;
 using System.Xml.Linq;
 using System.Xml.Serialization;
 using System.Xml.XPath;
+using DocumentFormat.OpenXml.Bibliography;
 using GeeksCoreLibrary.Components.Account.Interfaces;
 using GeeksCoreLibrary.Components.Account.Models;
 using GeeksCoreLibrary.Core.Cms;
@@ -43,6 +45,7 @@ using Microsoft.Extensions.Primitives;
 using MySqlConnector;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
+using WebMarkupMin.Core.Utilities;
 using Constants = GeeksCoreLibrary.Components.Account.Models.Constants;
 using HttpMethod = System.Net.Http.HttpMethod;
 using QueryHelpers = Microsoft.AspNetCore.WebUtilities.QueryHelpers;
@@ -55,7 +58,6 @@ namespace GeeksCoreLibrary.Components.Account
     )]
     public class Account : CmsComponent<AccountCmsSettingsModel, Account.ComponentModes>
     {
-        private readonly GclSettings gclSettings;
         private readonly IObjectsService objectsService;
         private readonly ICommunicationsService communicationsService;
         private readonly IWiserItemsService wiserItemsService;
@@ -268,7 +270,7 @@ namespace GeeksCoreLibrary.Components.Account
             IAccountsService accountsService,
             IWiserItemsService wiserItemsService)
         {
-            this.gclSettings = gclSettings.Value;
+            GclSettings = gclSettings.Value;
             this.objectsService = objectsService;
             this.communicationsService = communicationsService;
             this.wiserItemsService = wiserItemsService;
@@ -704,7 +706,7 @@ namespace GeeksCoreLibrary.Components.Account
                 {
                     try
                     {
-                        userIdFromQueryString = Convert.ToUInt64(encryptedUerId.DecryptWithAes(gclSettings.AccountUserIdEncryptionKey));
+                        userIdFromQueryString = Convert.ToUInt64(encryptedUerId.DecryptWithAes(GclSettings.AccountUserIdEncryptionKey));
                     }
                     catch (Exception exception)
                     {
@@ -898,11 +900,11 @@ namespace GeeksCoreLibrary.Components.Account
                             {
                                 await DatabaseConnection.RollbackTransactionAsync(false);
 
-                                if (MySqlHelpers.IsErrorToRetry(queryException) && retries < gclSettings.MaximumRetryCountForQueries)
+                                if (MySqlHelpers.IsErrorToRetry(queryException) && retries < GclSettings.MaximumRetryCountForQueries)
                                 {
                                     // Exception is a deadlock or something similar, retry the transaction.
                                     retries++;
-                                    Thread.Sleep(gclSettings.TimeToWaitBeforeRetryingQueryInMilliseconds);
+                                    Thread.Sleep(GclSettings.TimeToWaitBeforeRetryingQueryInMilliseconds);
                                 }
                                 else
                                 {
@@ -949,7 +951,7 @@ namespace GeeksCoreLibrary.Components.Account
                     var isLoggedIn = false;
                     if (creatingUserThatCannotLogin && createOrUpdateAccountResult.Result == CreateOrUpdateAccountResults.Success)
                     {
-                        HttpContextHelpers.WriteCookie(HttpContext, Constants.CreatedAccountCookieName, createOrUpdateAccountResult.UserId.ToString().EncryptWithAes(gclSettings.AccountUserIdEncryptionKey), isEssential: true);
+                        HttpContextHelpers.WriteCookie(HttpContext, Constants.CreatedAccountCookieName, createOrUpdateAccountResult.UserId.ToString().EncryptWithAes(GclSettings.AccountUserIdEncryptionKey), isEssential: true);
                     }
                     else if (userData.UserId == 0 && createOrUpdateAccountResult.Result == CreateOrUpdateAccountResults.Success && changePasswordResult == ResetOrChangePasswordResults.Success && Settings.AutoLoginUserAfterAction)
                     {
@@ -1237,6 +1239,8 @@ namespace GeeksCoreLibrary.Components.Account
 
             // Build CXml Response
             var responseDoc = new CXmlPunchOutSetupResponseModel();
+            //responseDoc.PayloadID = $"{DateTime.Now.ToString("yyyyMMddHHmmss")}-{Guid.NewGuid()}@{HttpContextHelpers.GetUserIpAddress(httpContext)}";
+            responseDoc.PayloadID = $"{DateTime.Now.ToString("yyMMddHHmmss")}{HttpContextHelpers.GetUserIpAddress(httpContext).Replace(".","")}";
 
             if (!string.IsNullOrEmpty(userName) && !string.IsNullOrEmpty(password))
             {
@@ -1256,7 +1260,7 @@ namespace GeeksCoreLibrary.Components.Account
                     var punchOutId = await DatabaseConnection.InsertOrUpdateRecordBasedOnParametersAsync("wiser_cxml_punch_out", 0UL);
                     
                     responseDoc.Response.Status.Code = 200;
-                    responseDoc.Response.Status.Text = "OK";
+                    responseDoc.Response.Status.Text = "success";
                     
                     // ?cxmlpunchout={punchOutId.ToString()}";
                     var url = Settings.RedirectAfterAction.TrimStart('/');
@@ -1278,13 +1282,29 @@ namespace GeeksCoreLibrary.Components.Account
             
             // Set XML answer to response
             var serializer = new XmlSerializer(typeof(CXmlPunchOutSetupResponseModel));
-            await using (var stringWriter = new StringWriter())
+
+            var settings = new XmlWriterSettings
             {
-                serializer.Serialize(stringWriter, responseDoc);
-                httpContext.Response.Clear();
-                httpContext.Response.ContentType = "text/xml";
-                await httpContext.Response.WriteAsync(stringWriter.ToString());
+                Encoding = Encoding.UTF8,
+                Indent = true,
+                OmitXmlDeclaration = false
+            };
+
+            await using var stringWriter = new Utf8StringWriter();
+            using (var xmlWriter = XmlWriter.Create(stringWriter, settings))
+            {
+                xmlWriter.WriteDocType(
+                    "cXML",
+                    null,
+                    "http://xml.cxml.org/schemas/cXML/1.2.014/cXML.dtd",
+                    null);
+
+                serializer.Serialize(xmlWriter, responseDoc);
             }
+
+            httpContext.Response.Clear();
+            httpContext.Response.ContentType = "text/xml";
+            await httpContext.Response.WriteAsync(stringWriter.ToString());
         }
 
         /// <summary>
@@ -1761,11 +1781,11 @@ LIMIT 1";
 
                     await DatabaseConnection.RollbackTransactionAsync(false);
 
-                    if (MySqlHelpers.IsErrorToRetry(queryException) && retries < gclSettings.MaximumRetryCountForQueries)
+                    if (MySqlHelpers.IsErrorToRetry(queryException) && retries < GclSettings.MaximumRetryCountForQueries)
                     {
                         // Exception is a deadlock or something similar, retry the transaction.
                         retries++;
-                        Thread.Sleep(gclSettings.TimeToWaitBeforeRetryingQueryInMilliseconds);
+                        Thread.Sleep(GclSettings.TimeToWaitBeforeRetryingQueryInMilliseconds);
                     }
                     else
                     {
@@ -2337,7 +2357,7 @@ LIMIT 1";
 
             var uriBuilder = new UriBuilder(baseUrl);
             var queryString = HttpUtility.ParseQueryString(uriBuilder.Query);
-            queryString[Constants.UserIdQueryStringKey] = userId.ToString().EncryptWithAes(gclSettings.AccountUserIdEncryptionKey);
+            queryString[Constants.UserIdQueryStringKey] = userId.ToString().EncryptWithAes(GclSettings.AccountUserIdEncryptionKey);
             queryString[Constants.ResetPasswordTokenQueryStringKey] = token;
             uriBuilder.Query = queryString.ToString();
 
@@ -2455,4 +2475,9 @@ LIMIT 1";
                 Replace("</jform", "</form", StringComparison.OrdinalIgnoreCase);
         }
     }
+}
+
+public sealed class Utf8StringWriter : StringWriter
+{
+    public override Encoding Encoding => Encoding.UTF8;
 }

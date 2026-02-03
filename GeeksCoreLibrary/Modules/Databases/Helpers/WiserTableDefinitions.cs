@@ -154,7 +154,7 @@ public class WiserTableDefinitions
         new WiserTableDefinitionModel
         {
             Name = WiserTableNames.WiserEntity,
-            LastUpdate = new DateTime(2023, 6, 20),
+            LastUpdate = new DateTime(2025, 12, 9),
             Columns = new List<ColumnSettingsModel>
             {
                 new("id", MySqlDbType.Int32, notNull: true, isPrimaryKey: true, autoIncrement: true),
@@ -187,7 +187,8 @@ public class WiserTableDefinitions
                 new("icon_expanded", MySqlDbType.VarChar, 25, notNull: true, defaultValue: ""),
                 new("dedicated_table_prefix", MySqlDbType.VarChar, 25, notNull: true, defaultValue: ""),
                 new("delete_action", MySqlDbType.Enum, notNull: true, defaultValue: "archive", enumValues: new List<string> {"archive", "permanent", "hide", "disallow"}),
-                new("show_in_dashboard", MySqlDbType.Int16, 1, notNull: true, defaultValue: "0")
+                new("show_in_dashboard", MySqlDbType.Int16, 1, notNull: true, defaultValue: "0"),
+                new("item_window_mode", MySqlDbType.UInt32, notNull: true, defaultValue: "0")
             },
             Indexes = new List<IndexSettingsModel>
             {
@@ -1086,20 +1087,22 @@ public class WiserTableDefinitions
         new WiserTableDefinitionModel
         {
             Name = WiserTableNames.WiserModule,
-            LastUpdate = new DateTime(2024, 11, 06),
+            LastUpdate = new DateTime(2026, 1, 14),
             Columns = new List<ColumnSettingsModel>
             {
                 new("id", MySqlDbType.UInt64, notNull: true, isPrimaryKey: true, autoIncrement: true),
-                new("custom_query", MySqlDbType.MediumText),
-                new("count_query", MySqlDbType.MediumText),
-                new("options", MySqlDbType.MediumText),
+                new("custom_query", MySqlDbType.Text),
+                new("count_query", MySqlDbType.Text),
+                new("options", MySqlDbType.Text),
                 new("name", MySqlDbType.VarChar, 255),
                 new("icon", MySqlDbType.VarChar, 100),
                 new("color", MySqlDbType.VarChar, 8),
                 new("type", MySqlDbType.VarChar, 255),
                 new("group", MySqlDbType.VarChar, 100),
-                new("custom_script", MySqlDbType.MediumText),
-                new("is_fullscreen", MySqlDbType.Int16, 4, notNull: true, defaultValue: "0")
+                new("group_options", MySqlDbType.Text),
+                new("custom_script", MySqlDbType.Text),
+                new("is_fullscreen", MySqlDbType.Int16, 4, notNull: true, defaultValue: "0"),
+                new("ordering", MySqlDbType.UInt32, notNull: true, defaultValue: "0")
             }
         }
     };

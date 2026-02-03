@@ -11,6 +11,7 @@ using GeeksCoreLibrary.Components.Pagination.Models;
 using GeeksCoreLibrary.Core.Cms;
 using GeeksCoreLibrary.Core.Cms.Attributes;
 using GeeksCoreLibrary.Core.Helpers;
+using GeeksCoreLibrary.Core.Models;
 using GeeksCoreLibrary.Modules.Databases.Interfaces;
 using GeeksCoreLibrary.Modules.GclReplacements.Interfaces;
 using GeeksCoreLibrary.Modules.Templates.Interfaces;
@@ -18,6 +19,7 @@ using GeeksCoreLibrary.Modules.Templates.Models;
 using Microsoft.AspNetCore.Html;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Primitives;
 
 namespace GeeksCoreLibrary.Components.Pagination
@@ -53,7 +55,15 @@ namespace GeeksCoreLibrary.Components.Pagination
 
         #region Constructor
 
-        public Pagination(ILogger<Pagination> logger, IStringReplacementsService stringReplacementsService, IDatabaseConnection databaseConnection, ITemplatesService templatesService, IAccountsService accountsService, IFiltersService filtersService, IPagesService pagesService)
+        public Pagination(
+            ILogger<Pagination> logger,
+            IStringReplacementsService stringReplacementsService,
+            IDatabaseConnection databaseConnection,
+            ITemplatesService templatesService,
+            IAccountsService accountsService,
+            IFiltersService filtersService,
+            IPagesService pagesService,
+            IOptions<GclSettings> gclSettings)
         {
             this.filtersService = filtersService;
             this.pagesService = pagesService;
@@ -63,6 +73,7 @@ namespace GeeksCoreLibrary.Components.Pagination
             DatabaseConnection = databaseConnection;
             TemplatesService = templatesService;
             AccountsService = accountsService;
+            GclSettings = gclSettings.Value;
 
             Settings = new PaginationCmsSettingsModel();
         }

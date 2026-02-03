@@ -13,6 +13,7 @@ using GeeksCoreLibrary.Components.Account.Interfaces;
 using GeeksCoreLibrary.Components.Base.Interfaces;
 using GeeksCoreLibrary.Core.Extensions;
 using GeeksCoreLibrary.Core.Helpers;
+using GeeksCoreLibrary.Core.Models;
 using GeeksCoreLibrary.Modules.Databases.Interfaces;
 using GeeksCoreLibrary.Modules.GclReplacements.Interfaces;
 using GeeksCoreLibrary.Modules.Templates.Interfaces;
@@ -34,6 +35,7 @@ namespace GeeksCoreLibrary.Core.Cms
         protected IDatabaseConnection DatabaseConnection;
         protected IAccountsService AccountsService;
         protected IComponentsService ComponentsService;
+        protected GclSettings GclSettings;
 
         /// <summary>
         /// Whether the component should be ran in legacy mode. This reads and writes the old Wiser1 JSON settings.
@@ -255,8 +257,32 @@ namespace GeeksCoreLibrary.Core.Cms
                     return new DataTable();
                 }
             }
-
-            return await DatabaseConnection.GetAsync(queryToUse, skipCache);
+            
+            // Store the currently used main connection strings.
+            string currentConnectionStringForReading = DatabaseConnection.GetConnectionStringForReading();
+            string currentConnectionStringForWriting = DatabaseConnection.GetConnectionStringForWriting();
+            
+            // If an alternative connection string is given, retrieve its value by name from the app settings and temporarily set it.
+            if (!string.IsNullOrEmpty(Settings.AlternativeConnectionString))
+                if(GclSettings.AlternativeConnectionStrings.TryGetValue(Settings.AlternativeConnectionString, out string alternateConnectionString))
+                    await DatabaseConnection.ChangeConnectionStringsAsync(alternateConnectionString, alternateConnectionString);
+            
+            // Create an empty result for this component.
+            DataTable results = new DataTable();
+            
+            // Retrieve the results.
+            try
+            {
+                results = await DatabaseConnection.GetAsync(queryToUse, skipCache);
+            }
+            finally
+            {
+                // If anything, revert the database connection back to the original.
+                await DatabaseConnection.ChangeConnectionStringsAsync(currentConnectionStringForReading, currentConnectionStringForWriting);
+            }
+            
+            // Return the results.
+            return results;
         }
 
         /// <summary>

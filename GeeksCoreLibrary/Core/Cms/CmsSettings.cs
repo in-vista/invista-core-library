@@ -150,6 +150,19 @@ namespace GeeksCoreLibrary.Core.Cms
             DisplayOrder = 30
         )]
         public string CacheRegex { get; set; }
+        
+        /// <summary>
+        /// The name of an alternative connection string, as stored in the app settings, used within the context of this component.
+        /// </summary>
+        [CmsProperty(
+            PrettyName = "Alternative connection string",
+            Description = "The name of an alternative connection string, as stored in the app settings, used within the context of this component.",
+            DeveloperRemarks = "",
+            TabName = CmsAttributes.CmsTabName.Developer,
+            GroupName = CmsAttributes.CmsGroupName.Advanced,
+            DisplayOrder = 40
+        )]
+        public string AlternativeConnectionString { get; set; }
 
         #endregion
     }

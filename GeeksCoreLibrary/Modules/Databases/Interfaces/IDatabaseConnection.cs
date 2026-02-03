@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Data;
 using System.Data.Common;
 using System.Threading.Tasks;
@@ -110,6 +111,14 @@ namespace GeeksCoreLibrary.Modules.Databases.Interfaces
         /// <param name="key"></param>
         /// <param name="value"></param>
         void AddParameter(string key, object value);
+        
+        /// <summary>
+        /// Adds parameters for the given collection under the given key and returns the IN expression value.
+        /// </summary>
+        /// <param name="key">The base key used for all entries in the IN expression.</param>
+        /// <param name="collection">A collection of entries to populate the IN expression value with.</param>
+        /// <returns>The IN expression value to use in a query.</returns>
+        string AddInParameters(string key, IEnumerable<object> collection);
 
         /// <summary>
         /// Clear all previously added parameters from the <see cref="MySqlCommand"/>.
@@ -167,6 +176,18 @@ namespace GeeksCoreLibrary.Modules.Databases.Interfaces
         /// </summary>
         /// <returns>The <see cref="DbConnection"/> for the writing connection.</returns>
         DbConnection GetConnectionForWriting();
+        
+        /// <summary>
+        /// Retrieves the connection string that is used for reading.
+        /// </summary>
+        /// <returns>The connection string as it is currently used for reading.</returns>
+        string GetConnectionStringForReading();
+        
+        /// <summary>
+        /// Retrieves the connection string that is used for writing.
+        /// </summary>
+        /// <returns>The connection string as it is currently used for writing.</returns>
+        string GetConnectionStringForWriting();
 
         /// <summary>
         /// Bulk insert a <see cref="DataTable"/> into a table in the database.
@@ -176,5 +197,13 @@ namespace GeeksCoreLibrary.Modules.Databases.Interfaces
         /// <param name="useWritingConnectionIfAvailable">Optional: Use the writing connection to get information, if there is one available. If we detect that your query contains a database modification, then we will always use the write connection string, no matter what you enter here.</param>
         /// <param name="useInsertIgnore">Optional: Whether to use INSERT IGNORE instead of INSERT, to ignore errors such as duplicate keys.</param>
         Task<int> BulkInsertAsync(DataTable dataTable, string tableName, bool useWritingConnectionIfAvailable = true, bool useInsertIgnore = false);
+        
+        /// <summary>
+        /// Retrieves the value in the first column of the first row of a query's result.
+        /// </summary>
+        /// <param name="query">The query to select the value from in the result set.</param>
+        /// <typeparam name="T">The type to cast the value to.</typeparam>
+        /// <returns>The value in the first column of the first row of the query's result set.</returns>
+        Task<T> ExecuteScalarAsync<T>(string query);
     }
 }

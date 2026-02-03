@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.Data;
 using System.Data.Common;
 using System.Linq;
@@ -194,6 +195,19 @@ namespace GeeksCoreLibrary.Modules.Databases.Services
 
             parameters.TryAdd(key, value);
         }
+        
+        /// <inheritdoc />
+        public string AddInParameters(string key, IEnumerable<object> collection)
+        {
+            string joinedEntries = string.Join(", ", collection.Select((entry, entryIndex) =>
+            {
+                string parameterName = $"{key}_{entryIndex}";
+                AddParameter(parameterName, entry);
+                return $"?{parameterName}";
+            }));
+            
+            return $"({joinedEntries})";
+        }
 
         /// <inheritdoc />
         public void ClearParameters()
@@ -251,9 +265,18 @@ namespace GeeksCoreLibrary.Modules.Databases.Services
         }
 
         /// <inheritdoc />
+        public string GetConnectionStringForReading() => databaseConnection.GetConnectionStringForReading();
+
+        /// <inheritdoc />
+        public string GetConnectionStringForWriting() => databaseConnection.GetConnectionStringForWriting();
+
+        /// <inheritdoc />
         public async Task<int> BulkInsertAsync(DataTable dataTable, string tableName, bool useWritingConnectionIfAvailable = true, bool useInsertIgnore = false)
         {
             return await databaseConnection.BulkInsertAsync(dataTable, tableName, useWritingConnectionIfAvailable, useInsertIgnore);
         }
+        
+        /// <inheritdoc/>
+        public async Task<T> ExecuteScalarAsync<T>(string query) => await databaseConnection.ExecuteScalarAsync<T>(query);
     }
 }

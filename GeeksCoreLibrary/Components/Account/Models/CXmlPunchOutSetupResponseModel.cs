@@ -13,14 +13,14 @@ public class CXmlPunchOutSetupResponseModel
         Response.PunchOutSetupResponse = new PunchOutSetupResponse();
         Response.PunchOutSetupResponse.StartPage = new StartPage();
         Response.Status = new Status();
-        Timestamp = DateTime.Now;
+        Timestamp = DateTime.Now.ToString("yyyy-MM-dd'T'HH:mm:sszzz");
     }
     
     [XmlAttribute("payloadID")]
     public string PayloadID { get; set; }
 
     [XmlAttribute("timestamp")]
-    public DateTime Timestamp { get; set; }
+    public string Timestamp { get; set; }
 
     [XmlElement("Response")]
     public Response Response { get; set; }

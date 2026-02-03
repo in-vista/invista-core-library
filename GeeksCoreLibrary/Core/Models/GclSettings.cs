@@ -26,6 +26,11 @@ namespace GeeksCoreLibrary.Core.Models
         /// The default connection string for the current website.
         /// </summary>
         public string ConnectionString { get; set; }
+        
+        /// <summary>
+        /// A set of alternative connection strings to be used in CMS components.
+        /// </summary>
+        public Dictionary<string, string> AlternativeConnectionStrings { get; set; }
 
         /// <summary>
         /// If the database connection requires an SSH tunnel, you can set the SSH settings here.

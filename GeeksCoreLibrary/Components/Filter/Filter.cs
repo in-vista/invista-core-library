@@ -11,6 +11,7 @@ using GeeksCoreLibrary.Components.Filter.Models;
 using GeeksCoreLibrary.Core.Cms;
 using GeeksCoreLibrary.Core.Extensions;
 using GeeksCoreLibrary.Core.Helpers;
+using GeeksCoreLibrary.Core.Models;
 using GeeksCoreLibrary.Modules.Databases.Interfaces;
 using GeeksCoreLibrary.Modules.GclReplacements.Interfaces;
 using GeeksCoreLibrary.Modules.Languages.Interfaces;
@@ -20,6 +21,7 @@ using GeeksCoreLibrary.Modules.Templates.Models;
 using Microsoft.AspNetCore.Html;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 
 namespace GeeksCoreLibrary.Components.Filter
 {
@@ -63,6 +65,7 @@ namespace GeeksCoreLibrary.Components.Filter
             IObjectsService objectsService,
             IFiltersService filterService,
             ILanguagesService languageService,
+            IOptions<GclSettings> gclSettings,
             IHttpContextAccessor httpContextAccessor = null)
         {
             this.httpContextAccessor = httpContextAccessor;
@@ -75,6 +78,7 @@ namespace GeeksCoreLibrary.Components.Filter
             TemplatesService = templatesService;
             DatabaseConnection = databaseConnection;
             AccountsService = accountsService;
+            GclSettings = gclSettings.Value;
 
             Settings = new FilterCmsSettingsModel();
         }

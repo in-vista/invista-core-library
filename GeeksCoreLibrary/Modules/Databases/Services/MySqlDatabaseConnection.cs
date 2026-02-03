@@ -134,7 +134,7 @@ namespace GeeksCoreLibrary.Modules.Databases.Services
             await EnsureOpenConnectionForReadingAsync();
             await using var command = new MySqlCommand(query, ConnectionForReading);
             SetupMySqlCommand(command);
-            dataReader = await command.ExecuteReaderAsync(CommandBehavior.CloseConnection);
+            dataReader = await command.ExecuteReaderAsync();
 
             return dataReader;
         }
@@ -522,6 +522,19 @@ namespace GeeksCoreLibrary.Modules.Databases.Services
 
             parameters.TryAdd(key, value);
         }
+        
+        /// <inheritdoc />
+        public string AddInParameters(string key, IEnumerable<object> collection)
+        {
+            string joinedEntries = string.Join(", ", collection.Select((entry, entryIndex) =>
+            {
+                string parameterName = $"{key}_{entryIndex}";
+                AddParameter(parameterName, entry);
+                return $"?{parameterName}";
+            }));
+            
+            return $"({joinedEntries})";
+        }
 
         private async Task CleanUpAsync()
         {
@@ -719,6 +732,12 @@ namespace GeeksCoreLibrary.Modules.Databases.Services
         {
             return String.IsNullOrWhiteSpace(connectionStringForWriting?.ConnectionString) ? ConnectionForReading : ConnectionForWriting;
         }
+        
+        /// <inheritdoc />
+        public string GetConnectionStringForReading() => connectionStringForReading?.ConnectionString;
+        
+        /// <inheritdoc />
+        public string GetConnectionStringForWriting() => string.IsNullOrEmpty(connectionStringForWriting?.ConnectionString) ? connectionStringForReading.ConnectionString :  connectionStringForWriting?.ConnectionString;
 
         /// <inheritdoc />
         public async Task<int> BulkInsertAsync(DataTable dataTable, string tableName, bool useWritingConnectionIfAvailable = true, bool useInsertIgnore = false)
@@ -752,6 +771,15 @@ namespace GeeksCoreLibrary.Modules.Databases.Services
             }
 
             return await ExecuteAsync(query.ToString(), useWritingConnectionIfAvailable);
+        }
+        
+        /// <inheritdoc/>
+        public async Task<T> ExecuteScalarAsync<T>(string query)
+        {
+            DbDataReader reader = await GetReaderAsync(query);
+            T value = await reader.ReadAsync() ? reader.GetFieldValue<T>(0) : default;
+            await reader.CloseAsync();
+            return value;
         }
 
         /// <summary>
