@@ -26,8 +26,8 @@ public class DatabaseHealthService : IHealthCheck
         var query = "SELECT COUNT(*) AS active_connections FROM information_schema.PROCESSLIST;";
         var datatable = await databaseConnection.GetAsync(query);
 
-        var healthCheckConnections = gclSettings.HealthChecks.MaximumDatabaseConnections;
-        var healthCheckConnectionsTime = gclSettings.HealthChecks.MaximumConnectionsInTime;
+        var healthCheckConnections = gclSettings.HealthChecks?.MaximumDatabaseConnections ?? 0;
+        var healthCheckConnectionsTime = gclSettings.HealthChecks?.MaximumConnectionsInTime ?? 0;
 
         // If no value is set, we are skipping this test.
         if (healthCheckConnections > 0)
