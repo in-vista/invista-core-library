@@ -103,13 +103,14 @@ namespace GeeksCoreLibrary.Core.Extensions
             builder.UseMiddleware<IpAccessMiddleware>();
             builder.UseMiddleware<ClearCacheMiddleware>();
 
-            builder.UseMiddleware<RedirectMiddleWare>();
+            var configurationSection = configuration?.GetSection("GCL");
+            var gclSettings = configurationSection?.Get<GclSettings>();
+            if (!gclSettings?.DisableRedirectMiddleWare ?? true)
+                builder.UseMiddleware<RedirectMiddleWare>();
 
             builder.UseWebMarkupMin();
             builder.UseMiddleware<WiserItemFilesMiddleware>();
             
-            var configurationSection = configuration?.GetSection("GCL");
-            var gclSettings = configurationSection?.Get<GclSettings>();
             if (!gclSettings?.DisableOrderProcessMiddleWare ?? true)
                 builder.UseMiddleware<RewriteUrlToOrderProcessMiddleware>();
             
