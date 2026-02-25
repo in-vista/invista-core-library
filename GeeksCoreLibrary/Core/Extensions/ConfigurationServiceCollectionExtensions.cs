@@ -52,6 +52,10 @@ using GeeksCoreLibrary.Modules.Databases.Interfaces;
 using GeeksCoreLibrary.Modules.Databases.Services;
 using GeeksCoreLibrary.Modules.ItemFiles.Middlewares;
 using JetBrains.Annotations;
+using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.Authentication.Google;
+using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -299,6 +303,36 @@ namespace GeeksCoreLibrary.Core.Extensions
                         })
                     .AddHttpCompression();
             }
+            
+            services
+                .AddAuthentication(options =>
+                {
+                    options.DefaultScheme = CookieAuthenticationDefaults.AuthenticationScheme;
+                    options.DefaultChallengeScheme = GoogleDefaults.AuthenticationScheme;
+                })
+                .AddCookie()
+                .AddGoogle(options =>
+                {
+                    options.ClientId = gclSettings.GoogleSettings.Authentication.ClientId ?? "";
+                    options.ClientSecret = gclSettings.GoogleSettings.Authentication.ClientSecret ?? "";
+
+                    // Important: Google Cloud Console must allow this redirect URI:
+                    // https://<your-domain>/signin-google
+                    
+                    options.Scope.Add("openid");
+                    options.Scope.Add("email");
+                    options.Scope.Add("profile");
+                    
+                    options.ClaimActions.MapJsonKey("email_verified", "email_verified");
+                    options.ClaimActions.MapJsonKey("email_verified", "verified_email");
+                    
+                    options.CorrelationCookie.SameSite = SameSiteMode.Lax;
+                    options.CorrelationCookie.SecurePolicy = CookieSecurePolicy.Always;
+                    
+                    options.SignInScheme = CookieAuthenticationDefaults.AuthenticationScheme;
+                });
+
+            services.AddAuthorization();
 
             // Enable caching.
             services.AddLazyCache();

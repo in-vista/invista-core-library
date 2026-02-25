@@ -4,6 +4,7 @@ using GeeksCoreLibrary.Core.Enums;
 using GeeksCoreLibrary.Core.Interfaces;
 using GeeksCoreLibrary.Modules.Amazon.Models;
 using GeeksCoreLibrary.Modules.Communication.Models;
+using GeeksCoreLibrary.Modules.GoogleAuth.Models;
 using Microsoft.AspNetCore.Http;
 
 namespace GeeksCoreLibrary.Core.Models
@@ -324,5 +325,10 @@ namespace GeeksCoreLibrary.Core.Models
         /// The API key used to use Topol's mail editor.
         /// </summary>
         public string TopolApiKey { get; set; }
+        
+        /// <summary>
+        /// The settings for Google.
+        /// </summary>
+        public GoogleSettings GoogleSettings { get; set; }
     }
 }
