@@ -6,7 +6,7 @@ namespace GeeksCoreLibrary.Modules.GoogleAuth.Models;
 
 public sealed class GoogleEasyObjectsSettings
 {
-    public bool AccountIdMandatory { get; set; }
+    public bool AccountIdMandatory { get; set; } = true;
     public bool AllowAccountIdOverride { get; set; }
 
     public GoogleEasyObjectsDefault Defaults { get; set; } = new();

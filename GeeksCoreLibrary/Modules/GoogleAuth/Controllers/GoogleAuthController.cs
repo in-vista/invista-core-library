@@ -82,7 +82,6 @@ namespace GeeksCoreLibrary.Modules.GoogleAuth.Controllers
             
             var baseAction = loginAllowed ? "Login" : "Create";
             
-            var loginUrl = parsed.GetRule(entityType, baseAction).GetLoginUrl();
             var callBackUrl = parsed.GetRule(entityType, baseAction).GetCallbackUrl();
             
             if (!parsed.AllowAccountIdOverride)
@@ -106,14 +105,15 @@ namespace GeeksCoreLibrary.Modules.GoogleAuth.Controllers
             var result =
                 await googleAuthService.HandleGoogleCallbackAsync(authenticateResult.Principal, parsed, entityType, accountId);
 
+            var action = result.IsNewUser ? "Create" : "Login";
+            var loginUrl = parsed.GetRule(entityType, action).GetLoginUrl();
+            
             if (!result.IsSuccess)
             {
                 return doRedirect
                     ? Redirect($"{callBackUrl ?? loginUrl}?status={result.FailureStatus}")
                     : BadRequest(new { status = result.FailureStatus });
             }
-
-            var action = result.IsNewUser ? "Create" : "Login";
 
             var cookieExpire = parsed.GetRule(entityType, action).GetCookieExpireTime();
             var returnUrl = parsed.GetRule(entityType, action).GetReturnUrl();
