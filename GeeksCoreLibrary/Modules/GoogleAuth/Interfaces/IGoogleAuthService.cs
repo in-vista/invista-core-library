@@ -12,15 +12,17 @@ namespace GeeksCoreLibrary.Modules.GoogleAuth.Interfaces
         /// and logs them in or creates a new account if necessary.
         /// </summary>
         /// <param name="googlePrincipal">The authenticated Google claims principal.</param>
+        /// <param name="settings">The settings/rules for authentication defined in easy_objects.</param>
+        /// <param name="entityType">The entity type for creating the Customer or Employee</param>
         /// <param name="accountId">The parent account ID.</param>
-        /// <param name="entityType">The entity type (e.g. WiserUser or Customer).</param>
         /// <returns>
         /// A <see cref="GoogleUserLoginResult"/> describing the login outcome,
         /// including user ID and generated cookie value if successful.
         /// </returns>
         Task<GoogleUserLoginResult> HandleGoogleCallbackAsync(
             ClaimsPrincipal googlePrincipal,
-            ulong accountId,
-            string entityType = "WiserUser");
+            GoogleEasyObjectsSettings settings,
+            string entityType,
+            ulong accountId = 0);
     }
 }

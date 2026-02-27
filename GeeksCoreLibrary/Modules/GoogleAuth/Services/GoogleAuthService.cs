@@ -32,14 +32,21 @@ namespace GeeksCoreLibrary.Modules.GoogleAuth.Services
             this.wiserItemsService = wiserItemsService;
             this.accountsService = accountsService;
         }
+
+        private string entityType = "";
+        private GoogleEasyObjectsSettings easyObjectSettings;
         
         /// <inheritdoc />
         public async Task<GoogleUserLoginResult> HandleGoogleCallbackAsync(
             ClaimsPrincipal googlePrincipal,
-            ulong accountId,
-            string entityType = "WiserUser")
+            GoogleEasyObjectsSettings settings,
+            string entityTypePassed,
+            ulong accountId = 0)
         {
-            if (!GoogleAuthEntityTypes.IsAllowed(entityType))
+            entityType = entityTypePassed;
+            easyObjectSettings = settings;
+            
+            if(easyObjectSettings.EntityTypeRulesByKey.Values.All(value => value.EntityType != entityType))
                 return new GoogleUserLoginResult(
                     IsSuccess: false,
                     FailureStatus: "entity_type_invalid",
@@ -48,7 +55,10 @@ namespace GeeksCoreLibrary.Modules.GoogleAuth.Services
                     IsNewUser: false,
                     CookieValue: null);
             
-            if (accountId == 0)
+            if (!easyObjectSettings.AllowAccountIdOverride)
+                accountId = 0;
+            
+            if(accountId == 0 && easyObjectSettings.AccountIdMandatory)
                 return new GoogleUserLoginResult(
                     IsSuccess: false,
                     FailureStatus: "account_id_invalid",
@@ -56,7 +66,7 @@ namespace GeeksCoreLibrary.Modules.GoogleAuth.Services
                     UserId: 0,
                     IsNewUser: false,
                     CookieValue: null);
-
+            
             var googleUserInfo = ExtractGoogleUserInfo(googlePrincipal);
 
             if (string.IsNullOrWhiteSpace(googleUserInfo.EmailAddress))
@@ -81,19 +91,34 @@ namespace GeeksCoreLibrary.Modules.GoogleAuth.Services
                     CookieValue: null);
             }
 
-            var (userId, isNewUser) = await GetOrCreateUserAsync(accountId, googleUserInfo, entityType);
+            var (userId, isNewUser) = await GetOrCreateUserAsync(accountId, googleUserInfo);
             
-            if(userId == 0)
-                return new GoogleUserLoginResult(
-                    IsSuccess: false,
-                    FailureStatus: "linking_failed",
-                    AccountId: accountId,
-                    UserId: 0,
-                    IsNewUser: false,
-                    CookieValue: null);
+            switch (userId)
+            {
+                case 0 when !isNewUser:
+                    return new GoogleUserLoginResult(
+                        IsSuccess: false,
+                        FailureStatus: "linking_failed",
+                        AccountId: accountId,
+                        UserId: 0,
+                        IsNewUser: false,
+                        CookieValue: null);
+                case 0:
+                    return new GoogleUserLoginResult(
+                        IsSuccess: false,
+                        FailureStatus: "creating_failed",
+                        AccountId: accountId,
+                        UserId: 0,
+                        IsNewUser: false,
+                        CookieValue: null);
+            }
+
+            var action = isNewUser ? "Create" : "Login";
+
+            var cookieExpire = easyObjectSettings.GetRule(entityType, action).GetCookieExpireTime();
 
             var cookieValue = await accountsService.GenerateNewCookieTokenAsync(
-                userId, 0, 60, entityType, "");
+                userId, 0, cookieExpire, entityType, "");
 
             return new GoogleUserLoginResult(
                 IsSuccess: true,
@@ -149,41 +174,45 @@ namespace GeeksCoreLibrary.Modules.GoogleAuth.Services
         /// </summary>
         /// <param name="accountId">The parent account ID.</param>
         /// <param name="googleUserInfo">The extracted Google user information.</param>
-        /// <param name="entityType">The entity type (e.g. WiserUser or Customer).</param>
         /// <returns>
         /// A tuple containing the user ID and a flag indicating whether a new user was created.
         /// </returns>
         private async Task<(ulong userId, bool isNewUser)> GetOrCreateUserAsync(
             ulong accountId,
-            GoogleUserInfo googleUserInfo,
-            string entityType = "WiserUser")
+            GoogleUserInfo googleUserInfo)
         {
-            // Prefer google subject id
-            if (!string.IsNullOrWhiteSpace(googleUserInfo.GoogleSubjectIdentifier))
+            if (easyObjectSettings.GetRule(entityType, "Login").GetAllowed())
             {
-                var userIdByGoogleId =
-                    await FindUserIdByGoogleSubjectIdAsync(accountId, googleUserInfo.GoogleSubjectIdentifier, entityType);
-                if (userIdByGoogleId.HasValue)
-                    return (userIdByGoogleId.Value, false);
-            }
+                // Prefer google subject id
+                if (!string.IsNullOrWhiteSpace(googleUserInfo.GoogleSubjectIdentifier))
+                {
+                    var userIdByGoogleId =
+                        await FindUserIdByGoogleSubjectIdAsync(accountId, googleUserInfo.GoogleSubjectIdentifier);
+                    if (userIdByGoogleId.HasValue)
+                        return (userIdByGoogleId.Value, false);
+                }
 
-            // Fallback email
-            var userIdByEmail = await FindUserIdByEmailAsync(accountId, googleUserInfo.EmailAddress, entityType);
-            if (userIdByEmail.HasValue)
-            {
-                if (string.IsNullOrWhiteSpace(googleUserInfo.GoogleSubjectIdentifier))
+                // Fallback email
+                var userIdByEmail = await FindUserIdByEmailAsync(accountId, googleUserInfo.EmailAddress);
+                if (userIdByEmail.HasValue)
+                {
+                    if (string.IsNullOrWhiteSpace(googleUserInfo.GoogleSubjectIdentifier))
+                        return (userIdByEmail.Value, false);
+
+                    var canAttach = await CanAttachGoogleSubjectIdAsync(userIdByEmail.Value,
+                        googleUserInfo.GoogleSubjectIdentifier);
+                    if (!canAttach)
+                        return (0, false);
+
+                    await TryAttachGoogleSubjectIdAsync(userIdByEmail.Value, googleUserInfo.GoogleSubjectIdentifier);
+
                     return (userIdByEmail.Value, false);
-                
-                var canAttach = await CanAttachGoogleSubjectIdAsync(userIdByEmail.Value, entityType, googleUserInfo.GoogleSubjectIdentifier);
-                if (!canAttach)
-                    return (0, false);
-
-                await TryAttachGoogleSubjectIdAsync(userIdByEmail.Value, googleUserInfo.GoogleSubjectIdentifier, entityType);
-
-                return (userIdByEmail.Value, false);
+                }
             }
 
-            var createdUserId = await CreateUserAsync(accountId, googleUserInfo, entityType);
+            if (!easyObjectSettings.GetRule(entityType, "Create").GetAllowed()) return (0, false);
+            
+            var createdUserId = await CreateUserAsync(accountId, googleUserInfo);
             return (createdUserId, true);
         }
         
@@ -193,12 +222,10 @@ namespace GeeksCoreLibrary.Modules.GoogleAuth.Services
         /// </summary>
         /// <param name="accountId">The parent account ID.</param>
         /// <param name="emailAddress">The email address to search for.</param>
-        /// <param name="entityType">The entity type (e.g. WiserUser or Customer).</param>
         /// <returns>
         /// The user ID if found; otherwise null.
         /// </returns>
-        private async Task<ulong?> FindUserIdByEmailAsync(ulong accountId, string emailAddress,
-            string entityType = "WiserUser")
+        private async Task<ulong?> FindUserIdByEmailAsync(ulong accountId, string emailAddress)
         {
             databaseConnection.ClearParameters();
             databaseConnection.AddParameter("accountId", accountId);
@@ -208,7 +235,7 @@ namespace GeeksCoreLibrary.Modules.GoogleAuth.Services
 
             switch (entityType)
             {
-                case GoogleAuthEntityTypes.WiserUser:
+                case "WiserUser":
                     table = await databaseConnection.GetAsync(@$"
                 SELECT c.id
                 FROM wiser_item c
@@ -221,7 +248,7 @@ namespace GeeksCoreLibrary.Modules.GoogleAuth.Services
                 LIMIT 1",
                         skipCache: true);
                     break;
-                case GoogleAuthEntityTypes.Customer:
+                case "Customer":
                     table = await databaseConnection.GetAsync(@$"
                 SELECT c.id
                 FROM Customer_wiser_item c
@@ -244,14 +271,12 @@ namespace GeeksCoreLibrary.Modules.GoogleAuth.Services
         /// </summary>
         /// <param name="accountId">The parent account ID.</param>
         /// <param name="googleSubjectIdentifier">The Google subject ID to search for.</param>
-        /// <param name="entityType">The entity type (e.g. WiserUser or Customer).</param>
         /// <returns>
         /// The user ID if found; otherwise null.
         /// </returns>
         private async Task<ulong?> FindUserIdByGoogleSubjectIdAsync(
             ulong accountId,
-            string googleSubjectIdentifier,
-            string entityType)
+            string googleSubjectIdentifier)
         {
             databaseConnection.ClearParameters();
             databaseConnection.AddParameter("googleSubjectIdentifier", googleSubjectIdentifier);
@@ -261,7 +286,7 @@ namespace GeeksCoreLibrary.Modules.GoogleAuth.Services
 
             switch (entityType)
             {
-                case GoogleAuthEntityTypes.WiserUser:
+                case "WiserUser":
                     table = await databaseConnection.GetAsync(@"
                 SELECT c.id
                 FROM wiser_item c
@@ -275,7 +300,7 @@ namespace GeeksCoreLibrary.Modules.GoogleAuth.Services
                         skipCache: true);
                     break;
 
-                case GoogleAuthEntityTypes.Customer:
+                case "Customer":
                     table = await databaseConnection.GetAsync(@"
                 SELECT c.id
                 FROM Customer_wiser_item c
@@ -300,9 +325,7 @@ namespace GeeksCoreLibrary.Modules.GoogleAuth.Services
         /// </summary>
         /// <param name="userId">The ID of the user to update.</param>
         /// <param name="googleSubjectIdentifier">The Google subject ID to store.</param>
-        /// <param name="entityType">The entity type (e.g. WiserUser or Customer).</param>
-        private async Task TryAttachGoogleSubjectIdAsync(ulong userId, string googleSubjectIdentifier,
-            string entityType = "WiserUser")
+        private async Task TryAttachGoogleSubjectIdAsync(ulong userId, string googleSubjectIdentifier)
         {
             var user = new WiserItemModel { Id = userId, EntityType = entityType };
             user.SetDetail("google_subject_id", googleSubjectIdentifier);
@@ -320,12 +343,11 @@ namespace GeeksCoreLibrary.Modules.GoogleAuth.Services
         /// to the specified user without causing a mismatch.
         /// </summary>
         /// <param name="userId">The ID of the user to check.</param>
-        /// <param name="entityType">The entity type (e.g. WiserUser or Customer).</param>
         /// <param name="newGoogleSubjectIdentifier">The Google subject ID to attach.</param>
         /// <returns>
         /// True if no subject ID exists or if it matches the existing one; otherwise false.
         /// </returns>
-        private async Task<bool> CanAttachGoogleSubjectIdAsync(ulong userId, string entityType, string newGoogleSubjectIdentifier)
+        private async Task<bool> CanAttachGoogleSubjectIdAsync(ulong userId, string newGoogleSubjectIdentifier)
         {
             databaseConnection.ClearParameters();
             databaseConnection.AddParameter("userId", userId);
@@ -334,7 +356,7 @@ namespace GeeksCoreLibrary.Modules.GoogleAuth.Services
             
             switch (entityType)
             {
-                case GoogleAuthEntityTypes.WiserUser:
+                case "WiserUser":
                     table = await databaseConnection.GetAsync(@"
                 SELECT d.`value`
         FROM wiser_itemdetail d
@@ -344,7 +366,7 @@ namespace GeeksCoreLibrary.Modules.GoogleAuth.Services
                         skipCache: true);
                     break;
 
-                case GoogleAuthEntityTypes.Customer:
+                case "Customer":
                     table = await databaseConnection.GetAsync(@"
                 SELECT d.`value`
         FROM Customer_wiser_itemdetail d
@@ -371,12 +393,8 @@ namespace GeeksCoreLibrary.Modules.GoogleAuth.Services
         /// </summary>
         /// <param name="accountId">The parent account ID.</param>
         /// <param name="googleUserInfo">The extracted Google user information.</param>
-        /// <param name="entityType">
-        /// The entity type to create (e.g. WiserUser or Customer).
-        /// </param>
         /// <returns>The ID of the newly created user.</returns>
-        private async Task<ulong> CreateUserAsync(ulong accountId, GoogleUserInfo googleUserInfo,
-            string entityType = "WiserUser")
+        private async Task<ulong> CreateUserAsync(ulong accountId, GoogleUserInfo googleUserInfo)
         {
             var user = new WiserItemModel { EntityType = entityType };
 
@@ -386,12 +404,12 @@ namespace GeeksCoreLibrary.Modules.GoogleAuth.Services
 
             switch (entityType)
             {
-                case GoogleAuthEntityTypes.WiserUser:
+                case "WiserUser":
                     if (!string.IsNullOrEmpty(fullName))
                         user.Title = fullName;
                     break;
 
-                case GoogleAuthEntityTypes.Customer:
+                case "Customer":
                     if (!string.IsNullOrEmpty(firstName))
                         user.SetDetail("first_name", firstName);
 

@@ -4,7 +4,7 @@ using GeeksCoreLibrary.Core.Helpers;
 using GeeksCoreLibrary.Modules.Databases.Interfaces;
 using GeeksCoreLibrary.Modules.GoogleAuth.Interfaces;
 using GeeksCoreLibrary.Modules.GoogleAuth.Models;
-using JetBrains.Annotations;
+using GeeksCoreLibrary.Modules.Objects.Interfaces;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.Google;
@@ -18,37 +18,35 @@ namespace GeeksCoreLibrary.Modules.GoogleAuth.Controllers
     {
         private readonly IGoogleAuthService googleAuthService;
         private readonly IDatabaseConnection databaseConnection;
+        private readonly IObjectsService objectsService;
 
         public GoogleAuthController(
             IGoogleAuthService googleAuthService,
-            IDatabaseConnection databaseConnection)
+            IDatabaseConnection databaseConnection,
+            IObjectsService objectsService)
         {
             this.databaseConnection = databaseConnection;
             this.googleAuthService = googleAuthService;
+            this.objectsService = objectsService;
         }
         
         [HttpGet("/google-login.gcl")]
-        public IActionResult SignInWithGoogle(
-            [FromQuery] string returnUrl = "/",
-            [FromQuery] string loginUrl = "/account.html",
-            [FromQuery] bool doRedirect = true,
-            [FromQuery] string entityType = "WiserUser",
+        public async Task<IActionResult> SignInWithGoogle(
+            [FromQuery] string entityType = "",
             [FromQuery] ulong accountId = 0)
         {
-            returnUrl = NormalizeLocalPath(returnUrl, "/");
-            loginUrl = NormalizeLocalPath(loginUrl, "/account.html");
+            var configurationText = await objectsService.FindSystemObjectByDomainNameAsync("SSO_setup");
+            var parsed = GoogleEasyObjectsSettingsParser.Parse(configurationText);
+
+            if (!parsed.GetRule(entityType, "Login").GetAllowed() && !parsed.GetRule(entityType, "Create").GetAllowed())
+                return Redirect($"{Request.Headers.Referer}?status=no_actions_allowed");
             
-            if (!GoogleAuthEntityTypes.IsAllowed(entityType))
-                BadRequest(new { status = "invalid_entity_type" });
-            
-            if (string.IsNullOrWhiteSpace(returnUrl))
-                returnUrl = "/";
 
             // This is where Google will redirect back to after login.
             var callbackUrl = Url.ActionLink(
                 action: nameof(GoogleCallback),
                 controller: "GoogleAuth",
-                values: new { returnUrl, loginUrl, doRedirect, entityType, accountId })!;
+                values: new { entityType, accountId })!;
 
             var authenticationProperties = new AuthenticationProperties
             {
@@ -60,17 +58,24 @@ namespace GeeksCoreLibrary.Modules.GoogleAuth.Controllers
         
         [HttpGet("/google-callback.gcl")]
         public async Task<IActionResult> GoogleCallback(
-            [FromQuery] string returnUrl = "/",
-            [FromQuery] string loginUrl = "/account.html",
-            [FromQuery] bool doRedirect = true,
-            [FromQuery] string entityType = "WiserUser",
+            [FromQuery] string entityType = "",
             [FromQuery] ulong accountId = 0)
         {
-            returnUrl = NormalizeLocalPath(returnUrl, "/");
-            loginUrl = NormalizeLocalPath(loginUrl, "/account.html");
+            var configurationText = await objectsService.FindSystemObjectByDomainNameAsync("SSO_setup");
+            var parsed = GoogleEasyObjectsSettingsParser.Parse(configurationText);
+            
+            var loginUrl = parsed.GetRule(entityType, "Login").GetLoginUrl();
 
-            if (!GoogleAuthEntityTypes.IsAllowed(entityType))
-                BadRequest(new { status = "invalid_entity_type" });
+            if (!parsed.GetRule(entityType, "Login").GetAllowed() && !parsed.GetRule(entityType, "Create").GetAllowed())
+                return Redirect($"{Request.Headers.Referer}?status=no_actions_allowed");
+                    
+            if (!parsed.AllowAccountIdOverride)
+                accountId = 0;
+            
+            if(accountId == 0 && parsed.AccountIdMandatory)
+                accountId = await ResolveAccountIdAsync();
+            
+            var doRedirect = parsed.GetRule(entityType, "Login").GetDoRedirect();
             
             var authenticateResult =
                 await HttpContext.AuthenticateAsync(CookieAuthenticationDefaults.AuthenticationScheme);
@@ -81,12 +86,9 @@ namespace GeeksCoreLibrary.Modules.GoogleAuth.Controllers
                     ? Redirect($"{loginUrl}?status=google_failed")
                     : Unauthorized(new { status = "google_failed" });
             }
-            
-            if(accountId == 0)
-                accountId = await ResolveAccountIdAsync();
 
             var result =
-                await googleAuthService.HandleGoogleCallbackAsync(authenticateResult.Principal, accountId, entityType);
+                await googleAuthService.HandleGoogleCallbackAsync(authenticateResult.Principal, parsed, entityType, accountId);
 
             if (!result.IsSuccess)
             {
@@ -95,27 +97,33 @@ namespace GeeksCoreLibrary.Modules.GoogleAuth.Controllers
                     : BadRequest(new { status = result.FailureStatus });
             }
 
+            var action = result.IsNewUser ? "Create" : "Login";
+
+            var cookieExpire = parsed.GetRule(entityType, action).GetCookieExpireTime();
+            var returnUrl = parsed.GetRule(entityType, action).GetReturnUrl();
+
             // Write http cookie
             HttpContextHelpers.WriteCookie(
                 HttpContext,
                 "gcl_user_cookie",
                 result.CookieValue!,
-                DateTimeOffset.Now.AddDays(60),
+                DateTimeOffset.Now.AddDays(cookieExpire),
                 httpOnly: true,
                 isEssential: true,
                 secure: true
                 );
 
-            if (doRedirect)
-                return Redirect(returnUrl);
-
-            return Ok(new
-            {
-                status = "ok",
-                accountId = result.AccountId,
-                customerId = result.UserId,
-                isNewUser = result.IsNewUser
-            });
+            if (!doRedirect)
+                return Ok(new
+                {
+                    status = "ok",
+                    accountId = result.AccountId,
+                    customerId = result.UserId,
+                    isNewUser = result.IsNewUser
+                });
+            
+            var callBackUrl = parsed.GetRule(entityType, action).GetCallbackUrl();
+            return Redirect(callBackUrl ?? returnUrl);
         }
 
         private async Task<ulong> ResolveAccountIdAsync()
@@ -126,19 +134,6 @@ namespace GeeksCoreLibrary.Modules.GoogleAuth.Controllers
                 skipCache: true);
 
             return Convert.ToUInt64(accountTable.Rows[0][0]);
-        }
-        
-        private static string NormalizeLocalPath([CanBeNull] string value, string fallback)
-        {
-            if (string.IsNullOrWhiteSpace(value) || !value.StartsWith("/", StringComparison.Ordinal))
-                return fallback;
-
-            // block scheme-relative URLs and backslashes
-            if (value.StartsWith("//", StringComparison.Ordinal) || value.Contains('\\'))
-                return fallback;
-
-            // block absolute URLs
-            return value.Contains("://", StringComparison.Ordinal) ? fallback : value;
         }
     }
 }

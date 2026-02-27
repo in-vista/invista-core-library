@@ -16,13 +16,4 @@ namespace GeeksCoreLibrary.Modules.GoogleAuth.Models
         ulong UserId,
         bool IsNewUser,
         [CanBeNull] string CookieValue);
-    
-    public static class GoogleAuthEntityTypes
-    {
-        public const string WiserUser = "WiserUser";
-        public const string Customer = "Customer";
-
-        public static bool IsAllowed(string entityType) =>
-            entityType is WiserUser or Customer;
-    }
 }
