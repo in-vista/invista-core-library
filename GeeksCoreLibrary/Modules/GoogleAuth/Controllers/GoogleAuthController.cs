@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Linq;
 using System.Threading.Tasks;
 using GeeksCoreLibrary.Core.Helpers;
 using GeeksCoreLibrary.Modules.Databases.Interfaces;
@@ -29,6 +30,8 @@ namespace GeeksCoreLibrary.Modules.GoogleAuth.Controllers
             this.googleAuthService = googleAuthService;
             this.objectsService = objectsService;
         }
+
+        private string originalUrl = "/";
         
         [HttpGet("/google-login.gcl")]
         public async Task<IActionResult> SignInWithGoogle(
@@ -37,10 +40,14 @@ namespace GeeksCoreLibrary.Modules.GoogleAuth.Controllers
         {
             var configurationText = await objectsService.FindSystemObjectByDomainNameAsync("SSO_setup");
             var parsed = GoogleEasyObjectsSettingsParser.Parse(configurationText);
-
-            if (!parsed.GetRule(entityType, "Login").GetAllowed() && !parsed.GetRule(entityType, "Create").GetAllowed())
-                return Redirect($"{Request.Headers.Referer}?status=no_actions_allowed");
             
+            originalUrl =  Request.Headers.Referer.ToString().Split("?")[0];
+            
+            if(parsed.EntityTypeRulesByKey.Values.All(value => value.EntityType != entityType))
+                return Redirect($"{originalUrl}?status=invalid_entity_type");
+            
+            if (!parsed.GetRule(entityType, "Login").GetAllowed() && !parsed.GetRule(entityType, "Create").GetAllowed())
+                return Redirect($"{originalUrl}?status=no_actions_allowed");
 
             // This is where Google will redirect back to after login.
             var callbackUrl = Url.ActionLink(
@@ -64,11 +71,20 @@ namespace GeeksCoreLibrary.Modules.GoogleAuth.Controllers
             var configurationText = await objectsService.FindSystemObjectByDomainNameAsync("SSO_setup");
             var parsed = GoogleEasyObjectsSettingsParser.Parse(configurationText);
             
-            var loginUrl = parsed.GetRule(entityType, "Login").GetLoginUrl();
-
-            if (!parsed.GetRule(entityType, "Login").GetAllowed() && !parsed.GetRule(entityType, "Create").GetAllowed())
-                return Redirect($"{Request.Headers.Referer}?status=no_actions_allowed");
-                    
+            if(parsed.EntityTypeRulesByKey.Values.All(value => value.EntityType != entityType))
+                return Redirect($"{originalUrl}?status=invalid_entity_type");
+            
+            var loginAllowed = parsed.GetRule(entityType, "Login").GetAllowed();
+            var creationAllowed = parsed.GetRule(entityType, "Create").GetAllowed();
+            
+            if (!loginAllowed && !creationAllowed)
+                return Redirect($"{originalUrl}?status=no_actions_allowed");
+            
+            var baseAction = loginAllowed ? "Login" : "Create";
+            
+            var loginUrl = parsed.GetRule(entityType, baseAction).GetLoginUrl();
+            var callBackUrl = parsed.GetRule(entityType, baseAction).GetCallbackUrl();
+            
             if (!parsed.AllowAccountIdOverride)
                 accountId = 0;
             
@@ -83,7 +99,7 @@ namespace GeeksCoreLibrary.Modules.GoogleAuth.Controllers
             if (!authenticateResult.Succeeded || authenticateResult.Principal == null)
             {
                 return doRedirect
-                    ? Redirect($"{loginUrl}?status=google_failed")
+                    ? Redirect($"{originalUrl}?status=google_failed")
                     : Unauthorized(new { status = "google_failed" });
             }
 
@@ -93,7 +109,7 @@ namespace GeeksCoreLibrary.Modules.GoogleAuth.Controllers
             if (!result.IsSuccess)
             {
                 return doRedirect
-                    ? Redirect($"{loginUrl}?status={result.FailureStatus}")
+                    ? Redirect($"{callBackUrl ?? loginUrl}?status={result.FailureStatus}")
                     : BadRequest(new { status = result.FailureStatus });
             }
 
@@ -122,7 +138,7 @@ namespace GeeksCoreLibrary.Modules.GoogleAuth.Controllers
                     isNewUser = result.IsNewUser
                 });
             
-            var callBackUrl = parsed.GetRule(entityType, action).GetCallbackUrl();
+            
             return Redirect(callBackUrl ?? returnUrl);
         }
 
