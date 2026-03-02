@@ -99,6 +99,64 @@ public class WiserTableDefinitions
                 new(WiserTableNames.WiserItemLinkDetail, "itemlink_id_group", IndexTypes.Normal, new List<string> {"itemlink_id", "groupname", "key(40)"})
             }
         },
+        
+        // Agendering_wiser_item
+        new WiserTableDefinitionModel
+        {
+            Name = WiserTableNames.AgendaWiserItem,
+            LastUpdate = new DateTime(2026, 1, 22),
+            Columns = new List<ColumnSettingsModel>
+            {
+                new("id", MySqlDbType.UInt64, notNull: true, isPrimaryKey: true, autoIncrement: true),
+                new("original_item_id", MySqlDbType.UInt64, notNull: true, defaultValue: "0"),
+                new("unique_uuid", MySqlDbType.VarChar, 200, notNull: true, defaultValue: ""),
+                new("parent_item_id", MySqlDbType.UInt64, notNull: true, defaultValue: "0"),
+                new("ordering", MySqlDbType.Int24, notNull: true, defaultValue: "0"),
+                new("entity_type", MySqlDbType.VarChar, 100, notNull: true, defaultValue: "agendering"),
+                new("moduleid", MySqlDbType.Int32, 11, notNull: true, defaultValue: "0"),
+                new("published_environment", MySqlDbType.Int24, notNull: true, defaultValue: "15"),
+                new("readonly", MySqlDbType.Int16, notNull: true, defaultValue: "0"),
+                new("title", MySqlDbType.VarChar, 255, notNull: true, defaultValue: ""),
+                new("added_on", MySqlDbType.DateTime, notNull: true, defaultValue: "CURRENT_TIMESTAMP"),
+                new("added_by", MySqlDbType.VarChar, 255, notNull: true, defaultValue: ""),
+                new("changed_on", MySqlDbType.DateTime, notNull: true, updateTimeStampOnChange: true),
+                new("changed_by", MySqlDbType.VarChar, 255, notNull: true, defaultValue: ""),
+                new("json", MySqlDbType.JSON),
+                new("json_last_processed_date", MySqlDbType.DateTime)
+            },
+            Indexes = new List<IndexSettingsModel>
+            {
+                new(WiserTableNames.AgendaWiserItem, "idx_module_env", IndexTypes.Normal, new List<string> {"moduleid", "published_environment"}),
+                new(WiserTableNames.AgendaWiserItem, "idx_entity", IndexTypes.Normal, new List<string> {"entity_type", "unique_uuid"}),
+                new(WiserTableNames.AgendaWiserItem, "idx_unique_uuid", IndexTypes.Normal, new List<string> {"unique_uuid"}),
+                new(WiserTableNames.AgendaWiserItem, "idx_original_item_id", IndexTypes.Normal, new List<string> {"original_item_id"}),
+                new(WiserTableNames.AgendaWiserItem, "idx_parent", IndexTypes.Normal, new List<string> {"parent_item_id", "entity_type"})
+            }
+        },
+        
+        // agendering_wiser_itemdetail
+        new WiserTableDefinitionModel
+        {
+            Name = WiserTableNames.AgendaWiserItemDetail,
+            LastUpdate = new DateTime(2026, 1, 22),
+            Columns = new List<ColumnSettingsModel>
+            {
+                new("id", MySqlDbType.UInt64, notNull: true, isPrimaryKey: true, autoIncrement: true),
+                new("language_code", MySqlDbType.VarChar, 5, notNull: true, defaultValue: ""),
+                new("item_id", MySqlDbType.UInt64, notNull: true, defaultValue: "0"),
+                new("groupname", MySqlDbType.VarChar, 100, notNull: true, defaultValue: ""),
+                new("key", MySqlDbType.VarChar, 100, notNull: true, defaultValue: ""),
+                new("value", MySqlDbType.VarChar, 1000, notNull: true, defaultValue: ""),
+                new("long_value", MySqlDbType.MediumText)
+            },
+            Indexes = new List<IndexSettingsModel>
+            {
+                new(WiserTableNames.AgendaWiserItemDetail, "item_key", IndexTypes.Unique, new List<string> {"item_id", "key", "language_code"}),
+                new(WiserTableNames.AgendaWiserItemDetail, "key_value", IndexTypes.Normal, new List<string> {"key(50)", "value(100)"}),
+                new(WiserTableNames.AgendaWiserItemDetail, "item_id_key_value", IndexTypes.Normal, new List<string> {"item_id", "key(40)", "value(40)"}),
+                new(WiserTableNames.AgendaWiserItemDetail, "item_id_group", IndexTypes.Normal, new List<string> {"item_id", "groupname", "key(40)"})
+            }
+        },
 
         // wiser_grant_store
         new WiserTableDefinitionModel
