@@ -191,7 +191,10 @@ namespace GeeksCoreLibrary.Modules.Databases.Services
                 // Also, if we've reached the maximum number of retries, don't retry anymore.
                 if (HasActiveTransaction() || retryCount >= gclSettings.MaximumRetryCountForQueries || !MySqlHelpers.IsErrorToRetry(mySqlException))
                 {
-                    logger.LogError(mySqlException, $"Error trying to run this query: {query}", query);
+                    string safeLogMessage = query
+                        .Replace("{", "{{")
+                        .Replace("}", "}}");
+                    logger.LogError(mySqlException, $"Error trying to run this query: {safeLogMessage}", query);
                     throw new GclQueryException("Error trying to run query", query, mySqlException);
                 }
 
