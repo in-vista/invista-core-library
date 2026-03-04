@@ -32,7 +32,7 @@ namespace GeeksCoreLibrary.Modules.ItemFiles.Controllers
             [FromQuery] ResizeModes resizeMode = ResizeModes.Normal,
             [FromQuery] AnchorPositions anchorPosition = AnchorPositions.Center, [FromQuery] int fileNumber = 0,
             [FromQuery] string fileType = null, [FromQuery] string type = null,
-            [FromQuery] string encryptedId = null, [FromQuery] string tablePrefix = null)
+            [FromQuery] string encryptedId = null, [FromQuery] string tablePrefix = null, [FromQuery] string connectionString = null)
         {
             if ((itemId == 0 && String.IsNullOrEmpty(encryptedId)) || String.IsNullOrWhiteSpace(propertyName))
             {
@@ -53,16 +53,16 @@ namespace GeeksCoreLibrary.Modules.ItemFiles.Controllers
             {
                 case "ITEMLINK":
                     Int32.TryParse(type, out var linkType);
-                    (fileBytes, lastModified) = await itemFilesService.GetWiserItemLinkImageAsync(itemId, propertyName, preferredWidth, preferredHeight, fileName, fileNumber, resizeMode, anchorPosition, encryptedId, linkType);
+                    (fileBytes, lastModified) = await itemFilesService.GetWiserItemLinkImageAsync(itemId, propertyName, preferredWidth, preferredHeight, fileName, fileNumber, resizeMode, anchorPosition, encryptedId, linkType, connectionString);
                     break;
                 case "DIRECT":
-                    (fileBytes, lastModified) = await itemFilesService.GetWiserDirectImageAsync(itemId, preferredWidth, preferredHeight, fileName, resizeMode, anchorPosition, encryptedId, type, tablePrefix);
+                    (fileBytes, lastModified) = await itemFilesService.GetWiserDirectImageAsync(itemId, preferredWidth, preferredHeight, fileName, resizeMode, anchorPosition, encryptedId, type, tablePrefix, connectionString);
                     break;
                 case "NAME":
-                    (fileBytes, lastModified) = await itemFilesService.GetWiserImageByFileNameAsync(itemId, propertyName, preferredWidth, preferredHeight, fileName, resizeMode, anchorPosition, encryptedId, entityType: type);
+                    (fileBytes, lastModified) = await itemFilesService.GetWiserImageByFileNameAsync(itemId, propertyName, preferredWidth, preferredHeight, fileName, resizeMode, anchorPosition, encryptedId, entityType: type, connectionString);
                     break;
                 default:
-                    (fileBytes, lastModified) = await itemFilesService.GetWiserItemImageAsync(itemId, propertyName, preferredWidth, preferredHeight, fileName, fileNumber, resizeMode, anchorPosition, encryptedId, type, tablePrefix);
+                    (fileBytes, lastModified) = await itemFilesService.GetWiserItemImageAsync(itemId, propertyName, preferredWidth, preferredHeight, fileName, fileNumber, resizeMode, anchorPosition, encryptedId, type, tablePrefix, connectionString);
                     break;
             }
 
@@ -80,7 +80,7 @@ namespace GeeksCoreLibrary.Modules.ItemFiles.Controllers
         [HttpGet]
         public async Task<IActionResult> WiserItemFile([FromQuery] ulong itemId, [FromQuery] string propertyName,
             [FromQuery] string filename, [FromQuery] int fileNumber = 1, [FromQuery] string encryptedId = null,
-            [FromQuery] string type = null, [FromQuery] string fileType = null)
+            [FromQuery] string type = null, [FromQuery] string fileType = null, [FromQuery] string connectionString = null)
         {
             if ((itemId == 0 && String.IsNullOrEmpty(encryptedId)) || String.IsNullOrWhiteSpace(propertyName))
             {

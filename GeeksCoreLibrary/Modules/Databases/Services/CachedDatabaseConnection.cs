@@ -240,6 +240,12 @@ namespace GeeksCoreLibrary.Modules.Databases.Services
             await databaseConnection.ChangeConnectionStringsAsync(newConnectionStringForReading, newConnectionStringForWriting, sshSettingsForReading, sshSettingsForWriting);
         }
 
+        /// <inheritdoc/>
+        public async Task ChangeConnectionStringsInContextAsync(Func<Task> context, string newConnectionStringForReading, string newConnectionStringForWriting = null, SshSettings sshSettingsForReading = null, SshSettings sshSettingsForWriting = null)
+        {
+            await databaseConnection.ChangeConnectionStringsInContextAsync(context, newConnectionStringForReading, newConnectionStringForWriting, sshSettingsForReading, sshSettingsForWriting);
+        }
+
         /// <inheritdoc />
         public void SetCommandTimeout(int value)
         {
