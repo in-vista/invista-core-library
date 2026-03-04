@@ -219,6 +219,8 @@ namespace GeeksCoreLibrary.Core.Models
         /// This table is used by the RequestLoggingMiddleware to log all incoming requests, if enabled.
         /// </summary>
         public const string GclRequestLog = "gcl_request_log";
+
+        public const string WiserActionButtonLog = "wiser_action_button_log";
         /// <summary>
         /// All deleted items will be moved to archive tables, this is the suffix for those archive tables.
         /// </summary>
