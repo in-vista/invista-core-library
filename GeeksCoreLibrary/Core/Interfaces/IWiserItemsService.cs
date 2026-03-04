@@ -192,8 +192,9 @@ namespace GeeksCoreLibrary.Core.Interfaces
         /// <param name="entityType">Optional: The entity type of the item that you're (un)deleting. This is needed for entities that have a dedicated table and to check how the item should be deleted (delete permanently or move to archive for example).</param>
         /// <param name="createNewTransaction">Optional: Set to false if you don't want this function to try and create a new database transaction. Be warned that this will then also not rollback any changes if an error occurred. It's recommended to only set this to false if you already created a transaction in your code, before calling this function. Default value is true.</param>
         /// <param name="skipPermissionsCheck">Optional: Whether to skip the check for permissions. Only do this for things that should always be possible by anyone, such as creating a basket.</param>
+        /// <param name="isNew">Optional: Indication whether the item is considered new. If so, the default delete behaviour will be performed.</param>
         /// <returns>The amount of affected rows.</returns>
-        Task<DeletedItemResult> DeleteAsync(ulong itemId, bool undelete = false, string username = "GCL", ulong userId = 0, bool saveHistory = true, string entityType = null, bool createNewTransaction = true, bool skipPermissionsCheck = false);
+        Task<DeletedItemResult> DeleteAsync(ulong itemId, bool undelete = false, string username = "GCL", ulong userId = 0, bool saveHistory = true, string entityType = null, bool createNewTransaction = true, bool skipPermissionsCheck = false, bool isNew = false);
 
         /// <summary>
         /// Deletes or un-deletes an item.
@@ -207,8 +208,9 @@ namespace GeeksCoreLibrary.Core.Interfaces
         /// <param name="entityType">Optional: The entity type of the item that you're (un)deleting. This is needed for entities that have a dedicated table and to check how the item should be deleted (delete permanently or move to archive for example).</param>
         /// <param name="createNewTransaction">Optional: Set to false if you don't want this function to try and create a new database transaction. Be warned that this will then also not rollback any changes if an error occurred. It's recommended to only set this to false if you already created a transaction in your code, before calling this function. Default value is true.</param>
         /// <param name="skipPermissionsCheck">Optional: Whether to skip the check for permissions. Only do this for things that should always be possible by anyone, such as creating a basket.</param>
+        /// <param name="isNew">Optional: Indication whether the item is considered new. If so, the default delete behaviour will be performed.</param>
         /// <returns>The amount of affected rows.</returns>
-        Task<DeletedItemResult> DeleteAsync(IWiserItemsService wiserItemsService, ulong itemId, bool undelete = false, string username = "GCL", ulong userId = 0, bool saveHistory = true, string entityType = null, bool createNewTransaction = true, bool skipPermissionsCheck = false);
+        Task<DeletedItemResult> DeleteAsync(IWiserItemsService wiserItemsService, ulong itemId, bool undelete = false, string username = "GCL", ulong userId = 0, bool saveHistory = true, string entityType = null, bool createNewTransaction = true, bool skipPermissionsCheck = false, bool isNew = false);
 
         /// <summary>
         /// Deletes or un-deletes items.
@@ -223,8 +225,9 @@ namespace GeeksCoreLibrary.Core.Interfaces
         /// <param name="entityType">Optional: The entity type of the item that you're (un)deleting. This is needed for entities that have a dedicated table and to check how the item should be deleted (delete permanently or move to archive for example).</param>
         /// <param name="createNewTransaction">Optional: Set to false if you don't want this function to try and create a new database transaction. Be warned that this will then also not rollback any changes if an error occurred. It's recommended to only set this to false if you already created a transaction in your code, before calling this function. Default value is true.</param>
         /// <param name="skipPermissionsCheck">Optional: Whether to skip the check for permissions. Only do this for things that should always be possible by anyone, such as creating a basket.</param>
+        /// <param name="isNew">Optional: Indication whether the item is considered new. If so, the default delete behaviour will be performed.</param>
         /// <returns>The amount of affected rows.</returns>
-        Task<DeletedItemResult> DeleteAsync(List<ulong> itemIds, bool undelete = false, string username = "GCL", ulong userId = 0, bool saveHistory = true, string entityType = null, bool createNewTransaction = true, bool skipPermissionsCheck = false);
+        Task<DeletedItemResult> DeleteAsync(List<ulong> itemIds, bool undelete = false, string username = "GCL", ulong userId = 0, bool saveHistory = true, string entityType = null, bool createNewTransaction = true, bool skipPermissionsCheck = false, bool isNew = false);
 
         /// <summary>
         /// Deletes or un-deletes items.
@@ -240,8 +243,9 @@ namespace GeeksCoreLibrary.Core.Interfaces
         /// <param name="entityType">Optional: The entity type of the item that you're (un)deleting. This is needed for entities that have a dedicated table and to check how the item should be deleted (delete permanently or move to archive for example).</param>
         /// <param name="createNewTransaction">Optional: Set to false if you don't want this function to try and create a new database transaction. Be warned that this will then also not rollback any changes if an error occurred. It's recommended to only set this to false if you already created a transaction in your code, before calling this function. Default value is true.</param>
         /// <param name="skipPermissionsCheck">Optional: Whether to skip the check for permissions. Only do this for things that should always be possible by anyone, such as creating a basket.</param>
+        /// <param name="isNew">Optional: Indication whether the item is considered new. If so, the default delete behaviour will be performed.</param>
         /// <returns>The amount of affected rows.</returns>
-        Task<DeletedItemResult> DeleteAsync(IWiserItemsService wiserItemsService, List<ulong> itemIds, bool undelete = false, string username = "GCL", ulong userId = 0, bool saveHistory = true, string entityType = null, bool createNewTransaction = true, bool skipPermissionsCheck = false);
+        Task<DeletedItemResult> DeleteAsync(IWiserItemsService wiserItemsService, List<ulong> itemIds, bool undelete = false, string username = "GCL", ulong userId = 0, bool saveHistory = true, string entityType = null, bool createNewTransaction = true, bool skipPermissionsCheck = false, bool isNew = false);
 
         /// <summary>
         /// Executes the workflow of an item after it has been created or updated.
