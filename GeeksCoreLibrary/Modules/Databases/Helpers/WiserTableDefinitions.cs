@@ -75,6 +75,22 @@ public class WiserTableDefinitions
                 new(WiserTableNames.WiserItemDetail, "item_id_group", IndexTypes.Normal, new List<string> {"item_id", "groupname", "key(40)"})
             }
         },
+        
+        // wiser_itemlink
+        new WiserTableDefinitionModel()
+        {
+            Name = WiserTableNames.WiserItemLink,
+            LastUpdate = new DateTime(2026, 3, 9),
+            Columns = new List<ColumnSettingsModel>
+            {
+                new("id", MySqlDbType.Int64, notNull: true, isPrimaryKey: true, autoIncrement: true),
+                new("item_id", MySqlDbType.Int64, notNull: true, defaultValue: "0"),
+                new("destination_item_id", MySqlDbType.Int64, notNull: true, defaultValue: "0"),
+                new("ordering", MySqlDbType.Int32, notNull: true, defaultValue: "1"),
+                new("type", MySqlDbType.Int32, notNull: true, defaultValue: "1"),
+                new("added_on", MySqlDbType.DateTime, notNull: true, defaultValue: "CURRENT_TIMESTAMP")
+            }
+        },
 
         // wiser_itemlinkdetail
         new WiserTableDefinitionModel
