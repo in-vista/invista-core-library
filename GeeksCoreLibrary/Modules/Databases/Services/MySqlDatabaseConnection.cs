@@ -675,7 +675,8 @@ namespace GeeksCoreLibrary.Modules.Databases.Services
             if (ConnectionForReading != null)
             {
                 await AddConnectionCloseLogAsync(false);
-                await ConnectionForReading.DisposeAsync();
+                if (transaction == null)
+                    await ConnectionForReading.DisposeAsync();
             }
 
             if (SshClientForReading != null)
@@ -693,7 +694,8 @@ namespace GeeksCoreLibrary.Modules.Databases.Services
             if (ConnectionForWriting != null)
             {
                 await AddConnectionCloseLogAsync(true);
-                await ConnectionForWriting.DisposeAsync();
+                if (transaction == null)
+                    await ConnectionForWriting.DisposeAsync();
             }
 
             if (SshClientForWriting != null)
