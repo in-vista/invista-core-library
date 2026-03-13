@@ -511,9 +511,10 @@ public class ReplacementsMediator : IReplacementsMediator, IScopedService
             // No check is performed to see if the formatters are valid, as that would slow things down too much.
             if (fieldName.Contains(':') && !fieldName.Trim().EndsWith(':'))
             {
-                var lastColonIndex = fieldName.LastIndexOf(":", StringComparison.Ordinal);
-                variableFormatters = fieldName[lastColonIndex..].TrimStart(':');
-                fieldName = fieldName[..lastColonIndex];
+                // find the next ':' after the first character
+                var firstColonIndex = fieldName.IndexOf(':', 1);
+                variableFormatters = fieldName[firstColonIndex..].TrimStart(':');
+                fieldName = fieldName[..firstColonIndex];
             }
 
             string evaluatedFieldSuffix = "_evaluated";

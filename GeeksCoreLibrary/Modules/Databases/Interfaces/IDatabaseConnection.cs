@@ -151,7 +151,18 @@ namespace GeeksCoreLibrary.Modules.Databases.Interfaces
         /// <param name="sshSettingsForWriting">Optional: If the new connection for writing requires SSH, enter the SSH details here.</param>
         /// <returns></returns>
         Task ChangeConnectionStringsAsync(string newConnectionStringForReading, string newConnectionStringForWriting = null, SshSettings sshSettingsForReading = null, SshSettings sshSettingsForWriting = null);
-
+        
+        /// <summary>
+        /// Temporarily changes the current connection string by performing code and revert back to the original connection string after.
+        /// </summary>
+        /// <param name="context">The contextual action where within the connection string is temporarily adjusted.</param>
+        /// <param name="newConnectionStringForReading"><inheritdoc cref="ChangeConnectionStringsAsync"/><p>If this is left <c>null</c>, the original connection string will be used.</p></param>
+        /// <param name="newConnectionStringForWriting"><inheritdoc cref="ChangeConnectionStringsAsync"/></param>
+        /// <param name="sshSettingsForReading"><inheritdoc cref="ChangeConnectionStringsAsync"/></param>
+        /// <param name="sshSettingsForWriting"><inheritdoc cref="ChangeConnectionStringsAsync"/></param>
+        Task ChangeConnectionStringsInContextAsync(Func<Task> context, string newConnectionStringForReading, string newConnectionStringForWriting = null,
+            SshSettings sshSettingsForReading = null, SshSettings sshSettingsForWriting = null);
+        
         /// <summary>
         /// Sets the command timeout in seconds for the connection.
         /// </summary>

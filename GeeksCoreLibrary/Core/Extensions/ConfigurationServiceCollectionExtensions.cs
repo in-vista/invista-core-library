@@ -81,11 +81,6 @@ namespace GeeksCoreLibrary.Core.Extensions
             if (env.IsDevelopment())
             {
                 builder.UseDeveloperExceptionPage();
-
-                builder.UseCors(policy => policy
-                    .AllowAnyOrigin()
-                    .AllowAnyMethod()
-                    .AllowAnyHeader());
             }
             else
             {
@@ -103,13 +98,14 @@ namespace GeeksCoreLibrary.Core.Extensions
             builder.UseMiddleware<IpAccessMiddleware>();
             builder.UseMiddleware<ClearCacheMiddleware>();
 
-            builder.UseMiddleware<RedirectMiddleWare>();
+            var configurationSection = configuration?.GetSection("GCL");
+            var gclSettings = configurationSection?.Get<GclSettings>();
+            if (!gclSettings?.DisableRedirectMiddleWare ?? true)
+                builder.UseMiddleware<RedirectMiddleWare>();
 
             builder.UseWebMarkupMin();
             builder.UseMiddleware<WiserItemFilesMiddleware>();
             
-            var configurationSection = configuration?.GetSection("GCL");
-            var gclSettings = configurationSection?.Get<GclSettings>();
             if (!gclSettings?.DisableOrderProcessMiddleWare ?? true)
                 builder.UseMiddleware<RewriteUrlToOrderProcessMiddleware>();
             
@@ -183,9 +179,13 @@ namespace GeeksCoreLibrary.Core.Extensions
                         WiserTableNames.WiserTemplateExternalFiles,
                         WiserTableNames.WiserItem,
                         WiserTableNames.WiserItemDetail,
+                        WiserTableNames.AgendaWiserItem,
+                        WiserTableNames.AgendaWiserItemDetail,
                         WiserTableNames.WiserItemFile,
                         WiserTableNames.WiserItemLink,
-                        WiserTableNames.WiserItemLinkDetail
+                        WiserTableNames.WiserItemLinkDetail,
+                        WiserTableNames.WiserModule,
+                        WiserTableNames.WiserActionButtonLog
                     };
 
                     if (gclSettings.Value.LogOpeningAndClosingOfConnections)

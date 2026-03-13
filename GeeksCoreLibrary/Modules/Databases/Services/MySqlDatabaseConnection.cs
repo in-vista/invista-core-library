@@ -191,7 +191,10 @@ namespace GeeksCoreLibrary.Modules.Databases.Services
                 // Also, if we've reached the maximum number of retries, don't retry anymore.
                 if (HasActiveTransaction() || retryCount >= gclSettings.MaximumRetryCountForQueries || !MySqlHelpers.IsErrorToRetry(mySqlException))
                 {
-                    logger.LogError(mySqlException, $"Error trying to run this query: {query}", query);
+                    string safeLogMessage = query
+                        .Replace("{", "{{")
+                        .Replace("}", "}}");
+                    logger.LogError(mySqlException, $"Error trying to run this query: {safeLogMessage}", query);
                     throw new GclQueryException("Error trying to run query", query, mySqlException);
                 }
 
@@ -672,7 +675,8 @@ namespace GeeksCoreLibrary.Modules.Databases.Services
             if (ConnectionForReading != null)
             {
                 await AddConnectionCloseLogAsync(false);
-                await ConnectionForReading.DisposeAsync();
+                if (transaction == null)
+                    await ConnectionForReading.DisposeAsync();
             }
 
             if (SshClientForReading != null)
@@ -690,7 +694,8 @@ namespace GeeksCoreLibrary.Modules.Databases.Services
             if (ConnectionForWriting != null)
             {
                 await AddConnectionCloseLogAsync(true);
-                await ConnectionForWriting.DisposeAsync();
+                if (transaction == null)
+                    await ConnectionForWriting.DisposeAsync();
             }
 
             if (SshClientForWriting != null)
@@ -707,6 +712,34 @@ namespace GeeksCoreLibrary.Modules.Databases.Services
 
             ConnectionForReading = null;
             ConnectionForWriting = null;
+        }
+        
+        /// <inheritdoc/>
+        public async Task ChangeConnectionStringsInContextAsync(Func<Task> context, string newConnectionStringForReading, string newConnectionStringForWriting = null, SshSettings sshSettingsForReading = null, SshSettings sshSettingsForWriting = null)
+        {
+            if (string.IsNullOrEmpty(newConnectionStringForReading))
+            {
+                await context();
+                return;
+            }
+            
+            // Store the currently used main connection strings.
+            string currentConnectionStringForReading = GetConnectionStringForReading();
+            string currentConnectionStringForWriting = GetConnectionStringForWriting();
+            
+            // Change the connection string.
+            await ChangeConnectionStringsAsync(newConnectionStringForReading, newConnectionStringForWriting, sshSettingsForReading, sshSettingsForWriting);
+            
+            // Invoke the action.
+            try
+            {
+                await context();
+            }
+            finally
+            {
+                // If anything, revert the database connection back to the original.
+                await ChangeConnectionStringsAsync(currentConnectionStringForReading, currentConnectionStringForWriting, sshSettingsForReading, sshSettingsForWriting);
+            }
         }
 
         /// <inheritdoc />

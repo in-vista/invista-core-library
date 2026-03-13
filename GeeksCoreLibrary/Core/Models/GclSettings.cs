@@ -21,6 +21,11 @@ namespace GeeksCoreLibrary.Core.Models
         /// If set the orderprocess middleware is skipped
         /// </summary>
         public bool DisableOrderProcessMiddleWare { get; set; }
+        
+        /// <summary>
+        /// If set the redirect middleware is skipped
+        /// </summary>
+        public bool DisableRedirectMiddleWare { get; set; }
 
         /// <summary>
         /// The default connection string for the current website.

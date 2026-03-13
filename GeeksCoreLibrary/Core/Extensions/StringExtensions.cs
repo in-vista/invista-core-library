@@ -386,11 +386,10 @@ namespace GeeksCoreLibrary.Core.Extensions
             {
                 minutesValid = 24 * 60;
             }
-
+            
+            // Validate expire date of the encrypted input.
             if (date.AddMinutes(minutesValid) < DateTime.Now)
-            {
-                throw new Exception("GCL DecryptWithAes: The encrypted value has expired.");
-            }
+                return null;
 
             return output.Remove(output.Length - 15);
         }
@@ -617,11 +616,10 @@ namespace GeeksCoreLibrary.Core.Extensions
             {
                 minutesValid = 24 * 60;
             }
-
+            
+            // Validate expire date of the encrypted input.
             if (date.AddMinutes(minutesValid) < DateTime.Now)
-            {
-                throw new Exception("GCL DecryptWithAes: The encrypted value has expired.");
-            }
+                return null;
 
             return output.Remove(output.Length - 15);
         }
