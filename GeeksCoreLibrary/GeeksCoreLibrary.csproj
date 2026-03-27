@@ -44,7 +44,7 @@
     <PackageReference Include="HtmlAgilityPack" Version="1.12.4" />
     <PackageReference Include="JetBrains.Annotations" Version="2025.2.4" />
     <PackageReference Include="LazyCache.AspNetCore" Version="2.4.0" />
-    <PackageReference Include="Magick.NET-Q8-AnyCPU" Version="14.9.1" />
+    <PackageReference Include="Magick.NET-Q8-AnyCPU" Version="14.11.1" />
     <PackageReference Include="MailKit" Version="4.14.1" />
     <PackageReference Include="Microsoft.AspNetCore.Mvc.NewtonsoftJson" Version="10.0.0" />
     <PackageReference Include="Microsoft.Extensions.Configuration" Version="10.0.0" />
@@ -52,6 +52,7 @@
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.0" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.0" />
     <PackageReference Include="Microsoft.IdentityModel.JsonWebTokens" Version="8.0.1" />
+    <PackageReference Include="MimeKit" Version="4.15.1" />
     <PackageReference Include="MySqlConnector" Version="2.5.0" />
     <PackageReference Include="RestSharp" Version="113.0.0" />
     <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
