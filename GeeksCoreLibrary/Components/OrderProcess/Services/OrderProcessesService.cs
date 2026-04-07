@@ -969,14 +969,14 @@ namespace GeeksCoreLibrary.Components.OrderProcess.Services
                 foreach (var (main, lines) in conceptOrders)
                 {
                     main.SetDetail(Constants.PaymentMethodProperty, paymentMethodSettings.Id);
-                    main.SetDetail(Constants.PaymentMethodNameProperty, paymentMethodSettings.Title);
+                    //main.SetDetail(Constants.PaymentMethodNameProperty, paymentMethodSettings.Title);
                     main.SetDetail(Constants.PaymentProviderProperty, paymentMethodSettings.PaymentServiceProvider.Id);
-                    main.SetDetail(Constants.PaymentProviderNameProperty, paymentMethodSettings.PaymentServiceProvider.Title);
+                    //main.SetDetail(Constants.PaymentProviderNameProperty, paymentMethodSettings.PaymentServiceProvider.Title);
                     main.SetDetail(Constants.UniquePaymentNumberProperty, uniquePaymentNumber);
-                    main.SetDetail(Constants.InvoiceNumberProperty, invoiceNumber);
-                    main.SetDetail(Constants.LanguageCodeProperty, languagesService?.CurrentLanguageCode ?? "");
+                    //main.SetDetail(Constants.InvoiceNumberProperty, invoiceNumber);
+                    if (languagesService?.CurrentLanguageCode is string languageCode && languageCode != "NL") main.SetDetail(Constants.LanguageCodeProperty, languageCode);
                     main.SetDetail(Constants.CountryCodeProperty, await objectsService.FindSystemObjectByDomainNameAsync(Constants.CountryCodeProperty));
-                    main.SetDetail(Constants.IsTestOrderProperty, isTestOrder ? 1 : 0);
+                    if (isTestOrder) main.SetDetail(Constants.IsTestOrderProperty, 1);
                     await shoppingBasketsService.SaveAsync(main, lines, basketSettings);
                 }
 
@@ -1402,7 +1402,7 @@ namespace GeeksCoreLibrary.Components.OrderProcess.Services
             var pspUpdateResult = await paymentServiceProviderService.ProcessStatusUpdateAsync(orderProcessSettings, paymentMethodSettings);
             var result = await orderProcessesService.HandlePaymentStatusUpdateAsync(orderProcessSettings, conceptOrders, pspUpdateResult.Status, pspUpdateResult.Successful, pspUpdateResult.StatusCode, true, pspUpdateResult.PaidAmount);
 
-            var basketSettings = await shoppingBasketsService.GetSettingsAsync();
+            /*var basketSettings = await shoppingBasketsService.GetSettingsAsync();
             foreach (var (main, lines) in conceptOrders)
             {
                 // Set payment completed to true if the PSP indicated that the payment was successful.
@@ -1411,7 +1411,7 @@ namespace GeeksCoreLibrary.Components.OrderProcess.Services
                 if (!string.IsNullOrEmpty(pspUpdateResult.PspTransactionId))
                     main.SetDetail(Constants.PaymentProviderTransactionId, pspUpdateResult.PspTransactionId);
                 await shoppingBasketsService.SaveAsync(main, lines, basketSettings);
-            }
+            }*/
             
             /*if (string.Equals(paymentMethodSettings.ExternalName, "softpos", StringComparison.OrdinalIgnoreCase))
             {

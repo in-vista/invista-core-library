@@ -85,7 +85,7 @@ public class PayNlService : PaymentServiceProviderBaseService, IPaymentServicePr
         
         
         // Get currency from first basket
-        var currency = conceptOrders.First().Main.GetDetailValue("currency");
+        var currency = conceptOrders.First().Main.GetDetailValue("currency") ?? "";
         switch (currency)
         {
             case "$":
