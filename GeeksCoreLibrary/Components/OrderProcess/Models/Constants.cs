@@ -170,6 +170,8 @@
         public const string PaymentMethodUseMinimalAmountProperty = "paymentmethoduseminimalamount";
 
         public const string PaymentMethodUseMaximumAmountProperty = "paymentmethodusemaximumamount";
+        
+        public const string PaymentMethodTerminalCodeProperty = "terminal_code";
 
         public const string OrderProcessBasketToConceptOrderMethodProperty = "baskettoconceptordermethod";
 

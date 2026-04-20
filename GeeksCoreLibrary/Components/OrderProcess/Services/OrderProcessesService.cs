@@ -682,6 +682,7 @@ namespace GeeksCoreLibrary.Components.OrderProcess.Services
                                 CAST(paymentMethodMaximumAmount.value AS decimal(65,30)) AS paymentMethodMaximumAmount,
                                 CAST(IFNULL(paymentMethodUseMinimalAmount.`value`, 0) AS SIGNED) AS paymentMethodUseMinimalAmount,
                                 CAST(IFNULL(paymentMethodUseMaximumAmount.`value`, 0) AS SIGNED) AS paymentMethodUseMaximumAmount,
+                                paymentMethodTerminalCode.`value` AS paymentMethodTerminalCode,
 
                                 paymentServiceProviderLogAllRequests.`value` AS paymentServiceProviderLogAllRequests,
                                 paymentServiceProviderSetOrdersDirectlyToFinished.`value` AS paymentServiceProviderSetOrdersDirectlyToFinished,
@@ -698,6 +699,7 @@ namespace GeeksCoreLibrary.Components.OrderProcess.Services
                             LEFT JOIN {WiserTableNames.WiserItemDetail} AS paymentMethodMaximumAmount ON paymentMethodMaximumAmount.item_id = paymentMethod.id AND paymentMethodMaximumAmount.`key` = '{Constants.PaymentMethodMaximumAmountProperty}'
                             LEFT JOIN {WiserTableNames.WiserItemDetail} AS paymentMethodUseMinimalAmount ON paymentMethodUseMinimalAmount.item_id = paymentMethod.id AND paymentMethodUseMinimalAmount.`key` = '{Constants.PaymentMethodUseMinimalAmountProperty}'
                             LEFT JOIN {WiserTableNames.WiserItemDetail} AS paymentMethodUseMaximumAmount ON paymentMethodUseMaximumAmount.item_id = paymentMethod.id AND paymentMethodUseMaximumAmount.`key` = '{Constants.PaymentMethodUseMaximumAmountProperty}'
+                            LEFT JOIN {WiserTableNames.WiserItemDetail} AS paymentMethodTerminalCode ON paymentMethodTerminalCode.item_id = paymentMethod.id AND paymentMethodTerminalCode.`key` = '{Constants.PaymentMethodTerminalCodeProperty}'
 
                             # PSP
                             JOIN {WiserTableNames.WiserItemDetail} AS linkedProvider ON linkedProvider.item_id = paymentMethod.id AND linkedProvider.`key` = '{Constants.PaymentMethodServiceProviderProperty}'
@@ -1585,6 +1587,7 @@ namespace GeeksCoreLibrary.Components.OrderProcess.Services
                 UseMaximumAmountCheck =  Convert.ToBoolean(dataRow.Field<Int64>(Constants.PaymentMethodUseMaximumAmountProperty)),
                 MinimalAmountCheck =  minimalAmountProperty,
                 MaximumAmountCheck = maximumAmountProperty,
+                TerminalCode = dataRow.Field<string>("paymentMethodTerminalCode"),
                 PaymentServiceProvider = new PaymentServiceProviderSettingsModel
                 {
                     // Settings that are the same for all PSPs.

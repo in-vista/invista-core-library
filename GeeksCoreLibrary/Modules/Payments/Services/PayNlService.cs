@@ -248,8 +248,18 @@ public class PayNlService : PaymentServiceProviderBaseService, IPaymentServicePr
             case "nexi":
                 PayNLPaymentMethodID = 1945;
                 break;
+            case "terminal":
+                PayNLPaymentMethodID = 1927;
+                break;
         }
-        
+
+        var paymentMethod = new PaymentMethod { Id = PayNLPaymentMethodID };
+        if (paymentMethod.Id == 1927) // C-TAP Pin terminal
+        {
+            paymentMethod.Input = new PaymentMethodInput();
+            paymentMethod.Input.TerminalCode = paymentMethodSettings.TerminalCode;
+        } 
+
         var requestBody = new PayNLOrderCreateRequestModel()
         {
             Amount = new Amount { Value = (int) Math.Round(totalPrice * 100), Currency = currency },
@@ -260,7 +270,7 @@ public class PayNlService : PaymentServiceProviderBaseService, IPaymentServicePr
             ExchangeUrl = payNlSettings.WebhookUrl,
             Integration = new Integration { Test = gclSettings.Environment.InList(Environments.Test, Environments.Development)},
             Customer = new Customer { Locale = language },
-            PaymentMethod = new PaymentMethod { Id = PayNLPaymentMethodID }
+            PaymentMethod = paymentMethod
         };
         restRequest.AddJsonBody(requestBody);
         
