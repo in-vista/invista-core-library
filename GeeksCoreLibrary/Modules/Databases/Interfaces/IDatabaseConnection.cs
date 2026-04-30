@@ -119,7 +119,17 @@ namespace GeeksCoreLibrary.Modules.Databases.Interfaces
         /// <param name="collection">A collection of entries to populate the IN expression value with.</param>
         /// <returns>The IN expression value to use in a query.</returns>
         string AddInParameters(string key, IEnumerable<object> collection);
-
+        
+        /// <summary>
+        /// Adds parameters for the given collection under the given key and returns the expression value that can be used
+        /// in an INSERT INTO expression.
+        /// <para>This only works for INSERT INTO expressions with a single column.</para>
+        /// </summary>
+        /// <param name="key">The base key used for all entries in the INSERT INTO expression.</param>
+        /// <param name="collection">A collection of entries to populate the INSERT INTO expression value with.</param>
+        /// <returns>The values expression in the INSERT INTO expression to use in a query.</returns>
+        string AddInsertIntoParameters(string key, IEnumerable<object> collection);
+        
         /// <summary>
         /// Clear all previously added parameters from the <see cref="MySqlCommand"/>.
         /// </summary>
