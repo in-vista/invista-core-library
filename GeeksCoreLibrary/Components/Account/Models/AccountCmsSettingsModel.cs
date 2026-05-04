@@ -849,7 +849,7 @@ namespace GeeksCoreLibrary.Components.Account.Models
             GroupName = CmsAttributes.CmsGroupName.Coder,
             TextEditorType = CmsAttributes.CmsTextEditorType.QueryEditor,
             DisplayOrder = 10,
-            ComponentMode = "LoginSingleStep"
+            ComponentMode = "LoginSingleStep,SSO"
         )]
         public string AutoLoginQuery { get; set; }
 
@@ -867,7 +867,7 @@ namespace GeeksCoreLibrary.Components.Account.Models
             TabName = CmsAttributes.CmsTabName.Behavior,
             GroupName = CmsAttributes.CmsGroupName.Basic,
             DisplayOrder = 10,
-            ComponentMode = "LoginSingleStep,LoginMultipleSteps"
+            ComponentMode = "LoginSingleStep,LoginMultipleSteps,SSO"
         )]
         public int? AmountOfDaysToRememberCookie { get; set; }
 
@@ -881,7 +881,7 @@ namespace GeeksCoreLibrary.Components.Account.Models
             TabName=CmsAttributes.CmsTabName.Behavior,
             GroupName=CmsAttributes.CmsGroupName.Basic,
             DisplayOrder=15,
-            ComponentMode="LoginSingleStep,LoginMultipleSteps"
+            ComponentMode="LoginSingleStep,LoginMultipleSteps,SSO"
             )]
         public string RememberMeCheckboxName { get; set; }
 
@@ -1320,7 +1320,7 @@ namespace GeeksCoreLibrary.Components.Account.Models
             TabName = CmsAttributes.CmsTabName.Developer,
             GroupName = CmsAttributes.CmsGroupName.Cookies,
             DisplayOrder = 10,
-            ComponentMode = "LoginSingleStep,LoginMultipleSteps"
+            ComponentMode = "LoginSingleStep,LoginMultipleSteps,SSO"
         )]
         public string CookieName { get; set; }
         
@@ -1334,7 +1334,7 @@ namespace GeeksCoreLibrary.Components.Account.Models
             TabName = CmsAttributes.CmsTabName.Developer,
             GroupName = CmsAttributes.CmsGroupName.Cookies,
             DisplayOrder = 11,
-            ComponentMode = "LoginSingleStep,LoginMultipleSteps"
+            ComponentMode = "LoginSingleStep,LoginMultipleSteps,SSO"
         )]
         public string CookiesToDeleteAfterLogout { get; set; }
 
@@ -1362,7 +1362,7 @@ namespace GeeksCoreLibrary.Components.Account.Models
             TabName = CmsAttributes.CmsTabName.Developer,
             GroupName = CmsAttributes.CmsGroupName.Cookies,
             DisplayOrder = 13,
-            ComponentMode = "LoginSingleStep,LoginMultipleSteps"
+            ComponentMode = "LoginSingleStep,LoginMultipleSteps,SSO"
         )]
         public bool WriteCookiesAfterLogin { get; set; }
         
@@ -1377,7 +1377,7 @@ namespace GeeksCoreLibrary.Components.Account.Models
             GroupName = CmsAttributes.CmsGroupName.Cookies,
             TextEditorType = CmsAttributes.CmsTextEditorType.QueryEditor,
             DisplayOrder = 14,
-            ComponentMode = "LoginSingleStep,LoginMultipleSteps"
+            ComponentMode = "LoginSingleStep,LoginMultipleSteps,SSO"
         )]
         public string WriteCookiesQuery { get; set; }
         
