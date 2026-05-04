@@ -1456,9 +1456,12 @@ namespace GeeksCoreLibrary.Components.Account
                 string ssoIdentifier = userDetails["identifier"];
                 string userTitle = userDetails.TryGetValue("title", out string userTitleTemp) ? userTitleTemp : string.Empty;
                 
+                var entityTypeSettings = await wiserItemsService.GetEntityTypeSettingsAsync(Settings.EntityType);
+                var tablePrefix = wiserItemsService.GetTablePrefixForEntity(entityTypeSettings);
+                
                 // Get the user ID based on the given SSO identifier.
                 string userIdQuery = @$"SELECT `identifier`.`item_id`
-FROM {WiserTableNames.WiserItemDetail} `identifier`
+FROM {tablePrefix}{WiserTableNames.WiserItemDetail} `identifier`
 WHERE `identifier`.`key` = 'identifier' AND `identifier`.groupname = 'sso' AND `identifier`.`value` = ?identifier
 LIMIT 1";
                 DatabaseConnection.ClearParameters();
@@ -1498,7 +1501,7 @@ LIMIT 1";
                 string afterLoginQuery = Settings.SSOAfterLoginQuery;
                 if (!string.IsNullOrEmpty(afterLoginQuery))
                 {
-                    afterLoginQuery = StringReplacementsService.DoReplacements(userDetailsStoreQuery, ssoResponseVariables);
+                    afterLoginQuery = StringReplacementsService.DoReplacements(afterLoginQuery, ssoResponseVariables);
                     DatabaseConnection.ClearParameters();
                     await DatabaseConnection.ExecuteAsync(afterLoginQuery);
                 }
