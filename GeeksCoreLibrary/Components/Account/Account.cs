@@ -1484,7 +1484,7 @@ LIMIT 1";
                 // Otherwise, retrieve the existing user.
                 else
                 {
-                    userModel = await wiserItemsService.GetItemDetailsAsync(userId, skipPermissionsCheck: true);
+                    userModel = await wiserItemsService.GetItemDetailsAsync(userId, entityType: Settings.EntityType, skipPermissionsCheck: true);
                 }
                 
                 // Overwrite the title of the user.
