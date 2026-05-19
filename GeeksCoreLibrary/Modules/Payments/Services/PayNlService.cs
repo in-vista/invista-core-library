@@ -83,7 +83,6 @@ public class PayNlService : PaymentServiceProviderBaseService, IPaymentServicePr
         var totalPrice = await CalculatePriceAsync(conceptOrders);
         var error = string.Empty;
         
-        
         // Get currency from first basket
         var currency = conceptOrders.First().Main.GetDetailValue("currency") ?? "";
         switch (currency)
@@ -106,7 +105,7 @@ public class PayNlService : PaymentServiceProviderBaseService, IPaymentServicePr
         var language = conceptOrders.First().Main.GetDetailValue("language");
         language = string.IsNullOrWhiteSpace(language) ? "en_GB" : language.ToLower();
         
-        // Get descriptin from first basket
+        // Get description from first basket
         var description = conceptOrders.First().Main.GetDetailValue("TransactionReference");
         description = string.IsNullOrWhiteSpace(description) ? $"Order #{invoiceNumber}" : description.Replace("{invoiceNumber}", invoiceNumber);
         
@@ -289,20 +288,39 @@ public class PayNlService : PaymentServiceProviderBaseService, IPaymentServicePr
             // Save transaction id, because we need it for the status update.
             foreach (var order in conceptOrders)
             {
-                if (responseJson["orderId"]?.ToString() == null) continue;
-                var transactionId = new WiserItemDetailModel()
+                if (responseJson["id"]?.ToString() != null)
                 {
-                    Key = "uniquePaymentNumber",
-                    Value = responseJson["orderId"]?.ToString()
-                };
-                await wiserItemsService.SaveItemDetailAsync(transactionId, order.Main.Id, entityType: "ConceptOrder");
+                    var paymentId = new WiserItemDetailModel()
+                    {
+                        Key = "uniquePaymentId",
+                        Value = responseJson["id"]?.ToString()
+                    };
+                    await wiserItemsService.SaveItemDetailAsync(paymentId, order.Main.Id, entityType: "ConceptOrder");    
+                }
+
+                if (responseJson["orderId"]?.ToString() != null)
+                {
+                    var transactionId = new WiserItemDetailModel()
+                    {
+                        Key = "uniquePaymentNumber",
+                        Value = responseJson["orderId"]?.ToString()
+                    };
+                    await wiserItemsService.SaveItemDetailAsync(transactionId, order.Main.Id, entityType: "ConceptOrder");    
+                }
+            }
+
+            var redirectUrl = responseJson["links"]?["redirect"]?.ToString();
+            if (!string.IsNullOrEmpty(paymentMethodSettings.TerminalPendingUrl))
+            {
+                var abortUrl = responseJson["links"]?["abort"]?.ToString();
+                redirectUrl = $"{paymentMethodSettings.TerminalPendingUrl}{(paymentMethodSettings.TerminalPendingUrl.Contains('?') ? "&" : "?")}event={description}&ref={responseJson["id"]}&amount={totalPrice.ToString().Replace(",",".")}&abortUrl={abortUrl}";
             }
 
             return new PaymentRequestResult
             {
                 Successful = responseSuccessful,
                 Action = PaymentRequestActions.Redirect,
-                ActionData = responseSuccessful ? responseJson["links"]?["redirect"]?.ToString() : payNlSettings.FailUrl
+                ActionData = responseSuccessful ? redirectUrl : payNlSettings.FailUrl
             };
         }
         catch (Exception e)

@@ -51,5 +51,11 @@ namespace GeeksCoreLibrary.Components.OrderProcess.Models
         /// The terminal code when payment method is "terminal"
         /// </summary>
         public string TerminalCode { get; set; }
+        
+        /// <summary>
+        /// The optional pending URL if the application has its own pending page
+        /// When payment method is "terminal"
+        /// </summary>
+        public string TerminalPendingUrl { get; set; }
     }
 }

@@ -172,6 +172,8 @@
         public const string PaymentMethodUseMaximumAmountProperty = "paymentmethodusemaximumamount";
         
         public const string PaymentMethodTerminalCodeProperty = "terminal_code";
+        
+        public const string PaymentMethodPendingUrlProperty = "pending_url";
 
         public const string OrderProcessBasketToConceptOrderMethodProperty = "baskettoconceptordermethod";
 
