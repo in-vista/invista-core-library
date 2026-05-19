@@ -267,7 +267,7 @@ public class PayNlService : PaymentServiceProviderBaseService, IPaymentServicePr
             Reference = invoiceNumber.Replace("-","X"), // dash is not allowed
             ReturnUrl = payNlSettings.SuccessUrl,
             ExchangeUrl = payNlSettings.WebhookUrl,
-            Integration = new Integration { Test = gclSettings.Environment.InList(Environments.Test, Environments.Development)},
+            Integration = new Integration { Test = !payNlSettings.ForceProduction && gclSettings.Environment.InList(Environments.Test, Environments.Development)},
             Customer = new Customer { Locale = language },
             PaymentMethod = paymentMethod
         };
@@ -370,7 +370,7 @@ public class PayNlService : PaymentServiceProviderBaseService, IPaymentServicePr
             },
             integration = new
             {
-                testMode = gclSettings.Environment.InList(Environments.Test, Environments.Development)
+                testMode = !payNlSettings.ForceProduction && gclSettings.Environment.InList(Environments.Test, Environments.Development)
             }
         };
      
@@ -563,11 +563,13 @@ public class PayNlService : PaymentServiceProviderBaseService, IPaymentServicePr
         var query = $@"SELECT
             payNlAccountCode.`value` AS payNlAccountCode,
             payNlToken.`value` AS payNlToken,
-            payNlServiceId.`value` AS payNlServiceId
+            payNlServiceId.`value` AS payNlServiceId,
+            payNlForceProduction.`value` AS payNlForceProduction            
         FROM {WiserTableNames.WiserItem} AS paymentServiceProvider
         LEFT JOIN {WiserTableNames.WiserItemDetail} AS payNlAccountCode ON payNlAccountCode.item_id = paymentServiceProvider.id AND payNlAccountCode.`key` = '{PayNlConstants.PayNlAccountCodeProperty}'
         LEFT JOIN {WiserTableNames.WiserItemDetail} AS payNlToken ON payNlToken.item_id = paymentServiceProvider.id AND payNlToken.`key` = '{PayNlConstants.PayNlTokenProperty}'
         LEFT JOIN {WiserTableNames.WiserItemDetail} AS payNlServiceId ON payNlServiceId.item_id = paymentServiceProvider.id AND payNlServiceId.`key` = '{PayNlConstants.PayNlServiceIdProperty}'
+        LEFT JOIN {WiserTableNames.WiserItemDetail} AS payNlForceProduction ON payNlForceProduction.item_id = paymentServiceProvider.id AND payNlForceProduction.`key` = '{PayNlConstants.PayNlForceProductionProperty}'
         WHERE paymentServiceProvider.id = ?id
         AND paymentServiceProvider.entity_type = '{Constants.PaymentServiceProviderEntityType}'";
 
@@ -594,6 +596,7 @@ public class PayNlService : PaymentServiceProviderBaseService, IPaymentServicePr
         result.AccountCode = row.GetAndDecryptSecretKey($"payNlAccountCode");
         result.Token = row.GetAndDecryptSecretKey($"payNlToken");
         result.ServiceId = row.GetAndDecryptSecretKey($"payNlServiceId");
+        result.ForceProduction = row["payNlForceProduction"].ToString() == "1";
         return result;
     }
 

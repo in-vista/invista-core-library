@@ -20,4 +20,9 @@ public class PayNlSettingsModel : PaymentServiceProviderSettingsModel
     /// Gets or sets the Service ID. Required if logging in with an AT-code/token
     /// </summary>
     public string? ServiceId { get; set; }
+
+    /// <summary>
+    /// If true, then send all payments to production environment Pay. If false, test and dev environments will be set to test environement Pay.
+    /// </summary>
+    public bool ForceProduction { get; set; } = false;
 }
