@@ -282,7 +282,19 @@ public class PayNlService : PaymentServiceProviderBaseService, IPaymentServicePr
 
             if (!responseSuccessful)
             {
-                throw new Exception(responseJson.ToString());
+                if (responseJson["code"]?.Value<string>() == "PAY-2107") // Pin terminal not available, send status back to application
+                {
+                    return new PaymentRequestResult
+                    {
+                        Successful = true,
+                        Action = PaymentRequestActions.Redirect,
+                        ActionData = "/?pinResult=Pin terminal niet beschikbaar"
+                    };
+                }
+                else
+                {
+                    throw new Exception(responseJson.ToString());    
+                }
             }
 
             // Save transaction id, because we need it for the status update.
