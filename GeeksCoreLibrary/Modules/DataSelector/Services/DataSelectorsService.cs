@@ -875,7 +875,7 @@ namespace GeeksCoreLibrary.Modules.DataSelector.Services
         }
 
         /// <inheritdoc />
-        public void ReplaceVariableValuesInScopes(IEnumerable<Scope> scopes)
+        public void ReplaceVariableValuesInScopes(IEnumerable<Models.Scope> scopes)
         {
             if (scopes == null)
             {
@@ -1212,7 +1212,7 @@ namespace GeeksCoreLibrary.Modules.DataSelector.Services
 
         #region Helper functions
 
-        private async Task ProcessScopesAsync(ItemsRequest itemsRequest, IEnumerable<Scope> scopes, string joinDetailOn, string detailTableAliasPrefix, bool optionalConnection = false)
+        private async Task ProcessScopesAsync(ItemsRequest itemsRequest, IEnumerable<Models.Scope> scopes, string joinDetailOn, string detailTableAliasPrefix, bool optionalConnection = false)
         {
             if (scopes == null)
             {

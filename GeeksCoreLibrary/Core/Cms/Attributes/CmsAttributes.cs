@@ -67,7 +67,8 @@ namespace GeeksCoreLibrary.Core.Cms.Attributes
             SessionCookie,
             Search,
             Cookies,
-            SSO
+            SSO,
+            API
         }
 
         /// <summary>
