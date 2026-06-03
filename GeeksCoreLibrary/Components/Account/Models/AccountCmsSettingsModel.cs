@@ -971,7 +971,7 @@ namespace GeeksCoreLibrary.Components.Account.Models
             TabName = CmsAttributes.CmsTabName.Behavior,
             GroupName = CmsAttributes.CmsGroupName.Basic,
             DisplayOrder = 65,
-            ComponentMode = "LoginSingleStep,LoginMultipleSteps,ResetPassword,CreateOrUpdateAccount"
+            ComponentMode = "LoginSingleStep,LoginMultipleSteps,ResetPassword,CreateOrUpdateAccount,CXmlPunchOutLogin,JsonLogin"
         )]
         public string RedirectAfterAction { get; set; }
 
@@ -1184,7 +1184,7 @@ namespace GeeksCoreLibrary.Components.Account.Models
             TabName = CmsAttributes.CmsTabName.Behavior,
             GroupName = CmsAttributes.CmsGroupName.Coder,
             DisplayOrder = 40,
-            ComponentMode = "LoginSingleStep"
+            ComponentMode = "LoginSingleStep,CXmlPunchOutLogin,JsonLogin"
         )]
         public string WiserLoginToken { get; set; }
 
