@@ -1,6 +1,7 @@
 ﻿using GeeksCoreLibrary.Core.Cms;
 using GeeksCoreLibrary.Core.Cms.Attributes;
 using System.Collections.Generic;
+using System.Net.Http;
 
 namespace GeeksCoreLibrary.Components.Repeater.Models
 {
@@ -46,7 +47,7 @@ namespace GeeksCoreLibrary.Components.Repeater.Models
         [CmsProperty(
             PrettyName = "Data Query",
             Description = "Data query",
-            DeveloperRemarks = "Format MS SQL/MySql Depending on data source (for now only MySql)",
+            DeveloperRemarks = "Format MS SQL/MySql Depending on data source (for now only MySql). When having selected 'API' as data source, the results of this field acts as the body of the request.",
             TabName = CmsAttributes.CmsTabName.DataSource,
             GroupName = CmsAttributes.CmsGroupName.CustomSql,
             DisplayOrder = 10,
@@ -55,6 +56,69 @@ namespace GeeksCoreLibrary.Components.Repeater.Models
             ReadOnlyInCms = false
         )]
         public string DataQuery { get; set; } = "";
+        
+        /// <summary>
+        /// API URL.
+        /// </summary>
+        [CmsProperty(
+            PrettyName = "API URL",
+            Description = "The API URL used for the endpoint to make the request to.",
+            DeveloperRemarks = "",
+            TabName = CmsAttributes.CmsTabName.DataSource,
+            GroupName = CmsAttributes.CmsGroupName.API,
+            DisplayOrder = 11,
+            TextEditorType = CmsAttributes.CmsTextEditorType.TextField,
+            HideInCms = false,
+            ReadOnlyInCms = false
+        )]
+        public string ApiUrl { get; set; } = "";
+        
+        /// <summary>
+        /// API authorization value.
+        /// </summary>
+        [CmsProperty(
+            PrettyName = "API authorization value",
+            Description = "The authorization value used in the Authorization header. When left empty, this header will not be used.",
+            DeveloperRemarks = "",
+            TabName = CmsAttributes.CmsTabName.DataSource,
+            GroupName = CmsAttributes.CmsGroupName.API,
+            DisplayOrder = 12,
+            TextEditorType = CmsAttributes.CmsTextEditorType.TextField,
+            HideInCms = false,
+            ReadOnlyInCms = false
+        )]
+        public string ApiAuthorization { get; set; } = "";
+        
+        /// <summary>
+        /// API data query results as array.
+        /// </summary>
+        [CmsProperty(
+            PrettyName = "API request method",
+            Description = "The HTTP method used for making the API request.",
+            DeveloperRemarks = "",
+            TabName = CmsAttributes.CmsTabName.DataSource,
+            GroupName = CmsAttributes.CmsGroupName.API,
+            DisplayOrder = 13,
+            HideInCms = false,
+            ReadOnlyInCms = false
+        )]
+        public HttpMethod ApiMethod { get; set; } = HttpMethod.Get;
+        
+        /// <summary>
+        /// API data query results as array.
+        /// </summary>
+        [CmsProperty(
+            PrettyName = "API data query results as array",
+            Description = "Whether to collect the results of the data query as an object or an array.",
+            DeveloperRemarks = "",
+            TabName = CmsAttributes.CmsTabName.DataSource,
+            GroupName = CmsAttributes.CmsGroupName.API,
+            DisplayOrder = 14,
+            TextEditorType = CmsAttributes.CmsTextEditorType.Auto,
+            HideInCms = false,
+            ReadOnlyInCms = false
+        )]
+        public bool ApiBodyAsArray { get; set; } = false;
 
         #endregion
 

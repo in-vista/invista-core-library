@@ -46,5 +46,16 @@ namespace GeeksCoreLibrary.Components.OrderProcess.Models
         /// Gets or sets the amount for the maximum check. 
         /// </summary>
         public decimal MaximumAmountCheck { get; set; }
+       
+        /// <summary>
+        /// The terminal code when payment method is "terminal"
+        /// </summary>
+        public string TerminalCode { get; set; }
+        
+        /// <summary>
+        /// The optional pending URL if the application has its own pending page
+        /// When payment method is "terminal"
+        /// </summary>
+        public string TerminalPendingUrl { get; set; }
     }
 }

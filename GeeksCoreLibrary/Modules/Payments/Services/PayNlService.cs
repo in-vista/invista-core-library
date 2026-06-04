@@ -83,9 +83,8 @@ public class PayNlService : PaymentServiceProviderBaseService, IPaymentServicePr
         var totalPrice = await CalculatePriceAsync(conceptOrders);
         var error = string.Empty;
         
-        
         // Get currency from first basket
-        var currency = conceptOrders.First().Main.GetDetailValue("currency");
+        var currency = conceptOrders.First().Main.GetDetailValue("currency") ?? "";
         switch (currency)
         {
             case "$":
@@ -106,7 +105,7 @@ public class PayNlService : PaymentServiceProviderBaseService, IPaymentServicePr
         var language = conceptOrders.First().Main.GetDetailValue("language");
         language = string.IsNullOrWhiteSpace(language) ? "en_GB" : language.ToLower();
         
-        // Get descriptin from first basket
+        // Get description from first basket
         var description = conceptOrders.First().Main.GetDetailValue("TransactionReference");
         description = string.IsNullOrWhiteSpace(description) ? $"Order #{invoiceNumber}" : description.Replace("{invoiceNumber}", invoiceNumber);
         
@@ -248,8 +247,18 @@ public class PayNlService : PaymentServiceProviderBaseService, IPaymentServicePr
             case "nexi":
                 PayNLPaymentMethodID = 1945;
                 break;
+            case "terminal":
+                PayNLPaymentMethodID = 1927;
+                break;
         }
-        
+
+        var paymentMethod = new PaymentMethod { Id = PayNLPaymentMethodID };
+        if (paymentMethod.Id == 1927) // C-TAP Pin terminal
+        {
+            paymentMethod.Input = new PaymentMethodInput();
+            paymentMethod.Input.TerminalCode = paymentMethodSettings.TerminalCode;
+        } 
+
         var requestBody = new PayNLOrderCreateRequestModel()
         {
             Amount = new Amount { Value = (int) Math.Round(totalPrice * 100), Currency = currency },
@@ -258,9 +267,9 @@ public class PayNlService : PaymentServiceProviderBaseService, IPaymentServicePr
             Reference = invoiceNumber.Replace("-","X"), // dash is not allowed
             ReturnUrl = payNlSettings.SuccessUrl,
             ExchangeUrl = payNlSettings.WebhookUrl,
-            Integration = new Integration { Test = gclSettings.Environment.InList(Environments.Test, Environments.Development)},
+            Integration = new Integration { Test = !payNlSettings.ForceProduction && gclSettings.Environment.InList(Environments.Test, Environments.Development)},
             Customer = new Customer { Locale = language },
-            PaymentMethod = new PaymentMethod { Id = PayNLPaymentMethodID }
+            PaymentMethod = paymentMethod
         };
         restRequest.AddJsonBody(requestBody);
         
@@ -273,26 +282,57 @@ public class PayNlService : PaymentServiceProviderBaseService, IPaymentServicePr
 
             if (!responseSuccessful)
             {
-                throw new Exception(responseJson.ToString());
+                if (responseJson["code"]?.Value<string>() == "PAY-2107") // Pin terminal not available, send status back to application
+                {
+                    return new PaymentRequestResult
+                    {
+                        Successful = true,
+                        Action = PaymentRequestActions.Redirect,
+                        ActionData = "/?pinResult=Pin terminal niet beschikbaar"
+                    };
+                }
+                else
+                {
+                    throw new Exception(responseJson.ToString());    
+                }
             }
 
             // Save transaction id, because we need it for the status update.
             foreach (var order in conceptOrders)
             {
-                if (responseJson["orderId"]?.ToString() == null) continue;
-                var transactionId = new WiserItemDetailModel()
+                if (responseJson["id"]?.ToString() != null)
                 {
-                    Key = "uniquePaymentNumber",
-                    Value = responseJson["orderId"]?.ToString()
-                };
-                await wiserItemsService.SaveItemDetailAsync(transactionId, order.Main.Id, entityType: "ConceptOrder");
+                    var paymentId = new WiserItemDetailModel()
+                    {
+                        Key = "uniquePaymentId",
+                        Value = responseJson["id"]?.ToString()
+                    };
+                    await wiserItemsService.SaveItemDetailAsync(paymentId, order.Main.Id, entityType: "ConceptOrder");    
+                }
+
+                if (responseJson["orderId"]?.ToString() != null)
+                {
+                    var transactionId = new WiserItemDetailModel()
+                    {
+                        Key = "uniquePaymentNumber",
+                        Value = responseJson["orderId"]?.ToString()
+                    };
+                    await wiserItemsService.SaveItemDetailAsync(transactionId, order.Main.Id, entityType: "ConceptOrder");    
+                }
+            }
+
+            var redirectUrl = responseJson["links"]?["redirect"]?.ToString();
+            if (!string.IsNullOrEmpty(paymentMethodSettings.TerminalPendingUrl))
+            {
+                var abortUrl = responseJson["links"]?["abort"]?.ToString();
+                redirectUrl = $"{paymentMethodSettings.TerminalPendingUrl}{(paymentMethodSettings.TerminalPendingUrl.Contains('?') ? "&" : "?")}event={description}&ref={responseJson["id"]}&amount={totalPrice.ToString().Replace(",",".")}&abortUrl={abortUrl}";
             }
 
             return new PaymentRequestResult
             {
                 Successful = responseSuccessful,
                 Action = PaymentRequestActions.Redirect,
-                ActionData = responseSuccessful ? responseJson["links"]?["redirect"]?.ToString() : payNlSettings.FailUrl
+                ActionData = responseSuccessful ? redirectUrl : payNlSettings.FailUrl
             };
         }
         catch (Exception e)
@@ -342,7 +382,7 @@ public class PayNlService : PaymentServiceProviderBaseService, IPaymentServicePr
             },
             integration = new
             {
-                testMode = gclSettings.Environment.InList(Environments.Test, Environments.Development)
+                testMode = !payNlSettings.ForceProduction && gclSettings.Environment.InList(Environments.Test, Environments.Development)
             }
         };
      
@@ -535,11 +575,13 @@ public class PayNlService : PaymentServiceProviderBaseService, IPaymentServicePr
         var query = $@"SELECT
             payNlAccountCode.`value` AS payNlAccountCode,
             payNlToken.`value` AS payNlToken,
-            payNlServiceId.`value` AS payNlServiceId
+            payNlServiceId.`value` AS payNlServiceId,
+            payNlForceProduction.`value` AS payNlForceProduction            
         FROM {WiserTableNames.WiserItem} AS paymentServiceProvider
         LEFT JOIN {WiserTableNames.WiserItemDetail} AS payNlAccountCode ON payNlAccountCode.item_id = paymentServiceProvider.id AND payNlAccountCode.`key` = '{PayNlConstants.PayNlAccountCodeProperty}'
         LEFT JOIN {WiserTableNames.WiserItemDetail} AS payNlToken ON payNlToken.item_id = paymentServiceProvider.id AND payNlToken.`key` = '{PayNlConstants.PayNlTokenProperty}'
         LEFT JOIN {WiserTableNames.WiserItemDetail} AS payNlServiceId ON payNlServiceId.item_id = paymentServiceProvider.id AND payNlServiceId.`key` = '{PayNlConstants.PayNlServiceIdProperty}'
+        LEFT JOIN {WiserTableNames.WiserItemDetail} AS payNlForceProduction ON payNlForceProduction.item_id = paymentServiceProvider.id AND payNlForceProduction.`key` = '{PayNlConstants.PayNlForceProductionProperty}'
         WHERE paymentServiceProvider.id = ?id
         AND paymentServiceProvider.entity_type = '{Constants.PaymentServiceProviderEntityType}'";
 
@@ -566,6 +608,7 @@ public class PayNlService : PaymentServiceProviderBaseService, IPaymentServicePr
         result.AccountCode = row.GetAndDecryptSecretKey($"payNlAccountCode");
         result.Token = row.GetAndDecryptSecretKey($"payNlToken");
         result.ServiceId = row.GetAndDecryptSecretKey($"payNlServiceId");
+        result.ForceProduction = row["payNlForceProduction"].ToString() == "1";
         return result;
     }
 

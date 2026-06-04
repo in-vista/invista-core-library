@@ -9,4 +9,6 @@ public class Constants
     public const string PayNlTokenProperty = "paynltoken";
 
     public const string PayNlServiceIdProperty = "paynlserviceid";
+    
+    public const string PayNlForceProductionProperty = "paynlforceproduction";
 }

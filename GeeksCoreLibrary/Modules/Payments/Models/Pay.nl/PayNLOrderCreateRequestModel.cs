@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace GeeksCoreLibrary.Modules.Payments.PayNl.Models;
 
 public class PayNLOrderCreateRequestModel
@@ -33,4 +35,12 @@ public class Customer
 public class PaymentMethod
 {
     public int Id { get; set; }
+    public string TerminalCode { get; set; }
+    public PaymentMethodInput Input { get; set; } = null!;
+}
+
+public class PaymentMethodInput
+{
+    [JsonPropertyName("terminalCode")]
+    public string TerminalCode { get; set; } = null!;
 }

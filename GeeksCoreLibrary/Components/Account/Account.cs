@@ -104,7 +104,12 @@ namespace GeeksCoreLibrary.Components.Account
             /// <summary>
             /// A mode used for authentication handling by a third-party.
             /// </summary>
-            SSO = 8
+            SSO = 8,
+            
+            /// <summary>
+            /// A mode used for logging in by posting JSON data to the component.
+            /// </summary>
+            JsonLogin = 9
         }
 
         /// <summary>
@@ -363,6 +368,9 @@ namespace GeeksCoreLibrary.Components.Account
                     break;
                 case ComponentModes.CXmlPunchOutLogin:
                     await HandleCXmlPunchOutLoginModeAsync();
+                    break;
+                case ComponentModes.JsonLogin:
+                    await HandleJsonLoginModeAsync();
                     break;
                 case ComponentModes.CXmlPunchOutContinueSession:
                     await HandleCXmlPunchOutContinueSessionModeAsync();
@@ -1192,6 +1200,105 @@ namespace GeeksCoreLibrary.Components.Account
 
             return AddComponentIdToForms(await TemplatesService.DoReplacesAsync(DoDefaultAccountHtmlReplacements(resultHtml), dataRow: firstDataRowOfMainQuery, handleRequest: Settings.HandleRequest, evaluateLogicSnippets: Settings.EvaluateIfElseInTemplates, removeUnknownVariables: Settings.RemoveUnknownVariables), Constants.ComponentIdFormKey);
         }
+        
+        /// <summary>
+        /// Handle everything for logging in with JSON post
+        /// </summary>
+        /// <returns></returns>
+        public async Task HandleJsonLoginModeAsync()
+        {
+            var httpContext = HttpContext;
+            if (httpContext == null)
+            {
+                throw new Exception("No http context available.");
+            }
+            if (httpContext.Request.Method != "POST")
+            {
+                throw new Exception("Only http POST method is allowed.");
+            }
+
+            var request = httpContext.Request;
+            request.EnableBuffering();
+            string requestBody;
+            using (var streamReader = new StreamReader(request.Body))
+            {
+                streamReader.BaseStream.Seek(0, SeekOrigin.Begin);
+                requestBody = await streamReader.ReadToEndAsync();
+            }
+            
+            var logJsonLogin = (await objectsService.FindSystemObjectByDomainNameAsync("jsonloginlogging", defaultResult: "0")).Equals("1");
+            if (logJsonLogin)
+            {
+                DatabaseConnection.AddParameter("requestBody", requestBody);
+                await DatabaseConnection.ExecuteAsync("INSERT INTO gcl_json_login_log (message, request_body) VALUES ('Incoming JSON login', ?requestBody)");
+            }
+
+            var jsonObject = JsonConvert.DeserializeObject<JObject>(requestBody);
+            var userName = jsonObject["username"]?.ToString();
+            var password = jsonObject["password"]?.ToString();
+            var sessionId = jsonObject["session_id"]?.ToString();
+            var returnUrl = jsonObject["return_url"]?.ToString();
+            var apiKey = jsonObject["api_key"]?.ToString();
+            
+            // Check given API key with API key from database
+            var apiKeyFromDatabase = (await objectsService.FindSystemObjectByDomainNameAsync("jsonloginapikey", defaultResult: ""));
+            if (apiKey != apiKeyFromDatabase)
+            {
+                httpContext.Response.StatusCode = 401;
+                httpContext.Response.ContentType = "application/json";
+                var response = new
+                {
+                    error = "Invalid API key"
+                };
+                await httpContext.Response.WriteAsync(JsonConvert.SerializeObject(response));
+            }
+            else if (!string.IsNullOrEmpty(userName) && !string.IsNullOrEmpty(password))
+            {
+                // Try to login user
+                var loginResult = await LoginUserAsync(0, userName, password, (int)ComponentModes.LoginSingleStep);
+                if (loginResult.Result == LoginResults.Success) 
+                {
+                    DatabaseConnection.ClearParameters();
+                    DatabaseConnection.AddParameter("user_id", loginResult.UserId); 
+                    DatabaseConnection.AddParameter("session_id", sessionId);
+                    DatabaseConnection.AddParameter("return_url", returnUrl);
+                    await DatabaseConnection.InsertOrUpdateRecordBasedOnParametersAsync("gcl_json_login", 0UL);
+                    
+                    httpContext.Response.StatusCode = 200;
+                    httpContext.Response.ContentType = "application/json";
+
+                    var url = Settings.RedirectAfterAction.TrimStart('/');
+                    url = $"https://{httpContext.Request.Host}/{url}{(url.Contains('?') ? "&" : "?")}{Settings.WiserLoginUserIdKey}={loginResult.UserId.ToString().EncryptWithAesWithSalt(withDateTime: true).UrlEncode()}&{Settings.WiserLoginTokenKey}={Settings.WiserLoginToken}";
+
+                    var response = new
+                    {
+                        one_time_url = url
+                    };
+
+                    await httpContext.Response.WriteAsync(JsonConvert.SerializeObject(response));
+                }
+                else
+                {
+                    httpContext.Response.StatusCode = 401;
+                    httpContext.Response.ContentType = "application/json";
+                    var response = new
+                    {
+                        error = "Incorrect combination of username and password"
+                    };
+                    await httpContext.Response.WriteAsync(JsonConvert.SerializeObject(response));
+                }
+            }
+            else
+            {
+                httpContext.Response.StatusCode = 401;
+                httpContext.Response.ContentType = "application/json";
+                var response = new
+                {
+                    error = "Username and password are mandatory"
+                };
+                await httpContext.Response.WriteAsync(JsonConvert.SerializeObject(response));
+            }
+        }
 
         /// <summary>
         /// Handle everything for logging in for cXML punch out.
@@ -1455,9 +1562,12 @@ namespace GeeksCoreLibrary.Components.Account
                 string ssoIdentifier = userDetails["identifier"];
                 string userTitle = userDetails.TryGetValue("title", out string userTitleTemp) ? userTitleTemp : string.Empty;
                 
+                var entityTypeSettings = await wiserItemsService.GetEntityTypeSettingsAsync(Settings.EntityType);
+                var tablePrefix = wiserItemsService.GetTablePrefixForEntity(entityTypeSettings);
+                
                 // Get the user ID based on the given SSO identifier.
                 string userIdQuery = @$"SELECT `identifier`.`item_id`
-FROM {WiserTableNames.WiserItemDetail} `identifier`
+FROM {tablePrefix}{WiserTableNames.WiserItemDetail} `identifier`
 WHERE `identifier`.`key` = 'identifier' AND `identifier`.groupname = 'sso' AND `identifier`.`value` = ?identifier
 LIMIT 1";
                 DatabaseConnection.ClearParameters();
@@ -1480,7 +1590,7 @@ LIMIT 1";
                 // Otherwise, retrieve the existing user.
                 else
                 {
-                    userModel = await wiserItemsService.GetItemDetailsAsync(userId, skipPermissionsCheck: true);
+                    userModel = await wiserItemsService.GetItemDetailsAsync(userId, entityType: Settings.EntityType, skipPermissionsCheck: true);
                 }
                 
                 // Overwrite the title of the user.
@@ -1497,7 +1607,7 @@ LIMIT 1";
                 string afterLoginQuery = Settings.SSOAfterLoginQuery;
                 if (!string.IsNullOrEmpty(afterLoginQuery))
                 {
-                    afterLoginQuery = StringReplacementsService.DoReplacements(userDetailsStoreQuery, ssoResponseVariables);
+                    afterLoginQuery = StringReplacementsService.DoReplacements(afterLoginQuery, ssoResponseVariables);
                     DatabaseConnection.ClearParameters();
                     await DatabaseConnection.ExecuteAsync(afterLoginQuery);
                 }
