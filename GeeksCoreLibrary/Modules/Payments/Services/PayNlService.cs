@@ -431,13 +431,23 @@ public class PayNlService : PaymentServiceProviderBaseService, IPaymentServicePr
             try
             {
                 var reference = httpContextAccessor.HttpContext.Request.Query["reference"].FirstOrDefault();
-                var requestForm = httpContextAccessor.HttpContext.Request.Form;
-                var payNlOrderId = requestForm["order_id"].FirstOrDefault();
+               
+                var payNlOrderId = (httpContextAccessor.HttpContext.Request.HasFormContentType
+                    ? (Microsoft.Extensions.Primitives.StringValues?)httpContextAccessor.HttpContext.Request.Form["order_id"]
+                    : httpContextAccessor.HttpContext.Request.Query["order_id"]).Value.ToString();
+                
+                var action = (httpContextAccessor.HttpContext.Request.HasFormContentType
+                    ? (Microsoft.Extensions.Primitives.StringValues?)httpContextAccessor.HttpContext.Request.Form["action"]
+                    : httpContextAccessor.HttpContext.Request.Query["action"]).Value.ToString();
+                
+                var amount = (httpContextAccessor.HttpContext.Request.HasFormContentType
+                    ? (Microsoft.Extensions.Primitives.StringValues?)httpContextAccessor.HttpContext.Request.Form["amount"]
+                    : httpContextAccessor.HttpContext.Request.Query["amount"]).Value.ToString();
                 
                 await LogIncomingPaymentActionAsync(PaymentServiceProviders.PayNl, reference, 0);
                 
                 // See this URL for the different action values: https://developer.pay.nl/docs/payouts
-                switch (requestForm["action"].FirstOrDefault())
+                switch (action)
                 {
                     case "new_ppt":
                         return new StatusUpdateResult
@@ -445,7 +455,7 @@ public class PayNlService : PaymentServiceProviderBaseService, IPaymentServicePr
                             Successful = true,
                             Status = "PAID",
                             StatusCode = 100,
-                            PaidAmount = Convert.ToDecimal(requestForm["amount"], new System.Globalization.CultureInfo("en-US")),
+                            PaidAmount = Convert.ToDecimal(amount, new System.Globalization.CultureInfo("en-US")),
                             PspTransactionId = payNlOrderId
                         };
                     case "pending":
