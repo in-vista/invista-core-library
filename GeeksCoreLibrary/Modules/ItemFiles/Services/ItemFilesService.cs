@@ -570,10 +570,9 @@ namespace GeeksCoreLibrary.Modules.ItemFiles.Services
                         {
                             if (Uri.IsWellFormedUriString(contentUrl, UriKind.Absolute))
                             {
-                                var requestUri = new Uri(contentUrl);
-                                fileBytes = await httpClientService.Client.GetByteArrayAsync(requestUri);
-                                var fileResult = await httpClientService.Client.GetAsync(contentUrl);
-                                if (fileResult.StatusCode == HttpStatusCode.OK)
+                                // First try to get the content from the URL, only if that is successful read the bytes.
+                                using var fileResult = await httpClientService.Client.GetAsync(contentUrl);
+                                if (fileResult.IsSuccessStatusCode)
                                     fileBytes = await fileResult.Content.ReadAsByteArrayAsync();
                             }
                             else
