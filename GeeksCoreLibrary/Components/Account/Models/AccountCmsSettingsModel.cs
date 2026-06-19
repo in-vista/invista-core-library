@@ -849,7 +849,7 @@ namespace GeeksCoreLibrary.Components.Account.Models
             GroupName = CmsAttributes.CmsGroupName.Coder,
             TextEditorType = CmsAttributes.CmsTextEditorType.QueryEditor,
             DisplayOrder = 10,
-            ComponentMode = "LoginSingleStep,SSO"
+            ComponentMode = "LoginSingleStep,SSO,JsonLogin"
         )]
         public string AutoLoginQuery { get; set; }
 
@@ -867,7 +867,7 @@ namespace GeeksCoreLibrary.Components.Account.Models
             TabName = CmsAttributes.CmsTabName.Behavior,
             GroupName = CmsAttributes.CmsGroupName.Basic,
             DisplayOrder = 10,
-            ComponentMode = "LoginSingleStep,LoginMultipleSteps,SSO"
+            ComponentMode = "LoginSingleStep,LoginMultipleSteps,SSO,JsonLogin"
         )]
         public int? AmountOfDaysToRememberCookie { get; set; }
 
@@ -881,7 +881,7 @@ namespace GeeksCoreLibrary.Components.Account.Models
             TabName=CmsAttributes.CmsTabName.Behavior,
             GroupName=CmsAttributes.CmsGroupName.Basic,
             DisplayOrder=15,
-            ComponentMode="LoginSingleStep,LoginMultipleSteps,SSO"
+            ComponentMode="LoginSingleStep,LoginMultipleSteps,SSO,JsonLogin"
             )]
         public string RememberMeCheckboxName { get; set; }
 
@@ -1180,11 +1180,11 @@ namespace GeeksCoreLibrary.Components.Account.Models
         [CmsProperty(
             PrettyName = "Coder login token",
             Description = "The validation token, for logging in via Coder. The same token should be used in Coder, in the button for logging in as that user.",
-            DeveloperRemarks = "Please generate a unique token for every InVista customer. The longer this string is, the better (but it still needs to fit in an URL). Use passwordgenerator.net or something similar to generate your token.",
+            DeveloperRemarks = "Please generate a unique token for every customer. The longer this string is, the better (but it still needs to fit in an URL). Use passwordgenerator.net or something similar to generate your token.",
             TabName = CmsAttributes.CmsTabName.Behavior,
             GroupName = CmsAttributes.CmsGroupName.Coder,
             DisplayOrder = 40,
-            ComponentMode = "LoginSingleStep,CXmlPunchOutLogin,JsonLogin"
+            ComponentMode = "LoginSingleStep,CXmlPunchOutLogin,JsonLogin,SSO"
         )]
         public string WiserLoginToken { get; set; }
 
@@ -1208,7 +1208,7 @@ namespace GeeksCoreLibrary.Components.Account.Models
             TabName = CmsAttributes.CmsTabName.Behavior,
             GroupName = CmsAttributes.CmsGroupName.SSO,
             DisplayOrder = 10,
-            ComponentMode = "SSO"
+            ComponentMode = "SSO,JsonLogin"
         )]
         public string SSOEndpoint { get; set; }
         
@@ -1218,7 +1218,7 @@ namespace GeeksCoreLibrary.Components.Account.Models
             TabName = CmsAttributes.CmsTabName.Behavior,
             GroupName = CmsAttributes.CmsGroupName.SSO,
             DisplayOrder = 11,
-            ComponentMode = "SSO"
+            ComponentMode = "SSO,JsonLogin"
         ), DefaultValue(HttpMethod.POST)]
         public HttpMethod SSORequestMethod { get; set; } = HttpMethod.POST;
 
@@ -1228,7 +1228,7 @@ namespace GeeksCoreLibrary.Components.Account.Models
              TabName = CmsAttributes.CmsTabName.Behavior,
              GroupName = CmsAttributes.CmsGroupName.SSO,
              DisplayOrder = 12,
-             ComponentMode = "SSO"
+             ComponentMode = "SSO,JsonLogin"
          ), DefaultValue(HttpFormType.None)]
         public HttpFormType SSOFormType { get; set; } = HttpFormType.None;
         
@@ -1238,7 +1238,7 @@ namespace GeeksCoreLibrary.Components.Account.Models
             TabName = CmsAttributes.CmsTabName.Behavior,
             GroupName = CmsAttributes.CmsGroupName.SSO,
             DisplayOrder = 13,
-            ComponentMode = "SSO"
+            ComponentMode = "SSO,JsonLogin"
         )]
         public string SSOSourceUsernameFieldName { get; set; }
         
@@ -1248,7 +1248,7 @@ namespace GeeksCoreLibrary.Components.Account.Models
             TabName = CmsAttributes.CmsTabName.Behavior,
             GroupName = CmsAttributes.CmsGroupName.SSO,
             DisplayOrder = 14,
-            ComponentMode = "SSO"
+            ComponentMode = "SSO,JsonLogin"
         )]
         public string SSOThirdPartyUsernameFieldName { get; set; }
         
@@ -1258,7 +1258,7 @@ namespace GeeksCoreLibrary.Components.Account.Models
             TabName = CmsAttributes.CmsTabName.Behavior,
             GroupName = CmsAttributes.CmsGroupName.SSO,
             DisplayOrder = 15,
-            ComponentMode = "SSO"
+            ComponentMode = "SSO,JsonLogin"
         )]
         public string SSOSourcePasswordFieldName { get; set; }
         
@@ -1268,7 +1268,7 @@ namespace GeeksCoreLibrary.Components.Account.Models
             TabName = CmsAttributes.CmsTabName.Behavior,
             GroupName = CmsAttributes.CmsGroupName.SSO,
             DisplayOrder = 16,
-            ComponentMode = "SSO"
+            ComponentMode = "SSO,JsonLogin"
         )]
         public string SSOThirdPartyPasswordFieldName { get; set; }
         
@@ -1278,7 +1278,7 @@ namespace GeeksCoreLibrary.Components.Account.Models
             TabName = CmsAttributes.CmsTabName.Behavior,
             GroupName = CmsAttributes.CmsGroupName.SSO,
             DisplayOrder = 100,
-            ComponentMode = "SSO",
+            ComponentMode = "SSO,JsonLogin",
             TextEditorType = CmsAttributes.CmsTextEditorType.QueryEditor
         )]
         public string SSORequestHeadersQuery { get; set; }
@@ -1290,7 +1290,7 @@ namespace GeeksCoreLibrary.Components.Account.Models
             TabName = CmsAttributes.CmsTabName.Behavior,
             GroupName = CmsAttributes.CmsGroupName.SSO,
             DisplayOrder = 101,
-            ComponentMode = "SSO",
+            ComponentMode = "SSO,JsonLogin",
             TextEditorType = CmsAttributes.CmsTextEditorType.QueryEditor
         )]
         public string SSOUserDetailsStoreQuery { get; set; }
@@ -1302,7 +1302,7 @@ namespace GeeksCoreLibrary.Components.Account.Models
             TabName = CmsAttributes.CmsTabName.Behavior,
             GroupName = CmsAttributes.CmsGroupName.SSO,
             DisplayOrder = 102,
-            ComponentMode = "SSO",
+            ComponentMode = "SSO,JsonLogin",
             TextEditorType = CmsAttributes.CmsTextEditorType.QueryEditor
         )]
         public string SSOAfterLoginQuery { get; set; }
@@ -1320,7 +1320,7 @@ namespace GeeksCoreLibrary.Components.Account.Models
             TabName = CmsAttributes.CmsTabName.Developer,
             GroupName = CmsAttributes.CmsGroupName.Cookies,
             DisplayOrder = 10,
-            ComponentMode = "LoginSingleStep,LoginMultipleSteps,SSO"
+            ComponentMode = "LoginSingleStep,LoginMultipleSteps,SSO,JsonLogin"
         )]
         public string CookieName { get; set; }
         
@@ -1334,7 +1334,7 @@ namespace GeeksCoreLibrary.Components.Account.Models
             TabName = CmsAttributes.CmsTabName.Developer,
             GroupName = CmsAttributes.CmsGroupName.Cookies,
             DisplayOrder = 11,
-            ComponentMode = "LoginSingleStep,LoginMultipleSteps,SSO"
+            ComponentMode = "LoginSingleStep,LoginMultipleSteps,SSO,JsonLogin"
         )]
         public string CookiesToDeleteAfterLogout { get; set; }
 
@@ -1362,7 +1362,7 @@ namespace GeeksCoreLibrary.Components.Account.Models
             TabName = CmsAttributes.CmsTabName.Developer,
             GroupName = CmsAttributes.CmsGroupName.Cookies,
             DisplayOrder = 13,
-            ComponentMode = "LoginSingleStep,LoginMultipleSteps,SSO"
+            ComponentMode = "LoginSingleStep,LoginMultipleSteps,SSO,JsonLogin"
         )]
         public bool WriteCookiesAfterLogin { get; set; }
         
@@ -1377,7 +1377,7 @@ namespace GeeksCoreLibrary.Components.Account.Models
             GroupName = CmsAttributes.CmsGroupName.Cookies,
             TextEditorType = CmsAttributes.CmsTextEditorType.QueryEditor,
             DisplayOrder = 14,
-            ComponentMode = "LoginSingleStep,LoginMultipleSteps,SSO"
+            ComponentMode = "LoginSingleStep,LoginMultipleSteps,SSO,JsonLogin"
         )]
         public string WriteCookiesQuery { get; set; }
         

@@ -1244,22 +1244,22 @@ namespace GeeksCoreLibrary.Components.Account
             var apiKeyFromDatabase = (await objectsService.FindSystemObjectByDomainNameAsync("jsonloginapikey", defaultResult: ""));
             if (apiKey != apiKeyFromDatabase)
             {
-                httpContext.Response.StatusCode = 401;
-                httpContext.Response.ContentType = "application/json";
-                var response = new
-                {
-                    error = "Invalid API key"
-                };
-                await httpContext.Response.WriteAsync(JsonConvert.SerializeObject(response));
+                throw new Exception("Invalid API key");
             }
-            else if (!string.IsNullOrEmpty(userName) && !string.IsNullOrEmpty(password))
+            
+            if (!string.IsNullOrEmpty(userName) && !string.IsNullOrEmpty(password))
             {
                 // Try to login user
-                var loginResult = await LoginUserAsync(0, userName, password, (int)ComponentModes.LoginSingleStep);
-                if (loginResult.Result == LoginResults.Success) 
+                
+                // TODO: JSON login in combination with LoginSingleStep mode
+                // var loginResult = await LoginUserAsync(0, userName, password, (int)ComponentModes.LoginSingleStep);
+                
+                var result = await SsoLogin(userName, password);
+                if (result.StartsWith("success:")) 
                 {
+                    var userId = result.Split(':')[2];
                     DatabaseConnection.ClearParameters();
-                    DatabaseConnection.AddParameter("user_id", loginResult.UserId); 
+                    DatabaseConnection.AddParameter("user_id", Convert.ToUInt64(userId)); 
                     DatabaseConnection.AddParameter("session_id", sessionId);
                     DatabaseConnection.AddParameter("return_url", returnUrl);
                     await DatabaseConnection.InsertOrUpdateRecordBasedOnParametersAsync("gcl_json_login", 0UL);
@@ -1268,7 +1268,7 @@ namespace GeeksCoreLibrary.Components.Account
                     httpContext.Response.ContentType = "application/json";
 
                     var url = Settings.RedirectAfterAction.TrimStart('/');
-                    url = $"https://{httpContext.Request.Host}/{url}{(url.Contains('?') ? "&" : "?")}{Settings.WiserLoginUserIdKey}={loginResult.UserId.ToString().EncryptWithAesWithSalt(withDateTime: true).UrlEncode()}&{Settings.WiserLoginTokenKey}={Settings.WiserLoginToken}";
+                    url = $"https://{httpContext.Request.Host}/{url}{(url.Contains('?') ? "&" : "?")}{Settings.WiserLoginUserIdKey}={userId.EncryptWithAesWithSalt(withDateTime: true).UrlEncode()}&{Settings.WiserLoginTokenKey}={Settings.WiserLoginToken}";
 
                     var response = new
                     {
@@ -1279,24 +1279,12 @@ namespace GeeksCoreLibrary.Components.Account
                 }
                 else
                 {
-                    httpContext.Response.StatusCode = 401;
-                    httpContext.Response.ContentType = "application/json";
-                    var response = new
-                    {
-                        error = "Incorrect combination of username and password"
-                    };
-                    await httpContext.Response.WriteAsync(JsonConvert.SerializeObject(response));
+                    throw new Exception(result);
                 }
             }
             else
             {
-                httpContext.Response.StatusCode = 401;
-                httpContext.Response.ContentType = "application/json";
-                var response = new
-                {
-                    error = "Username and password are mandatory"
-                };
-                await httpContext.Response.WriteAsync(JsonConvert.SerializeObject(response));
+                throw new Exception("Username and password are mandatory");
             }
         }
 
@@ -1444,9 +1432,58 @@ namespace GeeksCoreLibrary.Components.Account
                 string sourceUsername = HttpContextHelpers.GetRequestValue(HttpContext, Settings.SSOSourceUsernameFieldName);
                 string sourcePassword = HttpContextHelpers.GetRequestValue(HttpContext, Settings.SSOSourcePasswordFieldName);
                 
+                var result = await SsoLogin(sourceUsername, sourcePassword);
+
+                if (result.StartsWith("success:"))
+                {
+                    // Set the template to be succesful to be sent back to the user.
+                    resultHtml = Settings.TemplateSuccess;
+                    resultHtml = DoDefaultAccountHtmlReplacements(resultHtml);
+                    resultHtml = resultHtml.Replace("{title}", result.Split(':')[1], StringComparison.OrdinalIgnoreCase);
+                }
+                else if (!string.IsNullOrEmpty(result))
+                {
+                    string errorTemplate = Settings.TemplateError.Replace("{errorType}", result);
+                    resultHtml = resultHtml.Replace("{error}", errorTemplate, StringComparison.OrdinalIgnoreCase);
+                }
+            }
+            catch (Exception exception)
+            {
+                // Set the template to be an error and show it to the user.
+                string errorTemplate = Settings.TemplateError.Replace("{errorType}", "Server");
+                resultHtml = resultHtml.Replace("{error}", errorTemplate, StringComparison.OrdinalIgnoreCase);
+                
+                // Log the thrown error.
+                Logger.LogError(exception.ToString());
+            }
+            
+            // End control for skipping code execution, but rely on default behaviour.
+            end:
+            
+            // Apply default replacement.
+            resultHtml = DoDefaultAccountHtmlReplacements(resultHtml);
+            
+            // Apply evaluations to the template.
+            resultHtml = await TemplatesService.DoReplacesAsync(
+                resultHtml,
+                handleRequest: Settings.HandleRequest,
+                evaluateLogicSnippets: Settings.EvaluateIfElseInTemplates,
+                removeUnknownVariables: Settings.RemoveUnknownVariables);
+            
+            // Return the template to the user.
+            return resultHtml;
+        }
+        
+        /// <summary>
+        /// Handle everything for authenticating through a third-party.
+        /// </summary>
+        public async Task<string> SsoLogin(string userName, string password)
+        {
+            try
+            {
                 // If the username and password are empty, this means the user has not submitted the login form yet.
-                if (string.IsNullOrEmpty(sourceUsername) || string.IsNullOrEmpty(sourcePassword))
-                    goto end;
+                if (string.IsNullOrEmpty(userName) || string.IsNullOrEmpty(password))
+                    return string.Empty;
                 
                 // Retrieve the key names for the request body for the username and password fields.
                 string thirdPartyUsernameField = Settings.SSOThirdPartyUsernameFieldName;
@@ -1478,22 +1515,22 @@ namespace GeeksCoreLibrary.Components.Account
                         // application/x-www-form-urlencoded.
                         case HttpFormType.FormUrlEncodedContent:
                             List<KeyValuePair<string, string>> formUrlEncoded = new List<KeyValuePair<string, string>>();
-                            formUrlEncoded.Add(new KeyValuePair<string, string>(thirdPartyUsernameField, sourceUsername));
-                            formUrlEncoded.Add(new KeyValuePair<string, string>(thirdPartyPasswordField, sourcePassword));
+                            formUrlEncoded.Add(new KeyValuePair<string, string>(thirdPartyUsernameField, userName));
+                            formUrlEncoded.Add(new KeyValuePair<string, string>(thirdPartyPasswordField, password));
                             ssoContent = new FormUrlEncodedContent(formUrlEncoded);
                             break;
                         // multipart/form-data.
                         case HttpFormType.MultipartFormData:
                             MultipartFormDataContent multipartFormData = new MultipartFormDataContent();
-                            multipartFormData.Add(new StringContent(sourceUsername), thirdPartyUsernameField);
-                            multipartFormData.Add(new StringContent(sourcePassword), thirdPartyPasswordField);
+                            multipartFormData.Add(new StringContent(userName), thirdPartyUsernameField);
+                            multipartFormData.Add(new StringContent(password), thirdPartyPasswordField);
                             ssoContent = multipartFormData;
                             break;
                         // JSON body.
                         case HttpFormType.RawJson:
                             JObject json = new JObject(
-                                new JProperty(thirdPartyUsernameField, sourceUsername),
-                                new JProperty(thirdPartyPasswordField, sourcePassword)
+                                new JProperty(thirdPartyUsernameField, userName),
+                                new JProperty(thirdPartyPasswordField, password)
                             );
                             ssoContent = new StringContent(json.ToString(), Encoding.UTF8, "application/json");
                             break;
@@ -1524,9 +1561,7 @@ namespace GeeksCoreLibrary.Components.Account
                     // Validate the response. If it failed, we are not authenticated and we want to show an error template to the user.
                     if (!ssoResponse.IsSuccessStatusCode)
                     {
-                        string errorTemplate = Settings.TemplateError.Replace("{errorType}", "InvalidUsernameOrPassword");
-                        resultHtml = resultHtml.Replace("{error}", errorTemplate, StringComparison.OrdinalIgnoreCase);
-                        goto end;
+                        return "InvalidUsernameOrPassword";
                     }
 
                     // Parse the response (as string) into workable JSON.
@@ -1560,7 +1595,7 @@ namespace GeeksCoreLibrary.Components.Account
                 }
                 
                 // Get the identifier and username/title from the user details query results.
-                string ssoIdentifier = userDetails["identifier"];
+                string ssoIdentifier = userDetails.TryGetValue("identifier", out string ssoIdentifierTemp) ? ssoIdentifierTemp : string.Empty;
                 string userTitle = userDetails.TryGetValue("title", out string userTitleTemp) ? userTitleTemp : string.Empty;
                 
                 var entityTypeSettings = await wiserItemsService.GetEntityTypeSettingsAsync(Settings.EntityType);
@@ -1618,41 +1653,18 @@ LIMIT 1";
 
                 if (loginResults != LoginResults.Success)
                 {
-                    string errorTemplate = Settings.TemplateError.Replace("{errorType}", loginResults.ToString());
-                    resultHtml = resultHtml.Replace("{error}", errorTemplate, StringComparison.OrdinalIgnoreCase);
-                    goto end;
+                    return loginResults.ToString();
                 }
                 
-                // Set the template to be succesful to be sent back to the user.
-                resultHtml = Settings.TemplateSuccess;
-                resultHtml = DoDefaultAccountHtmlReplacements(resultHtml);
-                resultHtml = resultHtml.Replace("{title}", userTitle);
+                // Set the template to be successfull to be sent back to the user.
+                return $"success:{userTitle}:{userId}";
             }
             catch (Exception exception)
             {
-                // Set the template to be an error and show it to the user.
-                string errorTemplate = Settings.TemplateError.Replace("{errorType}", "Server");
-                resultHtml = resultHtml.Replace("{error}", errorTemplate, StringComparison.OrdinalIgnoreCase);
-                
                 // Log the thrown error.
                 Logger.LogError(exception.ToString());
+                return exception.ToString();
             }
-            
-            // End control for skipping code execution, but rely on default behaviour.
-            end:
-            
-            // Apply default replacement.
-            resultHtml = DoDefaultAccountHtmlReplacements(resultHtml);
-            
-            // Apply evaluations to the template.
-            resultHtml = await TemplatesService.DoReplacesAsync(
-                resultHtml,
-                handleRequest: Settings.HandleRequest,
-                evaluateLogicSnippets: Settings.EvaluateIfElseInTemplates,
-                removeUnknownVariables: Settings.RemoveUnknownVariables);
-            
-            // Return the template to the user.
-            return resultHtml;
         }
 
         /// <summary>
