@@ -657,7 +657,12 @@ WHERE id = ?id";
             if (attachments != null && attachments.Any())
             {
                 requestBody.Attachments = attachments.Select(attachment => new MailerSendAttachmentModel
-                        { Content = Convert.ToBase64String(attachment.FileBytes), FileName = attachment.FileName, Id = attachment.FileName.ToLower(), Disposition = "attachment"})
+                    {
+                        Content = Convert.ToBase64String(attachment.FileBytes),
+                        FileName = attachment.FileName,
+                        Id = attachment.FileName.ToLower().Trim().Replace(" ", "_"),
+                        Disposition = "attachment"
+                    })
                     .ToList();
             }
             else
