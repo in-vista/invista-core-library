@@ -7,6 +7,8 @@ using System.Linq;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using System.Web;
+using DocumentFormat.OpenXml.ExtendedProperties;
+using DocumentFormat.OpenXml.Spreadsheet;
 using GeeksCoreLibrary.Components.Account.Interfaces;
 using GeeksCoreLibrary.Components.Account.Models;
 using GeeksCoreLibrary.Components.OrderProcess.Enums;
@@ -752,8 +754,21 @@ namespace GeeksCoreLibrary.Components.OrderProcess.Services
         /// <inheritdoc />
         public async Task<PaymentRequestResult> HandlePaymentRequestAsync(IOrderProcessesService orderProcessesService, ulong orderProcessId, string failUrl, string successUrl, string pendingUrl, OrderProcessBasketToConceptOrderMethods basketToConceptOrderMethod, OrderProcessSettingsModel orderProcessSettings)
         {
+            List<(WiserItemModel Main, List<WiserItemModel> Lines)> shoppingBaskets = null;
             // Retrieve baskets.
-            var shoppingBaskets = await shoppingBasketsService.GetShoppingBasketsAsync();
+            if (!string.IsNullOrEmpty(httpContextAccessor.HttpContext.Request.Query["dpo-basketid"]))
+            {
+                shoppingBaskets = new List<(WiserItemModel Main, List<WiserItemModel> Lines)>();
+
+                var basketId = Convert.ToUInt64(httpContextAccessor.HttpContext.Request.Query["dpo-basketid"].ToString().Decrypt());
+                var basket = await wiserItemsService.GetItemDetailsAsync(basketId, entityType: ShoppingBasket.Models.Constants.BasketEntityType, skipPermissionsCheck: true);
+                var lines = await wiserItemsService.GetLinkedItemDetailsAsync(basketId, ShoppingBasket.Models.Constants.BasketLineToBasketLinkType, ShoppingBasket.Models.Constants.BasketLineEntityType, itemIdEntityType: ShoppingBasket.Models.Constants.BasketEntityType, skipPermissionsCheck: true);
+                shoppingBaskets.Add((basket, lines));
+            }
+            else
+            {
+                shoppingBaskets = await shoppingBasketsService.GetShoppingBasketsAsync();    
+            }
             var selectedPaymentMethodId = shoppingBaskets.First().Main.GetDetailValue<ulong>(Constants.PaymentMethodProperty);
             var conceptOrders = new List<(WiserItemModel Main, List<WiserItemModel> Lines)>();
 
