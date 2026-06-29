@@ -1,7 +1,6 @@
 ﻿using GeeksCoreLibrary.Core.Cms;
 using GeeksCoreLibrary.Core.Cms.Attributes;
 using System.Collections.Generic;
-using System.Net.Http;
 
 namespace GeeksCoreLibrary.Components.Repeater.Models
 {
@@ -102,7 +101,7 @@ namespace GeeksCoreLibrary.Components.Repeater.Models
             HideInCms = false,
             ReadOnlyInCms = false
         )]
-        public HttpMethod ApiMethod { get; set; } = HttpMethod.Get;
+        public Repeater.HttpMethod ApiMethod { get; set; } = Repeater.HttpMethod.Get;
         
         /// <summary>
         /// API data query results as array.

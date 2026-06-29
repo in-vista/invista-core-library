@@ -9,6 +9,7 @@ using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using GeeksCoreLibrary.Components.Account.Interfaces;
 using GeeksCoreLibrary.Components.Filter.Interfaces;
+using GeeksCoreLibrary.Components.Repeater.Extensions;
 using GeeksCoreLibrary.Components.Repeater.Interfaces;
 using GeeksCoreLibrary.Components.Repeater.Models;
 using GeeksCoreLibrary.Core.Cms;
@@ -69,6 +70,19 @@ namespace GeeksCoreLibrary.Components.Repeater
             Wiser2ParentLinks,
             DirectoryOutput,
             API
+        }
+
+        public enum HttpMethod
+        {
+            Get,
+            Post,
+            Put,
+            Patch,
+            Delete,
+            Options,
+            Head,
+            Connect,
+            Trace
         }
 
         #endregion
@@ -412,7 +426,9 @@ namespace GeeksCoreLibrary.Components.Repeater
                         apiUrl = StringReplacementsService.DoReplacements(apiUrl, ExtraDataForReplacements);
                         apiUrl = await TemplatesService.DoReplacesAsync(apiUrl, handleDynamicContent: false, forQuery: false);
                         
-                        HttpRequestMessage requestMessage = new HttpRequestMessage(Settings.ApiMethod, apiUrl);
+                        System.Net.Http.HttpMethod httpMethod = Settings.ApiMethod.ToNativeHttpMethod();
+                        
+                        HttpRequestMessage requestMessage = new HttpRequestMessage(httpMethod, apiUrl);
                         
                         // Check wether a query for the request's body is given.
                         string bodyQuery = Settings.DataQuery;
