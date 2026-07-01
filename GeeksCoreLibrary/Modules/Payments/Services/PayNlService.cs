@@ -5,6 +5,7 @@ using System.Linq;
 using System.Net;
 using System.Threading.Tasks;
 using System.Web;
+using GeeksCoreLibrary.Components.OrderProcess.Interfaces;
 using GeeksCoreLibrary.Components.OrderProcess.Models;
 using GeeksCoreLibrary.Components.ShoppingBasket;
 using GeeksCoreLibrary.Components.ShoppingBasket.Interfaces;
@@ -43,6 +44,7 @@ public class PayNlService : PaymentServiceProviderBaseService, IPaymentServicePr
     private readonly GclSettings gclSettings;
     private IWiserItemsService wiserItemsService;
     private readonly IShoppingBasketsService shoppingBasketsService;
+    private IOrderProcessesService orderProcessesService;
 
     public PayNlService(IDatabaseHelpersService databaseHelpersService,
         IDatabaseConnection databaseConnection,
@@ -50,7 +52,8 @@ public class PayNlService : PaymentServiceProviderBaseService, IPaymentServicePr
         IOptions<GclSettings> gclSettings,
         IShoppingBasketsService shoppingBasketsService,
         IWiserItemsService wiserItemsService,
-        IHttpContextAccessor httpContextAccessor = null)
+        IHttpContextAccessor httpContextAccessor = null,
+        IOrderProcessesService orderProcessesService = null)
         : base(databaseHelpersService, databaseConnection, logger, httpContextAccessor)
     {
         this.databaseConnection = databaseConnection;
@@ -59,6 +62,7 @@ public class PayNlService : PaymentServiceProviderBaseService, IPaymentServicePr
         this.gclSettings = gclSettings.Value;
         this.wiserItemsService = wiserItemsService;
         this.shoppingBasketsService = shoppingBasketsService;
+        this.orderProcessesService = orderProcessesService;
     }
 
     /// <inheritdoc />
@@ -342,6 +346,112 @@ public class PayNlService : PaymentServiceProviderBaseService, IPaymentServicePr
             {
                 Action = PaymentRequestActions.Redirect,
                 ActionData = paymentMethodSettings.PaymentServiceProvider.FailUrl,
+                Successful = false,
+                ErrorMessage = e.Message
+            };
+        }
+        finally
+        {
+            var resp = responseJson == null ? null : JsonConvert.SerializeObject(responseJson);
+            await AddLogEntryAsync(PaymentServiceProviders.PayNl, invoiceNumber, requestBody: JsonConvert.SerializeObject(requestBody), responseBody: resp, error: error, isIncomingRequest: false);
+        }
+    }
+    
+    public async Task<PaymentRequestResult> DoPinTerminalPaymentAsync(decimal amount, ulong paymentMethodId, string invoiceNumber, string description = "")
+    {
+        var paymentMethodSettings = await orderProcessesService.GetPaymentMethodAsync(paymentMethodId);
+        var payNlSettings = (PayNlSettingsModel) paymentMethodSettings.PaymentServiceProvider;
+        var validationResult = ValidatePayNlSettings(payNlSettings);
+       
+        if (!validationResult.Valid)
+        {
+            logger.LogError("Validation in 'DoPinTerminalPaymentAsync' of 'PayNlService' failed because: {Message}", validationResult.Message);
+            return new PaymentRequestResult
+            {
+                Successful = false,
+                ErrorMessage = $"Validation in 'DoPinTerminalPaymentAsync' of 'PayNlService' failed because: {validationResult.Message}"
+            };
+        }
+
+        var error = string.Empty;
+        
+        description = string.IsNullOrWhiteSpace(description) ? $"Order #{invoiceNumber}" : description.Replace("{invoiceNumber}", invoiceNumber);
+    
+        RestResponse restResponse = null;
+        JObject responseJson = null;
+
+        // Build and execute payment request.
+        var restRequest = new RestRequest("/v1/orders", Method.Post);
+        restRequest = AddRequestHeaders(restRequest, payNlSettings);
+      
+        var paymentMethod = new PaymentMethod { Id = 1927 };
+        paymentMethod.Input = new PaymentMethodInput();
+        paymentMethod.Input.TerminalCode = paymentMethodSettings.TerminalCode;
+
+        var requestBody = new PayNLOrderCreateRequestModel()
+        {
+            Amount = new Amount { Value = (int) Math.Round(amount * 100), Currency = "EUR" },
+            ServiceId = payNlSettings.ServiceId,
+            Description = description, // Maximum of 32 characters, otherwise Pay. will shorten the description
+            Reference = invoiceNumber.Replace("-","X"), // dash is not allowed
+            ReturnUrl = payNlSettings.SuccessUrl,
+            ExchangeUrl = payNlSettings.WebhookUrl,
+            Integration = new Integration { Test = !payNlSettings.ForceProduction && gclSettings.Environment.InList(Environments.Test, Environments.Development)},
+            Customer = new Customer { Locale = "nl_NL" },
+            PaymentMethod = paymentMethod
+        };
+        restRequest.AddJsonBody(requestBody);
+        
+        try
+        {
+            var restClient = new RestClient(BaseUrl);
+            restResponse = await restClient.ExecuteAsync(restRequest);
+            responseJson = String.IsNullOrWhiteSpace(restResponse.Content) ? new JObject() : JObject.Parse(restResponse.Content);
+            var responseSuccessful = restResponse.StatusCode == HttpStatusCode.Created;
+
+            if (!responseSuccessful)
+            {
+                if (responseJson["code"]?.Value<string>() == "PAY-2107") // Pin terminal not available, send status back to application
+                {
+                    return new PaymentRequestResult
+                    {
+                        Successful = false,
+                        ErrorMessage = "Pin terminal niet beschikbaar"
+                    };
+                }
+                else
+                {
+                    return new PaymentRequestResult
+                    {
+                        Successful = false,
+                        ErrorMessage = responseJson.ToString()
+                    };
+                }
+            }
+            
+            // TODO deze teruggeven en/of opslaan bij de Payment
+            var payId = responseJson["id"]?.ToString();
+            var payOrderId = responseJson["orderId"]?.ToString();
+
+            
+            var redirectUrl = responseJson["links"]?["redirect"]?.ToString();
+            if (!string.IsNullOrEmpty(paymentMethodSettings.TerminalPendingUrl))
+            {
+                var abortUrl = responseJson["links"]?["abort"]?.ToString();
+                redirectUrl = $"{paymentMethodSettings.TerminalPendingUrl}{(paymentMethodSettings.TerminalPendingUrl.Contains('?') ? "&" : "?")}event={description}&ref={responseJson["id"]}&amount={amount.ToString().Replace(",",".")}&abortUrl={abortUrl}";
+            }
+
+            return new PaymentRequestResult
+            {
+                Successful = true,
+                ActionData = redirectUrl
+            };
+        }
+        catch (Exception e)
+        {
+            error = e.ToString();
+            return new PaymentRequestResult
+            {
                 Successful = false,
                 ErrorMessage = e.Message
             };
