@@ -760,12 +760,53 @@ namespace GeeksCoreLibrary.Components.OrderProcess.Services
 
                 var basketId = Convert.ToUInt64(httpContextAccessor.HttpContext.Request.Query["dpo-basketid"].ToString().Decrypt());
                 var basket = await wiserItemsService.GetItemDetailsAsync(basketId, entityType: ShoppingBasket.Models.Constants.BasketEntityType, skipPermissionsCheck: true);
+                if (basket == null)
+                    basket = await wiserItemsService.GetItemDetailsAsync(basketId, entityType: "conceptorder", skipPermissionsCheck: true);
+
+                if (basket == null)
+                {
+                    return new PaymentRequestResult
+                    {
+                        Successful = false,
+                        Action = PaymentRequestActions.Redirect,
+                        ActionData = failUrl,
+                        ErrorMessage = $"Basket '{basketId}' not found"
+                    };
+                }
+                
                 var lines = await wiserItemsService.GetLinkedItemDetailsAsync(basketId, ShoppingBasket.Models.Constants.BasketLineToBasketLinkType, ShoppingBasket.Models.Constants.BasketLineEntityType, itemIdEntityType: ShoppingBasket.Models.Constants.BasketEntityType, skipPermissionsCheck: true);
+                
+                // In onderstaande code wordt "order" meegestuurd ipv "conceptorder", omdat meestal het record in wiser_link er anders niet is
+                if (lines.Count == 0)
+                    lines = await wiserItemsService.GetLinkedItemDetailsAsync(basketId, ShoppingBasket.Models.Constants.BasketLineToBasketLinkType, "orderline", itemIdEntityType: "order", skipPermissionsCheck: true);    
+                
+                if (lines.Count == 0)
+                {
+                    return new PaymentRequestResult
+                    {
+                        Successful = false,
+                        Action = PaymentRequestActions.Redirect,
+                        ActionData = failUrl,
+                        ErrorMessage = $"Nog basket lines found for basket '{basketId}'"
+                    };
+                }
+                
                 shoppingBaskets.Add((basket, lines));
             }
             else
             {
                 shoppingBaskets = await shoppingBasketsService.GetShoppingBasketsAsync();    
+                
+                if (shoppingBaskets.Count == 0)
+                {
+                    return new PaymentRequestResult
+                    {
+                        Successful = false,
+                        Action = PaymentRequestActions.Redirect,
+                        ActionData = failUrl,
+                        ErrorMessage = "No shopping baskets found"
+                    };
+                }
             }
             var selectedPaymentMethodId = shoppingBaskets.First().Main.GetDetailValue<ulong>(Constants.PaymentMethodProperty);
             var conceptOrders = new List<(WiserItemModel Main, List<WiserItemModel> Lines)>();
