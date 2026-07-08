@@ -357,7 +357,7 @@ public class PayNlService : PaymentServiceProviderBaseService, IPaymentServicePr
         }
     }
     
-    public async Task<PaymentRequestResult> DoPinTerminalPaymentAsync(decimal amount, ulong paymentMethodId, string invoiceNumber, string description = "")
+    public async Task<PaymentRequestResult> DoPinTerminalPaymentAsync(decimal amount, ulong paymentMethodId, string invoiceNumber, string description = "", string exchangeUrl = "")
     {
         var paymentMethodSettings = await orderProcessesService.GetPaymentMethodAsync(paymentMethodId);
         var payNlSettings = (PayNlSettingsModel) paymentMethodSettings.PaymentServiceProvider;
@@ -395,7 +395,7 @@ public class PayNlService : PaymentServiceProviderBaseService, IPaymentServicePr
             Description = description, // Maximum of 32 characters, otherwise Pay. will shorten the description
             Reference = invoiceNumber.Replace("-","X"), // dash is not allowed
             ReturnUrl = payNlSettings.SuccessUrl,
-            ExchangeUrl = payNlSettings.WebhookUrl,
+            ExchangeUrl = exchangeUrl,
             Integration = new Integration { Test = !payNlSettings.ForceProduction && gclSettings.Environment.InList(Environments.Test, Environments.Development)},
             Customer = new Customer { Locale = "nl_NL" },
             PaymentMethod = paymentMethod
@@ -429,10 +429,8 @@ public class PayNlService : PaymentServiceProviderBaseService, IPaymentServicePr
                 }
             }
             
-            // TODO deze teruggeven en/of opslaan bij de Payment
-            var payId = responseJson["id"]?.ToString();
+            //var payId = responseJson["id"]?.ToString();
             var payOrderId = responseJson["orderId"]?.ToString();
-
             
             var redirectUrl = responseJson["links"]?["redirect"]?.ToString();
             if (!string.IsNullOrEmpty(paymentMethodSettings.TerminalPendingUrl))
@@ -444,7 +442,8 @@ public class PayNlService : PaymentServiceProviderBaseService, IPaymentServicePr
             return new PaymentRequestResult
             {
                 Successful = true,
-                ActionData = redirectUrl
+                ActionData = redirectUrl,
+                PspTransactionReference = payOrderId
             };
         }
         catch (Exception e)
