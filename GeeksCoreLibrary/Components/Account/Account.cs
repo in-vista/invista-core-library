@@ -370,7 +370,7 @@ namespace GeeksCoreLibrary.Components.Account
                     await HandleCXmlPunchOutLoginModeAsync();
                     break;
                 case ComponentModes.JsonLogin:
-                    await HandleJsonLoginModeAsync();
+                    resultHtml.Append(await HandleJsonLoginModeAsync());
                     break;
                 case ComponentModes.CXmlPunchOutContinueSession:
                     await HandleCXmlPunchOutContinueSessionModeAsync();
@@ -382,7 +382,7 @@ namespace GeeksCoreLibrary.Components.Account
                     throw new NotImplementedException($"Unknown or unsupported component mode '{Settings.ComponentMode}' in 'GenerateHtmlAsync'.");
             }
 
-            if (!String.IsNullOrWhiteSpace(Settings.TemplateJavaScript) && (Settings.ComponentMode != ComponentModes.CXmlPunchOutLogin))
+            if (!String.IsNullOrWhiteSpace(Settings.TemplateJavaScript) && (Settings.ComponentMode != ComponentModes.CXmlPunchOutLogin) && (Settings.ComponentMode != ComponentModes.JsonLogin))
             {
                 var javascript = Settings.TemplateJavaScript.Replace("{loginFieldName}", Settings.LoginFieldName, StringComparison.OrdinalIgnoreCase)
                     .Replace("{passwordFieldName}", Settings.PasswordFieldName, StringComparison.OrdinalIgnoreCase)
@@ -1205,7 +1205,7 @@ namespace GeeksCoreLibrary.Components.Account
         /// Handle everything for logging in with JSON post
         /// </summary>
         /// <returns></returns>
-        public async Task HandleJsonLoginModeAsync()
+        public async Task<string> HandleJsonLoginModeAsync()
         {
             var httpContext = HttpContext;
             if (httpContext == null)
@@ -1254,7 +1254,7 @@ namespace GeeksCoreLibrary.Components.Account
                 // TODO: JSON login in combination with LoginSingleStep mode
                 // var loginResult = await LoginUserAsync(0, userName, password, (int)ComponentModes.LoginSingleStep);
                 
-                var result = await SsoLogin(userName, password);
+                var result = await SsoLogin(userName, password, true);
                 if (result.StartsWith("success:")) 
                 {
                     var userId = result.Split(':')[2];
@@ -1275,7 +1275,8 @@ namespace GeeksCoreLibrary.Components.Account
                         one_time_url = url
                     };
 
-                    await httpContext.Response.WriteAsync(JsonConvert.SerializeObject(response));
+                    httpContext.Response.ContentType = "application/json; charset=utf-8";
+                    return JsonConvert.SerializeObject(response);
                 }
                 else
                 {
@@ -1477,7 +1478,7 @@ namespace GeeksCoreLibrary.Components.Account
         /// <summary>
         /// Handle everything for authenticating through a third-party.
         /// </summary>
-        public async Task<string> SsoLogin(string userName, string password)
+        public async Task<string> SsoLogin(string userName, string password, bool skipTokenCheck = false)
         {
             try
             {
@@ -1644,12 +1645,13 @@ LIMIT 1";
                 if (!string.IsNullOrEmpty(afterLoginQuery))
                 {
                     afterLoginQuery = StringReplacementsService.DoReplacements(afterLoginQuery, ssoResponseVariables);
+                    afterLoginQuery = await AccountsService.DoAccountReplacementsAsync(afterLoginQuery, false);
                     DatabaseConnection.ClearParameters();
                     await DatabaseConnection.ExecuteAsync(afterLoginQuery);
                 }
                 
                 // Force login the user to the new account.
-                var (loginResults, _, __) = await LoginUserAsync(encryptedUserId: userModel.EncryptedId);
+                var (loginResults, _, __) = await LoginUserAsync(encryptedUserId: userModel.EncryptedId,  skipTokenCheck: skipTokenCheck);
 
                 if (loginResults != LoginResults.Success)
                 {
@@ -2121,8 +2123,9 @@ LIMIT 1";
         /// <param name="password">Optional: The password of the user that is trying to login. If empty, it will be retrieved from the posted data.</param>
         /// <param name="overrideComponentMode">Optional: Use this to force a specific <see langword="ComponentMode"/>.</param>
         /// <param name="encryptedUserId">Optional: An encrypted user ID for logging in via a link.</param>
+        /// <param name="skipTokenCheck">Optional: When logging in by JSON post (SSO), the token check must be skipped, because this is done in the second step.</param>
         /// <returns>A <see cref="Tuple"/> containing the <see cref="LoginResults"/>, userId and e-mail address.</returns>
-        private async Task<(LoginResults Result, ulong UserId, string EmailAddress)> LoginUserAsync(int stepNumber = 1, string loginValue = null, string password = null, int overrideComponentMode = 0, string encryptedUserId = null)
+        private async Task<(LoginResults Result, ulong UserId, string EmailAddress)> LoginUserAsync(int stepNumber = 1, string loginValue = null, string password = null, int overrideComponentMode = 0, string encryptedUserId = null, bool skipTokenCheck = false)
         {
             if (HttpContext == null)
             {
@@ -2170,7 +2173,7 @@ LIMIT 1";
                     return (Result: LoginResults.InvalidUserId, UserId: decryptedUserId, EmailAddress: null);
                 }
 
-                if (String.IsNullOrWhiteSpace(wiserValidationToken) || !wiserValidationToken.Equals(Settings.WiserLoginToken))
+                if (!skipTokenCheck && (String.IsNullOrWhiteSpace(wiserValidationToken) || !wiserValidationToken.Equals(Settings.WiserLoginToken)))
                 {
                     return (Result: LoginResults.InvalidValidationToken, UserId: decryptedUserId, EmailAddress: null);
                 }
