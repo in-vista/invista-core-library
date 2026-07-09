@@ -467,11 +467,13 @@ namespace GeeksCoreLibrary.Components.Account
 
                 // If OCI login enabled and there is a hook URL, then it's OCI
                 // If OCI login enabled and Wiser login enabled, then it's cXML step 2
+                var ociHookUrlCookieWritten = false;
                 if (Settings.EnableOciLogin && (!String.IsNullOrWhiteSpace(ociHookUrl) || Settings.EnableWiserLogin))
                 {
                     var amountOfDaysToRememberCookie = AccountsService.GetAmountOfDaysToRememberCookie(Settings);
                     var offset = (amountOfDaysToRememberCookie ?? 0) <= 0 ? (DateTimeOffset?) null : DateTimeOffset.Now.AddDays(amountOfDaysToRememberCookie.Value);
                     HttpContextHelpers.WriteCookie(httpContext, Constants.OciHookUrlCookieName, ociHookUrl ?? "CXML", offset, isEssential: true, httpOnly:false);
+                    ociHookUrlCookieWritten = true;
                     
                     // Write OCI session cookie, so multiple sessions (baskets) can exist of the same OCI user
                     if (string.IsNullOrEmpty(HttpContextHelpers.ReadCookie(httpContext,Constants.OciSessionCookieName)))
@@ -506,7 +508,7 @@ namespace GeeksCoreLibrary.Components.Account
                 }
                 else if (Settings.EnableWiserLogin && !String.IsNullOrWhiteSpace(encryptedWiserUserId))
                 {
-                    await AccountsService.LogoutUserAsync(Settings, true);
+                    await AccountsService.LogoutUserAsync(Settings, true, !ociHookUrlCookieWritten);
                     var loginResult = await LoginUserAsync(stepNumber, overrideComponentMode: (int)ComponentModes.LoginSingleStep, encryptedUserId: encryptedWiserUserId);
                     userId = loginResult.UserId;
 
