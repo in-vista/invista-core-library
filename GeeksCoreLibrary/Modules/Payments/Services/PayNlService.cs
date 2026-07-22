@@ -534,6 +534,10 @@ public class PayNlService : PaymentServiceProviderBaseService, IPaymentServicePr
                 Status = "Error retrieving status: No HttpContext available."
             };
         }
+        
+        var action = (httpContextAccessor.HttpContext.Request.HasFormContentType
+            ? (Microsoft.Extensions.Primitives.StringValues?)httpContextAccessor.HttpContext.Request.Form["action"]
+            : httpContextAccessor.HttpContext.Request.Query["action"]).Value.ToString();
    
         if (string.Equals(paymentMethodSettings.ExternalName, "softpos", StringComparison.OrdinalIgnoreCase))
         {
@@ -544,10 +548,6 @@ public class PayNlService : PaymentServiceProviderBaseService, IPaymentServicePr
                 var payNlOrderId = (httpContextAccessor.HttpContext.Request.HasFormContentType
                     ? (Microsoft.Extensions.Primitives.StringValues?)httpContextAccessor.HttpContext.Request.Form["order_id"]
                     : httpContextAccessor.HttpContext.Request.Query["order_id"]).Value.ToString();
-                
-                var action = (httpContextAccessor.HttpContext.Request.HasFormContentType
-                    ? (Microsoft.Extensions.Primitives.StringValues?)httpContextAccessor.HttpContext.Request.Form["action"]
-                    : httpContextAccessor.HttpContext.Request.Query["action"]).Value.ToString();
                 
                 var amount = (httpContextAccessor.HttpContext.Request.HasFormContentType
                     ? (Microsoft.Extensions.Primitives.StringValues?)httpContextAccessor.HttpContext.Request.Form["amount"]
@@ -645,14 +645,69 @@ public class PayNlService : PaymentServiceProviderBaseService, IPaymentServicePr
                 throw;
             }  
         }
+        
+        if (action.StartsWith("refund:"))
+        {
+            try
+            {
+                var payNlOrderId = (httpContextAccessor.HttpContext.Request.HasFormContentType
+                    ? (Microsoft.Extensions.Primitives.StringValues?)httpContextAccessor.HttpContext.Request.Form["order_id"]
+                    : httpContextAccessor.HttpContext.Request.Query["order_id"]).Value.ToString();
+                
+                //var amount = (httpContextAccessor.HttpContext.Request.HasFormContentType
+                //    ? (Microsoft.Extensions.Primitives.StringValues?)httpContextAccessor.HttpContext.Request.Form["amount"]
+                //    : httpContextAccessor.HttpContext.Request.Query["amount"]).Value.ToString();
+                
+                await LogIncomingPaymentActionAsync(PaymentServiceProviders.PayNl, payNlOrderId, 0);
+                
+                // See this URL for the different action values: https://developer.pay.nl/docs/payouts
+                switch (action)
+                {
+                    case "refund:add":
+                    case "refund:received":
+                    case "refund:send":
+                    case "refund:storno":
+                        return new StatusUpdateResult
+                        {
+                            Successful = true,
+                            Status = "REFUND",
+                            StatusCode = 100,
+                            PspTransactionId = payNlOrderId
+                        };
+                    default:
+                        return new StatusUpdateResult
+                        {
+                            Successful = false,
+                            Status = "unknown",
+                            StatusCode = 0,
+                            PspTransactionId = payNlOrderId
+                        };
+                }
+            }
+            catch (Exception e)
+            {
+                await LogIncomingPaymentActionAsync(PaymentServiceProviders.PayNl, GetInvoiceNumberFromRequest(), 0, error: e.Message);
+                throw;
+            }  
+        }
 
-        // Not softpos, iDEAL and other payment methods
+        // Not softpos or refund, iDEAL and other payment methods
         var payNlTransactionId = string.Empty;
 
         try
         {
             payNlTransactionId = GetInvoiceNumberFromRequest();
-          
+            
+            if (string.IsNullOrEmpty(payNlTransactionId))
+            {
+                await LogIncomingPaymentActionAsync(PaymentServiceProviders.PayNl, payNlTransactionId, 0, error: "payNlTransactionId onbekend, GetInvoiceNumberFromRequest geeft null terug.");
+                return new StatusUpdateResult
+                {
+                    Successful = false,
+                    Status = "error"
+                };
+            }
+
             var payNlSettings = (PayNlSettingsModel) paymentMethodSettings.PaymentServiceProvider;
             var restClient = new RestClient(BaseUrl);
             var restRequest = new RestRequest($"/v1/orders/{payNlTransactionId}/status");
@@ -735,6 +790,7 @@ public class PayNlService : PaymentServiceProviderBaseService, IPaymentServicePr
     public string GetInvoiceNumberFromRequest()
     {
         var invoiceNumber = HttpContextHelpers.GetRequestValue(httpContextAccessor?.HttpContext, PayNlConstants.WebhookInvoiceNumberProperty);
+     
         //if (string.IsNullOrEmpty(invoiceNumber)) // For softpos exchanges use order_id, the object[orderId] is for online payments like iDEAL
         //    invoiceNumber = HttpContextHelpers.GetRequestValue(httpContextAccessor?.HttpContext, "order_id"); --> Endpoint order:status werkt niet voor softpos transacties
         /*if (string.IsNullOrEmpty(invoiceNumber))
@@ -761,6 +817,12 @@ public class PayNlService : PaymentServiceProviderBaseService, IPaymentServicePr
         {
             // For softpos payments the reference querystring must be added to the exchange url, payment_in uses this querystring to get the order
             invoiceNumber = HttpContextHelpers.GetRequestValue(httpContextAccessor?.HttpContext, "reference");  
+        }
+        
+        if (string.IsNullOrEmpty(invoiceNumber))
+        {
+            // Get the unique payment number from the query string order_id for refunds
+            invoiceNumber = HttpContextHelpers.GetRequestValue(httpContextAccessor?.HttpContext, "order_id");  
         }
 
         return invoiceNumber;
