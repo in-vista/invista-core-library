@@ -349,7 +349,7 @@ namespace GeeksCoreLibrary.Core.Services
                     databaseConnection.AddParameter("userId", userId);
                     databaseConnection.AddParameter("publishedEnvironment",
                                                     wiserItem.PublishedEnvironment ?? Environments.Live | Environments.Acceptance | Environments.Test | Environments.Development);
-                    databaseConnection.AddParameter("unique_uuid", wiserItem.UniqueUuid);
+                    databaseConnection.AddParameter("unique_uuid", !string.IsNullOrEmpty(wiserItem.UniqueUuid) ? wiserItem.UniqueUuid : string.Empty);
                     databaseConnection.AddParameter("json", wiserItem.Json);
                     databaseConnection.AddParameter("jsonLastProcessedDate", wiserItem.JsonLastProcessedDate);
                     databaseConnection.AddParameter("saveHistoryGcl", saveHistory); // This is used in triggers.
