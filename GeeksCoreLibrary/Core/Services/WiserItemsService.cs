@@ -349,6 +349,7 @@ namespace GeeksCoreLibrary.Core.Services
                     databaseConnection.AddParameter("userId", userId);
                     databaseConnection.AddParameter("publishedEnvironment",
                                                     wiserItem.PublishedEnvironment ?? Environments.Live | Environments.Acceptance | Environments.Test | Environments.Development);
+                    databaseConnection.AddParameter("unique_uuid", wiserItem.UniqueUuid);
                     databaseConnection.AddParameter("json", wiserItem.Json);
                     databaseConnection.AddParameter("jsonLastProcessedDate", wiserItem.JsonLastProcessedDate);
                     databaseConnection.AddParameter("saveHistoryGcl", saveHistory); // This is used in triggers.
@@ -362,8 +363,8 @@ namespace GeeksCoreLibrary.Core.Services
                     var query = $@"SET @saveHistory = ?saveHistoryGcl;
 SET @_userId = ?userId;
 SET @saveHistory = ?saveHistoryGcl;
-INSERT INTO {tablePrefix}{WiserTableNames.WiserItem} ({(wiserItem.Id > 0 ? "id," : "")} parent_item_id, ordering, moduleid, title, entity_type, added_on, added_by, published_environment, json, json_last_processed_date{(string.IsNullOrEmpty(additionalAggregatedColumns) ? "" : ", ")}{additionalAggregatedColumns})
-VALUES ({(wiserItem.Id > 0 ? "?id," : "")} ?parentId, ?newOrdering, ?moduleId, ?title, ?entityType, ?addedOn, ?username, ?publishedEnvironment, ?json, ?jsonLastProcessedDate{(string.IsNullOrEmpty(additionalAggregatedColumnParameterNames) ? "" : ", ")}{additionalAggregatedColumnParameterNames});
+INSERT INTO {tablePrefix}{WiserTableNames.WiserItem} ({(wiserItem.Id > 0 ? "id," : "")} parent_item_id, ordering, moduleid, title, entity_type, added_on, added_by, published_environment, unique_uuid, json, json_last_processed_date{(string.IsNullOrEmpty(additionalAggregatedColumns) ? "" : ", ")}{additionalAggregatedColumns})
+VALUES ({(wiserItem.Id > 0 ? "?id," : "")} ?parentId, ?newOrdering, ?moduleId, ?title, ?entityType, ?addedOn, ?username, ?publishedEnvironment, ?unique_uuid, ?json, ?jsonLastProcessedDate{(string.IsNullOrEmpty(additionalAggregatedColumnParameterNames) ? "" : ", ")}{additionalAggregatedColumnParameterNames});
 SELECT {(wiserItem.Id > 0 ? "?id" : "LAST_INSERT_ID()")} AS newId;";
                     var queryResult = await databaseConnection.GetAsync(query, true);
 
