@@ -571,7 +571,7 @@ WHERE id = ?id";
         /// <param name="timeout">The timeout in milliseconds before it's considered to take too long. The default timeout equals to 2 minutes. This is the same default timeout that MailKit uses.</param>
         private async Task SendMailerSendEmailDirectlyAsync(SingleCommunicationModel communication, SmtpSettings smtpSettings, int timeout = 120_000)
         {
-            var mailerSendRequest = await MakeMailerSendRequestBySingleCommunicationAsync(communication, smtpSettings);
+            var mailerSendRequest = await MakeMailerSendRequestBySingleCommunicationAsync(communication, smtpSettings, false);
             communication.StatusMessage = await SendRequestToMailerSendApiAsync(mailerSendRequest, smtpSettings, timeout);
         }
         
@@ -629,7 +629,7 @@ WHERE id = ?id";
         }
 
         /// <inheritdoc />
-        public async Task<MailerSendRequestModel> MakeMailerSendRequestBySingleCommunicationAsync(SingleCommunicationModel communication, SmtpSettings smtpSettings)
+        public async Task<MailerSendRequestModel> MakeMailerSendRequestBySingleCommunicationAsync(SingleCommunicationModel communication, SmtpSettings smtpSettings, bool forBulk)
         {
             var requestBody = new MailerSendRequestModel()
             {
@@ -643,7 +643,10 @@ WHERE id = ?id";
                 Settings = new MailerSendSettingsModel(),
                 Tags = communication.Tags
             };
-
+            
+            // Only track clicks on bulk emails (marketing emails)
+            requestBody.Settings.TrackClicks = forBulk;
+            
             if (smtpSettings.MailerSendSettings.IsProfessionalOrEnterpriseAccount)
             {
                 requestBody.Headers = new List<MailerSendHeadersModel>

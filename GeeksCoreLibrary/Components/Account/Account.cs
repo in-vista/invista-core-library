@@ -1216,7 +1216,9 @@ namespace GeeksCoreLibrary.Components.Account
             }
             if (httpContext.Request.Method != "POST")
             {
-                throw new Exception("Only http POST method is allowed.");
+                var response = new { error = "Only http POST method is allowed." };
+                httpContext.Response.ContentType = "application/json; charset=utf-8";
+                return JsonConvert.SerializeObject(response);
             }
 
             var request = httpContext.Request;
@@ -1246,7 +1248,9 @@ namespace GeeksCoreLibrary.Components.Account
             var apiKeyFromDatabase = (await objectsService.FindSystemObjectByDomainNameAsync("jsonloginapikey", defaultResult: ""));
             if (apiKey != apiKeyFromDatabase)
             {
-                throw new Exception("Invalid API key");
+                var response = new { error = "Invalid API key." };
+                httpContext.Response.ContentType = "application/json; charset=utf-8";
+                return JsonConvert.SerializeObject(response);
             }
             
             if (!string.IsNullOrEmpty(userName) && !string.IsNullOrEmpty(password))
@@ -1282,12 +1286,16 @@ namespace GeeksCoreLibrary.Components.Account
                 }
                 else
                 {
-                    throw new Exception(result);
+                    var response = new { error = result };
+                    httpContext.Response.ContentType = "application/json; charset=utf-8";
+                    return JsonConvert.SerializeObject(response);
                 }
             }
             else
             {
-                throw new Exception("Username and password are mandatory");
+                var response = new { error = "Username and password are mandatory." };
+                httpContext.Response.ContentType = "application/json; charset=utf-8";
+                return JsonConvert.SerializeObject(response);
             }
         }
 
