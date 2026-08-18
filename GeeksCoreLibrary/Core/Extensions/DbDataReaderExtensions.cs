@@ -52,5 +52,18 @@ namespace GeeksCoreLibrary.Core.Extensions
 
             return false;
         }
+        
+        /// <summary>
+        /// Safely retrieves the value even if it would be returned as <see cref="DBNull"/>.
+        /// </summary>
+        /// <param name="reader">The reader to read the value from.</param>
+        /// <param name="columnOrdinal">The index of the column to retrieve the value from.</param>
+        /// <typeparam name="T">The type to retrieve the value as.</typeparam>
+        /// <returns>The value of the given column ordinal as a safe value.</returns>
+        public static T GetSafeValue<T>(this DbDataReader reader, int columnOrdinal)
+        {
+            object value = reader.GetValue(columnOrdinal);
+            return value == DBNull.Value ? default : (T)value;
+        }
     }
 }

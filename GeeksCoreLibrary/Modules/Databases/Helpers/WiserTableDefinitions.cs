@@ -1197,6 +1197,21 @@ public class WiserTableDefinitions
                 new("added_on", MySqlDbType.DateTime, notNull: true, defaultValue: "CURRENT_TIMESTAMP"),
                 new("changed_on", MySqlDbType.DateTime, notNull: true, defaultValue: "CURRENT_TIMESTAMP", updateTimeStampOnChange: true)
             }
+        },
+        
+        // wiser_user_imitation
+        new WiserTableDefinitionModel
+        {
+            Name = WiserTableNames.WiserUserImitation,
+            LastUpdate = new DateTime(2026, 7, 29),
+            Columns = new List<ColumnSettingsModel>
+            {
+                new("id", MySqlDbType.UInt64, notNull: true, isPrimaryKey: true, autoIncrement: true),
+                new("user_id", MySqlDbType.UInt64, notNull: true),
+                new("target_user_id", MySqlDbType.UInt64, notNull: true),
+                new("added_on", MySqlDbType.DateTime, notNull: true, defaultValue: "CURRENT_TIMESTAMP"),
+                new("changed_on", MySqlDbType.DateTime, notNull: true, defaultValue: "CURRENT_TIMESTAMP", updateTimeStampOnChange: true)
+            }
         }
     };
 }

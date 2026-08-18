@@ -185,7 +185,8 @@ namespace GeeksCoreLibrary.Modules.Communication.Interfaces
         /// </summary>
         /// <param name="communication">The <see cref="SingleCommunicationModel"/> object to use as the basis to send the email.</param>
         /// <param name="smtpSettings">The SMTP settings to use.</param>
-        Task<MailerSendRequestModel> MakeMailerSendRequestBySingleCommunicationAsync(SingleCommunicationModel communication, SmtpSettings smtpSettings);
+        /// <param name="forBulk">Give true if request is for sending bulk emails.</param>
+        Task<MailerSendRequestModel> MakeMailerSendRequestBySingleCommunicationAsync(SingleCommunicationModel communication, SmtpSettings smtpSettings, bool forBulk);
         
         /// <summary>
         /// Send the email directly using the MailerSend Rest API.

@@ -189,7 +189,26 @@ WHERE `order`.entity_type IN ('{OrderProcess.Models.Constants.OrderEntityType}',
             foreach (var basketId in basketIds)
             {
                 var basket = await wiserItemsService.GetItemDetailsAsync(basketId, entityType: Constants.BasketEntityType, skipPermissionsCheck: true);
+                
+                if (basket == null)
+                    basket = await wiserItemsService.GetItemDetailsAsync(basketId, entityType: "conceptorder", skipPermissionsCheck: true);
+
+                if (basket == null)
+                {
+                    continue;
+                }
+                
                 var lines = await wiserItemsService.GetLinkedItemDetailsAsync(basketId, Constants.BasketLineToBasketLinkType, Constants.BasketLineEntityType, itemIdEntityType: Constants.BasketEntityType, skipPermissionsCheck: true);
+                
+                // In onderstaande code wordt "order" meegestuurd ipv "conceptorder", omdat meestal het record in wiser_link er anders niet is
+                if (lines.Count == 0)
+                    lines = await wiserItemsService.GetLinkedItemDetailsAsync(basketId, Constants.BasketLineToBasketLinkType, "orderline", itemIdEntityType: "order", skipPermissionsCheck: true);    
+                
+                if (lines.Count == 0)
+                {
+                    continue;
+                }
+                
                 result.Add((basket, lines));
             }
 
