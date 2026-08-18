@@ -459,6 +459,7 @@ namespace GeeksCoreLibrary.Components.Account
                 var ociUsername = HttpContextHelpers.GetRequestValue(httpContext, Settings.OciUsernameKey);
                 var ociPassword = HttpContextHelpers.GetRequestValue(httpContext, Settings.OciPasswordKey);
                 var encryptedWiserUserId = HttpContextHelpers.GetRequestValue(httpContext, Settings.WiserLoginUserIdKey);
+                var ociSessionId = HttpContextHelpers.GetRequestValue(httpContext, "s"); // From JSON login mode
 
                 if (Settings.EnableOciLogin && !String.IsNullOrWhiteSpace(ociUsername) && !String.IsNullOrWhiteSpace(ociPassword))
                 {
@@ -474,11 +475,19 @@ namespace GeeksCoreLibrary.Components.Account
                     var offset = (amountOfDaysToRememberCookie ?? 0) <= 0 ? (DateTimeOffset?) null : DateTimeOffset.Now.AddDays(amountOfDaysToRememberCookie.Value);
                     HttpContextHelpers.WriteCookie(httpContext, Constants.OciHookUrlCookieName, ociHookUrl ?? "CXML", offset, isEssential: true, httpOnly:false);
                     ociHookUrlCookieWritten = true;
-                    
-                    // Write OCI session cookie, so multiple sessions (baskets) can exist of the same OCI user
-                    if (string.IsNullOrEmpty(HttpContextHelpers.ReadCookie(httpContext,Constants.OciSessionCookieName)))
+
+                    if (!string.IsNullOrEmpty(ociSessionId))
                     {
-                        HttpContextHelpers.WriteCookie(httpContext, Constants.OciSessionCookieName, httpContext.Session.Id + DateTime.Now.ToString("yyyyMMddHHmmss"), offset, isEssential: true);    
+                        // Always write session id which is send to cookie
+                        HttpContextHelpers.WriteCookie(httpContext, Constants.OciSessionCookieName, ociSessionId, offset, isEssential: true);    
+                    }
+                    else
+                    {
+                        // Write OCI session cookie, so multiple sessions (baskets) can exist of the same OCI user
+                        if (string.IsNullOrEmpty(HttpContextHelpers.ReadCookie(httpContext,Constants.OciSessionCookieName)))
+                        {
+                            HttpContextHelpers.WriteCookie(httpContext, Constants.OciSessionCookieName, httpContext.Session.Id + DateTime.Now.ToString("yyyyMMddHHmmss"), offset, isEssential: true);    
+                        }    
                     }
                 }
 
@@ -1274,7 +1283,7 @@ namespace GeeksCoreLibrary.Components.Account
                     httpContext.Response.ContentType = "application/json";
 
                     var url = Settings.RedirectAfterAction.TrimStart('/');
-                    url = $"https://{httpContext.Request.Host}/{url}{(url.Contains('?') ? "&" : "?")}{Settings.WiserLoginUserIdKey}={userId.EncryptWithAesWithSalt(withDateTime: true).UrlEncode()}&{Settings.WiserLoginTokenKey}={Settings.WiserLoginToken}";
+                    url = $"https://{httpContext.Request.Host}/{url}{(url.Contains('?') ? "&" : "?")}{Settings.WiserLoginUserIdKey}={userId.EncryptWithAesWithSalt(withDateTime: true).UrlEncode()}&{Settings.WiserLoginTokenKey}={Settings.WiserLoginToken}&s={sessionId.UrlEncode()}";
 
                     var response = new
                     {
