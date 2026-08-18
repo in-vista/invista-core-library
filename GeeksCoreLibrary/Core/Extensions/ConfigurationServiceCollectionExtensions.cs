@@ -185,7 +185,8 @@ namespace GeeksCoreLibrary.Core.Extensions
                         WiserTableNames.WiserItemLink,
                         WiserTableNames.WiserItemLinkDetail,
                         WiserTableNames.WiserModule,
-                        WiserTableNames.WiserActionButtonLog
+                        WiserTableNames.WiserActionButtonLog,
+                        WiserTableNames.WiserUserImitation
                     };
 
                     if (gclSettings.Value.LogOpeningAndClosingOfConnections)
