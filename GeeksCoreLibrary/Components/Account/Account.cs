@@ -370,7 +370,7 @@ namespace GeeksCoreLibrary.Components.Account
                     await HandleCXmlPunchOutLoginModeAsync();
                     break;
                 case ComponentModes.JsonLogin:
-                    await HandleJsonLoginModeAsync();
+                    resultHtml.Append(await HandleJsonLoginModeAsync());
                     break;
                 case ComponentModes.CXmlPunchOutContinueSession:
                     await HandleCXmlPunchOutContinueSessionModeAsync();
@@ -382,7 +382,7 @@ namespace GeeksCoreLibrary.Components.Account
                     throw new NotImplementedException($"Unknown or unsupported component mode '{Settings.ComponentMode}' in 'GenerateHtmlAsync'.");
             }
 
-            if (!String.IsNullOrWhiteSpace(Settings.TemplateJavaScript) && (Settings.ComponentMode != ComponentModes.CXmlPunchOutLogin))
+            if (!String.IsNullOrWhiteSpace(Settings.TemplateJavaScript) && (Settings.ComponentMode != ComponentModes.CXmlPunchOutLogin) && (Settings.ComponentMode != ComponentModes.JsonLogin))
             {
                 var javascript = Settings.TemplateJavaScript.Replace("{loginFieldName}", Settings.LoginFieldName, StringComparison.OrdinalIgnoreCase)
                     .Replace("{passwordFieldName}", Settings.PasswordFieldName, StringComparison.OrdinalIgnoreCase)
@@ -459,6 +459,7 @@ namespace GeeksCoreLibrary.Components.Account
                 var ociUsername = HttpContextHelpers.GetRequestValue(httpContext, Settings.OciUsernameKey);
                 var ociPassword = HttpContextHelpers.GetRequestValue(httpContext, Settings.OciPasswordKey);
                 var encryptedWiserUserId = HttpContextHelpers.GetRequestValue(httpContext, Settings.WiserLoginUserIdKey);
+                var ociSessionId = HttpContextHelpers.GetRequestValue(httpContext, "s"); // From JSON login mode
 
                 if (Settings.EnableOciLogin && !String.IsNullOrWhiteSpace(ociUsername) && !String.IsNullOrWhiteSpace(ociPassword))
                 {
@@ -467,16 +468,26 @@ namespace GeeksCoreLibrary.Components.Account
 
                 // If OCI login enabled and there is a hook URL, then it's OCI
                 // If OCI login enabled and Wiser login enabled, then it's cXML step 2
+                var ociHookUrlCookieWritten = false;
                 if (Settings.EnableOciLogin && (!String.IsNullOrWhiteSpace(ociHookUrl) || Settings.EnableWiserLogin))
                 {
                     var amountOfDaysToRememberCookie = AccountsService.GetAmountOfDaysToRememberCookie(Settings);
                     var offset = (amountOfDaysToRememberCookie ?? 0) <= 0 ? (DateTimeOffset?) null : DateTimeOffset.Now.AddDays(amountOfDaysToRememberCookie.Value);
                     HttpContextHelpers.WriteCookie(httpContext, Constants.OciHookUrlCookieName, ociHookUrl ?? "CXML", offset, isEssential: true, httpOnly:false);
-                    
-                    // Write OCI session cookie, so multiple sessions (baskets) can exist of the same OCI user
-                    if (string.IsNullOrEmpty(HttpContextHelpers.ReadCookie(httpContext,Constants.OciSessionCookieName)))
+                    ociHookUrlCookieWritten = true;
+
+                    if (!string.IsNullOrEmpty(ociSessionId))
                     {
-                        HttpContextHelpers.WriteCookie(httpContext, Constants.OciSessionCookieName, httpContext.Session.Id + DateTime.Now.ToString("yyyyMMddHHmmss"), offset, isEssential: true);    
+                        // Always write session id which is send to cookie
+                        HttpContextHelpers.WriteCookie(httpContext, Constants.OciSessionCookieName, ociSessionId, offset, isEssential: true);    
+                    }
+                    else
+                    {
+                        // Write OCI session cookie, so multiple sessions (baskets) can exist of the same OCI user
+                        if (string.IsNullOrEmpty(HttpContextHelpers.ReadCookie(httpContext,Constants.OciSessionCookieName)))
+                        {
+                            HttpContextHelpers.WriteCookie(httpContext, Constants.OciSessionCookieName, httpContext.Session.Id + DateTime.Now.ToString("yyyyMMddHHmmss"), offset, isEssential: true);    
+                        }    
                     }
                 }
 
@@ -506,7 +517,7 @@ namespace GeeksCoreLibrary.Components.Account
                 }
                 else if (Settings.EnableWiserLogin && !String.IsNullOrWhiteSpace(encryptedWiserUserId))
                 {
-                    await AccountsService.LogoutUserAsync(Settings, true);
+                    await AccountsService.LogoutUserAsync(Settings, true, !ociHookUrlCookieWritten);
                     var loginResult = await LoginUserAsync(stepNumber, overrideComponentMode: (int)ComponentModes.LoginSingleStep, encryptedUserId: encryptedWiserUserId);
                     userId = loginResult.UserId;
 
@@ -1205,7 +1216,7 @@ namespace GeeksCoreLibrary.Components.Account
         /// Handle everything for logging in with JSON post
         /// </summary>
         /// <returns></returns>
-        public async Task HandleJsonLoginModeAsync()
+        public async Task<string> HandleJsonLoginModeAsync()
         {
             var httpContext = HttpContext;
             if (httpContext == null)
@@ -1214,7 +1225,9 @@ namespace GeeksCoreLibrary.Components.Account
             }
             if (httpContext.Request.Method != "POST")
             {
-                throw new Exception("Only http POST method is allowed.");
+                var response = new { error = "Only http POST method is allowed." };
+                httpContext.Response.ContentType = "application/json; charset=utf-8";
+                return JsonConvert.SerializeObject(response);
             }
 
             var request = httpContext.Request;
@@ -1244,22 +1257,24 @@ namespace GeeksCoreLibrary.Components.Account
             var apiKeyFromDatabase = (await objectsService.FindSystemObjectByDomainNameAsync("jsonloginapikey", defaultResult: ""));
             if (apiKey != apiKeyFromDatabase)
             {
-                httpContext.Response.StatusCode = 401;
-                httpContext.Response.ContentType = "application/json";
-                var response = new
-                {
-                    error = "Invalid API key"
-                };
-                await httpContext.Response.WriteAsync(JsonConvert.SerializeObject(response));
+                var response = new { error = "Invalid API key." };
+                httpContext.Response.ContentType = "application/json; charset=utf-8";
+                return JsonConvert.SerializeObject(response);
             }
-            else if (!string.IsNullOrEmpty(userName) && !string.IsNullOrEmpty(password))
+            
+            if (!string.IsNullOrEmpty(userName) && !string.IsNullOrEmpty(password))
             {
                 // Try to login user
-                var loginResult = await LoginUserAsync(0, userName, password, (int)ComponentModes.LoginSingleStep);
-                if (loginResult.Result == LoginResults.Success) 
+                
+                // TODO: JSON login in combination with LoginSingleStep mode
+                // var loginResult = await LoginUserAsync(0, userName, password, (int)ComponentModes.LoginSingleStep);
+                
+                var result = await SsoLogin(userName, password, true);
+                if (result.StartsWith("success:")) 
                 {
+                    var userId = result.Split(':')[2];
                     DatabaseConnection.ClearParameters();
-                    DatabaseConnection.AddParameter("user_id", loginResult.UserId); 
+                    DatabaseConnection.AddParameter("user_id", Convert.ToUInt64(userId)); 
                     DatabaseConnection.AddParameter("session_id", sessionId);
                     DatabaseConnection.AddParameter("return_url", returnUrl);
                     await DatabaseConnection.InsertOrUpdateRecordBasedOnParametersAsync("gcl_json_login", 0UL);
@@ -1268,35 +1283,28 @@ namespace GeeksCoreLibrary.Components.Account
                     httpContext.Response.ContentType = "application/json";
 
                     var url = Settings.RedirectAfterAction.TrimStart('/');
-                    url = $"https://{httpContext.Request.Host}/{url}{(url.Contains('?') ? "&" : "?")}{Settings.WiserLoginUserIdKey}={loginResult.UserId.ToString().EncryptWithAesWithSalt(withDateTime: true).UrlEncode()}&{Settings.WiserLoginTokenKey}={Settings.WiserLoginToken}";
+                    url = $"https://{httpContext.Request.Host}/{url}{(url.Contains('?') ? "&" : "?")}{Settings.WiserLoginUserIdKey}={userId.EncryptWithAesWithSalt(withDateTime: true).UrlEncode()}&{Settings.WiserLoginTokenKey}={Settings.WiserLoginToken}&s={sessionId.UrlEncode()}";
 
                     var response = new
                     {
                         one_time_url = url
                     };
 
-                    await httpContext.Response.WriteAsync(JsonConvert.SerializeObject(response));
+                    httpContext.Response.ContentType = "application/json; charset=utf-8";
+                    return JsonConvert.SerializeObject(response);
                 }
                 else
                 {
-                    httpContext.Response.StatusCode = 401;
-                    httpContext.Response.ContentType = "application/json";
-                    var response = new
-                    {
-                        error = "Incorrect combination of username and password"
-                    };
-                    await httpContext.Response.WriteAsync(JsonConvert.SerializeObject(response));
+                    var response = new { error = result };
+                    httpContext.Response.ContentType = "application/json; charset=utf-8";
+                    return JsonConvert.SerializeObject(response);
                 }
             }
             else
             {
-                httpContext.Response.StatusCode = 401;
-                httpContext.Response.ContentType = "application/json";
-                var response = new
-                {
-                    error = "Username and password are mandatory"
-                };
-                await httpContext.Response.WriteAsync(JsonConvert.SerializeObject(response));
+                var response = new { error = "Username and password are mandatory." };
+                httpContext.Response.ContentType = "application/json; charset=utf-8";
+                return JsonConvert.SerializeObject(response);
             }
         }
 
@@ -1443,9 +1451,58 @@ namespace GeeksCoreLibrary.Components.Account
                 string sourceUsername = HttpContextHelpers.GetRequestValue(HttpContext, Settings.SSOSourceUsernameFieldName);
                 string sourcePassword = HttpContextHelpers.GetRequestValue(HttpContext, Settings.SSOSourcePasswordFieldName);
                 
+                var result = await SsoLogin(sourceUsername, sourcePassword);
+
+                if (result.StartsWith("success:"))
+                {
+                    // Set the template to be succesful to be sent back to the user.
+                    resultHtml = Settings.TemplateSuccess;
+                    resultHtml = DoDefaultAccountHtmlReplacements(resultHtml);
+                    resultHtml = resultHtml.Replace("{title}", result.Split(':')[1], StringComparison.OrdinalIgnoreCase);
+                }
+                else if (!string.IsNullOrEmpty(result))
+                {
+                    string errorTemplate = Settings.TemplateError.Replace("{errorType}", result);
+                    resultHtml = resultHtml.Replace("{error}", errorTemplate, StringComparison.OrdinalIgnoreCase);
+                }
+            }
+            catch (Exception exception)
+            {
+                // Set the template to be an error and show it to the user.
+                string errorTemplate = Settings.TemplateError.Replace("{errorType}", "Server");
+                resultHtml = resultHtml.Replace("{error}", errorTemplate, StringComparison.OrdinalIgnoreCase);
+                
+                // Log the thrown error.
+                Logger.LogError(exception.ToString());
+            }
+            
+            // End control for skipping code execution, but rely on default behaviour.
+            end:
+            
+            // Apply default replacement.
+            resultHtml = DoDefaultAccountHtmlReplacements(resultHtml);
+            
+            // Apply evaluations to the template.
+            resultHtml = await TemplatesService.DoReplacesAsync(
+                resultHtml,
+                handleRequest: Settings.HandleRequest,
+                evaluateLogicSnippets: Settings.EvaluateIfElseInTemplates,
+                removeUnknownVariables: Settings.RemoveUnknownVariables);
+            
+            // Return the template to the user.
+            return resultHtml;
+        }
+        
+        /// <summary>
+        /// Handle everything for authenticating through a third-party.
+        /// </summary>
+        public async Task<string> SsoLogin(string userName, string password, bool skipTokenCheck = false)
+        {
+            try
+            {
                 // If the username and password are empty, this means the user has not submitted the login form yet.
-                if (string.IsNullOrEmpty(sourceUsername) || string.IsNullOrEmpty(sourcePassword))
-                    goto end;
+                if (string.IsNullOrEmpty(userName) || string.IsNullOrEmpty(password))
+                    return string.Empty;
                 
                 // Retrieve the key names for the request body for the username and password fields.
                 string thirdPartyUsernameField = Settings.SSOThirdPartyUsernameFieldName;
@@ -1477,22 +1534,22 @@ namespace GeeksCoreLibrary.Components.Account
                         // application/x-www-form-urlencoded.
                         case HttpFormType.FormUrlEncodedContent:
                             List<KeyValuePair<string, string>> formUrlEncoded = new List<KeyValuePair<string, string>>();
-                            formUrlEncoded.Add(new KeyValuePair<string, string>(thirdPartyUsernameField, sourceUsername));
-                            formUrlEncoded.Add(new KeyValuePair<string, string>(thirdPartyPasswordField, sourcePassword));
+                            formUrlEncoded.Add(new KeyValuePair<string, string>(thirdPartyUsernameField, userName));
+                            formUrlEncoded.Add(new KeyValuePair<string, string>(thirdPartyPasswordField, password));
                             ssoContent = new FormUrlEncodedContent(formUrlEncoded);
                             break;
                         // multipart/form-data.
                         case HttpFormType.MultipartFormData:
                             MultipartFormDataContent multipartFormData = new MultipartFormDataContent();
-                            multipartFormData.Add(new StringContent(sourceUsername), thirdPartyUsernameField);
-                            multipartFormData.Add(new StringContent(sourcePassword), thirdPartyPasswordField);
+                            multipartFormData.Add(new StringContent(userName), thirdPartyUsernameField);
+                            multipartFormData.Add(new StringContent(password), thirdPartyPasswordField);
                             ssoContent = multipartFormData;
                             break;
                         // JSON body.
                         case HttpFormType.RawJson:
                             JObject json = new JObject(
-                                new JProperty(thirdPartyUsernameField, sourceUsername),
-                                new JProperty(thirdPartyPasswordField, sourcePassword)
+                                new JProperty(thirdPartyUsernameField, userName),
+                                new JProperty(thirdPartyPasswordField, password)
                             );
                             ssoContent = new StringContent(json.ToString(), Encoding.UTF8, "application/json");
                             break;
@@ -1523,9 +1580,7 @@ namespace GeeksCoreLibrary.Components.Account
                     // Validate the response. If it failed, we are not authenticated and we want to show an error template to the user.
                     if (!ssoResponse.IsSuccessStatusCode)
                     {
-                        string errorTemplate = Settings.TemplateError.Replace("{errorType}", "InvalidUsernameOrPassword");
-                        resultHtml = resultHtml.Replace("{error}", errorTemplate, StringComparison.OrdinalIgnoreCase);
-                        goto end;
+                        return "InvalidUsernameOrPassword";
                     }
 
                     // Parse the response (as string) into workable JSON.
@@ -1559,7 +1614,7 @@ namespace GeeksCoreLibrary.Components.Account
                 }
                 
                 // Get the identifier and username/title from the user details query results.
-                string ssoIdentifier = userDetails["identifier"];
+                string ssoIdentifier = userDetails.TryGetValue("identifier", out string ssoIdentifierTemp) ? ssoIdentifierTemp : string.Empty;
                 string userTitle = userDetails.TryGetValue("title", out string userTitleTemp) ? userTitleTemp : string.Empty;
                 
                 var entityTypeSettings = await wiserItemsService.GetEntityTypeSettingsAsync(Settings.EntityType);
@@ -1608,50 +1663,28 @@ LIMIT 1";
                 if (!string.IsNullOrEmpty(afterLoginQuery))
                 {
                     afterLoginQuery = StringReplacementsService.DoReplacements(afterLoginQuery, ssoResponseVariables);
+                    afterLoginQuery = await AccountsService.DoAccountReplacementsAsync(afterLoginQuery, false);
                     DatabaseConnection.ClearParameters();
                     await DatabaseConnection.ExecuteAsync(afterLoginQuery);
                 }
                 
                 // Force login the user to the new account.
-                var (loginResults, _, __) = await LoginUserAsync(encryptedUserId: userModel.EncryptedId);
+                var (loginResults, _, __) = await LoginUserAsync(encryptedUserId: userModel.EncryptedId,  skipTokenCheck: skipTokenCheck);
 
                 if (loginResults != LoginResults.Success)
                 {
-                    string errorTemplate = Settings.TemplateError.Replace("{errorType}", loginResults.ToString());
-                    resultHtml = resultHtml.Replace("{error}", errorTemplate, StringComparison.OrdinalIgnoreCase);
-                    goto end;
+                    return loginResults.ToString();
                 }
                 
-                // Set the template to be succesful to be sent back to the user.
-                resultHtml = Settings.TemplateSuccess;
-                resultHtml = DoDefaultAccountHtmlReplacements(resultHtml);
-                resultHtml = resultHtml.Replace("{title}", userTitle);
+                // Set the template to be successfull to be sent back to the user.
+                return $"success:{userTitle}:{userId}";
             }
             catch (Exception exception)
             {
-                // Set the template to be an error and show it to the user.
-                string errorTemplate = Settings.TemplateError.Replace("{errorType}", "Server");
-                resultHtml = resultHtml.Replace("{error}", errorTemplate, StringComparison.OrdinalIgnoreCase);
-                
                 // Log the thrown error.
                 Logger.LogError(exception.ToString());
+                return exception.ToString();
             }
-            
-            // End control for skipping code execution, but rely on default behaviour.
-            end:
-            
-            // Apply default replacement.
-            resultHtml = DoDefaultAccountHtmlReplacements(resultHtml);
-            
-            // Apply evaluations to the template.
-            resultHtml = await TemplatesService.DoReplacesAsync(
-                resultHtml,
-                handleRequest: Settings.HandleRequest,
-                evaluateLogicSnippets: Settings.EvaluateIfElseInTemplates,
-                removeUnknownVariables: Settings.RemoveUnknownVariables);
-            
-            // Return the template to the user.
-            return resultHtml;
         }
 
         /// <summary>
@@ -2108,8 +2141,9 @@ LIMIT 1";
         /// <param name="password">Optional: The password of the user that is trying to login. If empty, it will be retrieved from the posted data.</param>
         /// <param name="overrideComponentMode">Optional: Use this to force a specific <see langword="ComponentMode"/>.</param>
         /// <param name="encryptedUserId">Optional: An encrypted user ID for logging in via a link.</param>
+        /// <param name="skipTokenCheck">Optional: When logging in by JSON post (SSO), the token check must be skipped, because this is done in the second step.</param>
         /// <returns>A <see cref="Tuple"/> containing the <see cref="LoginResults"/>, userId and e-mail address.</returns>
-        private async Task<(LoginResults Result, ulong UserId, string EmailAddress)> LoginUserAsync(int stepNumber = 1, string loginValue = null, string password = null, int overrideComponentMode = 0, string encryptedUserId = null)
+        private async Task<(LoginResults Result, ulong UserId, string EmailAddress)> LoginUserAsync(int stepNumber = 1, string loginValue = null, string password = null, int overrideComponentMode = 0, string encryptedUserId = null, bool skipTokenCheck = false)
         {
             if (HttpContext == null)
             {
@@ -2157,7 +2191,7 @@ LIMIT 1";
                     return (Result: LoginResults.InvalidUserId, UserId: decryptedUserId, EmailAddress: null);
                 }
 
-                if (String.IsNullOrWhiteSpace(wiserValidationToken) || !wiserValidationToken.Equals(Settings.WiserLoginToken))
+                if (!skipTokenCheck && (String.IsNullOrWhiteSpace(wiserValidationToken) || !wiserValidationToken.Equals(Settings.WiserLoginToken)))
                 {
                     return (Result: LoginResults.InvalidValidationToken, UserId: decryptedUserId, EmailAddress: null);
                 }

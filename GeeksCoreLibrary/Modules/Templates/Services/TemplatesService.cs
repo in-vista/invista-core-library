@@ -1442,7 +1442,7 @@ ORDER BY id ASC");
                     var dynamicContentData = componentOverrides?.FirstOrDefault(d => d.Id == contentId);
                     var html = dynamicContentData == null ? await templatesService.GenerateDynamicContentHtmlAsync(contentId, extraData: extraData) : await templatesService.GenerateDynamicContentHtmlAsync(dynamicContentData, extraData: extraData);
                     if (!string.IsNullOrEmpty(httpContextAccessor.HttpContext?.Response?.ContentType) 
-                        && httpContextAccessor.HttpContext.Response.ContentType.ToLower().Contains("xml")) // For example: Account component in CXmlPunchOutLogin mode, response is then xml
+                        && (httpContextAccessor.HttpContext.Response.ContentType.ToLower().Contains("xml") || httpContextAccessor.HttpContext.Response.ContentType.ToLower().Contains("application/json"))) // For example: Account component in CXmlPunchOutLogin mode, response is then xml
                     {
                         template = template.Replace(match.Value, $"{(string)html}");    
                     }

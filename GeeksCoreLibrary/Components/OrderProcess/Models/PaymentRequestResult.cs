@@ -24,5 +24,10 @@ namespace GeeksCoreLibrary.Components.OrderProcess.Models
         /// Gets or sets the error message, if the request was not successful.
         /// </summary>
         public string ErrorMessage { get; set; }
+        
+        /// <summary>
+        /// Gets or sets the payment provider payment id / reference
+        /// </summary>
+        public string PspTransactionReference { get; set; }
     }
 }

@@ -341,7 +341,7 @@ namespace GeeksCoreLibrary.Components.Account.Services
         }
 
         /// <inheritdoc />
-        public async Task LogoutUserAsync(AccountCmsSettingsModel settings, bool isAutoLogout = false)
+        public async Task LogoutUserAsync(AccountCmsSettingsModel settings, bool isAutoLogout = false, bool deleteOciHookUrlCookie = true)
         {
             // Do some initial checks, to make sure we have everything we need and the user is actually still logged in.
             var currentContext = httpContextAccessor?.HttpContext;
@@ -369,14 +369,14 @@ namespace GeeksCoreLibrary.Components.Account.Services
                 return;
             }
 
-            var ociUrl = currentContext.Request.Cookies[Constants.OciHookUrlCookieName];
-
             // Delete the cookie(s).
             currentContext.Response.Cookies.Delete(settings.CookieName);
-            if (!String.IsNullOrWhiteSpace(ociUrl))
-            {
+            
+            var ociUrl = currentContext.Request.Cookies[Constants.OciHookUrlCookieName];
+            if (deleteOciHookUrlCookie && !String.IsNullOrWhiteSpace(ociUrl))
+            { 
                 currentContext.Response.Cookies.Delete(Constants.OciHookUrlCookieName);
-            }
+            }    
 
             var cookiesToDelete = (settings.CookiesToDeleteAfterLogout ?? "").Split(new[] { '.' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).ToList();
 
