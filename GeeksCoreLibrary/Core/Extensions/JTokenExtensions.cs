@@ -11,20 +11,17 @@ public static class JTokenExtensions
 {
     public static DataTable ToDeepFlattenedDataTable(this JToken token)
     {
-        List<Dictionary<string, object?>> rows = new List<Dictionary<string, object?>>();
+        List<Dictionary<string, object>> rows = new();
         
-        Dictionary<int, int> depthCounters = new Dictionary<int, int>();
+        Dictionary<int, int> depthCounters = new();
         
         List<Scope> rootScopes = ExtractScopes(token);
 
         foreach (Scope scope in rootScopes)
         {
-            List<Dictionary<string, object?>> materializedRows = Materialize(scope, depthCounters);
-
-            foreach (Dictionary<string, object?> row in materializedRows)
-            {
+            List<Dictionary<string, object>> materializedRows = Materialize(scope, depthCounters);
+            foreach (Dictionary<string, object> row in materializedRows)
                 rows.Add(row);
-            }
         }
 
         DataTable table = new DataTable();
@@ -32,18 +29,14 @@ public static class JTokenExtensions
         IEnumerable<string> columns = rows.SelectMany(r => r.Keys).Distinct();
 
         foreach (string column in columns)
-        {
             table.Columns.Add(column);
-        }
 
-        foreach (Dictionary<string, object?> row in rows)
+        foreach (Dictionary<string, object> row in rows)
         {
             DataRow dataRow = table.NewRow();
 
-            foreach (KeyValuePair<string, object?> keyValuePair in row)
-            {
+            foreach (KeyValuePair<string, object> keyValuePair in row)
                 dataRow[keyValuePair.Key] = keyValuePair.Value ?? DBNull.Value;
-            }
 
             table.Rows.Add(dataRow);
         }
@@ -53,7 +46,7 @@ public static class JTokenExtensions
     
     private static List<Scope> ExtractScopes(JToken token)
     {
-        List<Scope> scopes = new List<Scope>();
+        List<Scope> scopes = new();
 
         if (token.Type == JTokenType.Array)
         {
@@ -74,7 +67,7 @@ public static class JTokenExtensions
 
     private static Scope ExtractScope(JToken token, string prefix)
     {
-        Scope scope = new Scope();
+        Scope scope = new();
 
         if (token.Type == JTokenType.Object)
         {
@@ -94,7 +87,7 @@ public static class JTokenExtensions
                 }
                 else
                 {
-                    scope.Scalars[key] = property.Value.ToObject<object?>();
+                    scope.Scalars[key] = property.Value.ToObject<object>();
                 }
             }
         }
@@ -102,7 +95,7 @@ public static class JTokenExtensions
         return scope;
     }
     
-    private static List<Dictionary<string, object?>> Materialize(Scope scope, Dictionary<int, int> depthCounters)
+    private static List<Dictionary<string, object>> Materialize(Scope scope, Dictionary<int, int> depthCounters)
     {
         int depth = 1;
         
@@ -110,16 +103,14 @@ public static class JTokenExtensions
             ? 1
             : scope.Arrays.Values.Max(a => a.Count);
 
-        List<Dictionary<string, object?>> rows = new List<Dictionary<string, object?>>();
+        List<Dictionary<string, object>> rows = new();
 
         for (int i = 0; i < maxLength; i++)
         {
-            Dictionary<string, object?> row = new Dictionary<string, object?>();
+            Dictionary<string, object> row = new();
 
-            foreach (KeyValuePair<string, object?> scalar in scope.Scalars)
-            {
+            foreach (KeyValuePair<string, object> scalar in scope.Scalars)
                 row[scalar.Key] = scalar.Value;
-            }
             
             // Ensure counter exists for this depth.
             depthCounters.TryAdd(depth, 0);
@@ -133,7 +124,7 @@ public static class JTokenExtensions
 
             foreach (KeyValuePair<string, List<JToken>> array in scope.Arrays)
             {
-                JToken? value = i < array.Value.Count
+                JToken value = i < array.Value.Count
                     ? array.Value[i]
                     : null;
 
@@ -146,17 +137,13 @@ public static class JTokenExtensions
         return rows;
     }
     
-    private static object? ConvertToken(JToken? token)
+    private static object ConvertToken(JToken token)
     {
         if (token == null)
-        {
             return null;
-        }
 
         if (token.Type == JTokenType.Object || token.Type == JTokenType.Array)
-        {
             return token.ToString();
-        }
 
         JValue value = (JValue)token;
         return value.Value;
