@@ -63,7 +63,27 @@ namespace GeeksCoreLibrary.Core.Extensions
         public static T GetSafeValue<T>(this DbDataReader reader, int columnOrdinal)
         {
             object value = reader.GetValue(columnOrdinal);
-            return value == DBNull.Value ? default : (T)value;
+
+            if (value == DBNull.Value)
+                return default;
+
+            if (value is T typedValue)
+                return typedValue;
+
+            if (typeof(T) == typeof(bool))
+            {
+                bool booleanValue = value switch
+                {
+                    string s => s == "1",
+                    byte b => b != 0,
+                    int i => i != 0,
+                    _ => Convert.ToBoolean(value)
+                };
+
+                return (T)(object)booleanValue;
+            }
+
+            return (T)Convert.ChangeType(value, typeof(T));
         }
     }
 }
