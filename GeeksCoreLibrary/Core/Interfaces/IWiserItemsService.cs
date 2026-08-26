@@ -732,23 +732,25 @@ namespace GeeksCoreLibrary.Core.Interfaces
         /// <summary>
         /// Gets multiple files from the database.
         /// </summary>
-        /// <param name="ids">The IDs of the files, or the IDs of the items the files belong to or the IDs of the links the files belong to.</param>
+        /// <param name="ids">Optional: The IDs of the files, or the IDs of the items the files belong to or the IDs of the links the files belong to.</param>
         /// <param name="field">Optional: The field that contains the the ID from the <see cref="id"/> parameter. This can be either "id", "item_id" or "itemlink_id".</param>
         /// <param name="propertyName">Optional: The property name from wiser_entityproperty of the field where this file was uploaded.</param>
         /// <param name="entityType">Optional: If you're adding a file to an item and that entity type has a dedicated table prefix, enter the entity type here so that we can use the same prefix for wiser_itemfile.</param>
         /// <param name="linkType">Optional: If you're adding a file to a link and that link has a dedicated table prefix, enter the link type here so that we can use the same prefix for wiser_itemfile.</param>
-        Task<List<WiserItemFileModel>> GetItemFilesAsync(ulong[] ids, string field = "id", string propertyName = null, string entityType = null, int linkType = 0);
+        /// <param name="idsWithEntity">Optional: The IDs and entities of the files, or the IDs and entities of the items the files belong to or the IDs of the links the files belong to.</param>
+        Task<List<WiserItemFileModel>> GetItemFilesAsync(ulong[] ids = null, string field = "id", string propertyName = null, string entityType = null, int linkType = 0, (string EntityType, ulong FileId)[] idsWithEntity = null);
 
         /// <summary>
         /// Gets multiple files from the database.
         /// </summary>
         /// <param name="wiserItemsService">The <see cref="IWiserItemsService"/> to use, to prevent duplicate code while using caching with the decorator pattern, while still being able to use caching in calls to other methods in this method.</param>
-        /// <param name="ids">The IDs of the files, or the IDs of the items the files belong to or the IDs of the links the files belong to.</param>
+        /// <param name="ids">Optional: The IDs of the files, or the IDs of the items the files belong to or the IDs of the links the files belong to.</param>
         /// <param name="field">Optional: The field that contains the the ID from the <see cref="id"/> parameter. This can be either "id", "item_id" or "itemlink_id".</param>
         /// <param name="propertyName">Optional: The property name from wiser_entityproperty of the field where this file was uploaded.</param>
         /// <param name="entityType">Optional: If you're adding a file to an item and that entity type has a dedicated table prefix, enter the entity type here so that we can use the same prefix for wiser_itemfile.</param>
         /// <param name="linkType">Optional: If you're adding a file to a link and that link has a dedicated table prefix, enter the link type here so that we can use the same prefix for wiser_itemfile.</param>
-        Task<List<WiserItemFileModel>> GetItemFilesAsync(IWiserItemsService wiserItemsService, ulong[] ids, string field = "id", string propertyName = null, string entityType = null, int linkType = 0);
+        /// <param name="idsWithEntity">Optional: The IDs and entities of the files, or the IDs and entities of the items the files belong to or the IDs of the links the files belong to.</param>
+        Task<List<WiserItemFileModel>> GetItemFilesAsync(IWiserItemsService wiserItemsService, ulong[] ids = null, string field = "id", string propertyName = null, string entityType = null, int linkType = 0, (string EntityType, ulong FileId)[] idsWithEntity = null);
 
         /// <summary>
         /// Get a list of all dedicated prefixes used on the server

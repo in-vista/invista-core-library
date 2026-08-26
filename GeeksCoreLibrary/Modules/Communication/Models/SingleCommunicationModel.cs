@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using GeeksCoreLibrary.Modules.Communication.Enums;
 
 namespace GeeksCoreLibrary.Modules.Communication.Models
@@ -102,7 +103,16 @@ namespace GeeksCoreLibrary.Modules.Communication.Models
         /// <summary>
         /// Gets or sets the wiser item files. One or more IDs from wiser_itemfile that should be sent with the communication as attachments. Only works for e-mail communications.
         /// </summary>
-        public List<ulong> WiserItemFiles { get; set; }
+        public List<ulong> WiserItemFiles
+        {
+            get => WiserItemFilesWithEntity?.Select(x => x.FileId).ToList() ?? new List<ulong>();
+            set => WiserItemFilesWithEntity = value?.Select(fileId => (string.Empty, fileId)).ToList() ?? new List<(string EntityType, ulong FileId)>();
+        }
+        
+        /// <summary>
+        /// Gets or sets the wiser item files with entities. One or more IDs from wiser_itemfile that should be sent with the communication as attachments. Only works for e-mail communications.
+        /// </summary>
+        public List<(string EntityType, ulong FileId)> WiserItemFilesWithEntity { get; set; }
 
         /// <summary>
         /// Gets or sets the date and time that this communication was created.

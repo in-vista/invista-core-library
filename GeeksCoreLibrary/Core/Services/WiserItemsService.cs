@@ -3631,16 +3631,48 @@ WHERE {String.Join(" AND ", where)}";
         }
 
         /// <inheritdoc />
-        public async Task<List<WiserItemFileModel>> GetItemFilesAsync(ulong[] ids, string field = "Id", string propertyName = null, string entityType = null, int linkType = 0)
+        public async Task<List<WiserItemFileModel>> GetItemFilesAsync(ulong[] ids = null, string field = "Id", string propertyName = null, string entityType = null, int linkType = 0, (string EntityType, ulong FileId)[] idsWithEntity = null)
         {
-            return await GetItemFilesAsync(this, ids, field, propertyName, entityType, linkType);
+            return await GetItemFilesAsync(this, ids, field, propertyName, entityType, linkType, idsWithEntity);
         }
 
         /// <inheritdoc />
-        public async Task<List<WiserItemFileModel>> GetItemFilesAsync(IWiserItemsService wiserItemsService, ulong[] ids, string field = "Id", string propertyName = null, string entityType = null, int linkType = 0)
+        public async Task<List<WiserItemFileModel>> GetItemFilesAsync(IWiserItemsService wiserItemsService, ulong[] ids = null, string field = "Id", string propertyName = null, string entityType = null, int linkType = 0, (string EntityType, ulong FileId)[] idsWithEntity = null)
         {
             var result = new List<WiserItemFileModel>();
+            
+            // Maak een lijst met unieke entities en dan per entity de file id's
+            var idsPerEntity = new Dictionary<string, ulong[]>();
+            if (ids != null && ids.Length > 0)
+            {
+                if (!string.IsNullOrWhiteSpace(entityType))
+                    idsPerEntity[entityType] = ids;    
+                else
+                    idsPerEntity[""] = ids;
+            }
+            if (idsWithEntity != null && idsWithEntity.Length > 0)
+            {
+                foreach (var group in idsWithEntity.GroupBy(x => x.EntityType ?? string.Empty))
+                {
+                    var entityIds = group
+                        .Select(x => x.FileId)
+                        .ToArray();
 
+                    // EntityType can already exists because of 'ids'
+                    if (idsPerEntity.ContainsKey(group.Key))
+                    {
+                        idsPerEntity[group.Key] = idsPerEntity[group.Key]
+                            .Concat(entityIds)
+                            .Distinct()
+                            .ToArray();
+                    }
+                    else
+                    {
+                        idsPerEntity[group.Key] = entityIds;
+                    }
+                }
+            }
+           
             string columnName;
 
             // Make sure we can't use non-existing column names.
@@ -3654,11 +3686,18 @@ WHERE {String.Join(" AND ", where)}";
                 default:
                     throw new NotImplementedException($"Unknown field '{field}' given.");
             }
+            
+            // Make a list of id's per table prefix
+            var idsPerTablePrefix = new Dictionary<string, ulong[]>();
+            foreach (var entity in idsPerEntity)
+            {
+                var newKey = linkType > 0
+                    ? await wiserItemsService.GetTablePrefixForLinkAsync(linkType, entity.Key)
+                    : await wiserItemsService.GetTablePrefixForEntityAsync(entity.Key);
 
-            var tablePrefix = linkType > 0
-                ? await wiserItemsService.GetTablePrefixForLinkAsync(linkType, entityType)
-                : await wiserItemsService.GetTablePrefixForEntityAsync(entityType);
-
+                idsPerTablePrefix[newKey] = entity.Value;
+            }
+            
             var propertyNameClause = "";
             if (!String.IsNullOrWhiteSpace(propertyName))
             {
@@ -3666,22 +3705,22 @@ WHERE {String.Join(" AND ", where)}";
                 propertyNameClause = "AND property_name = ?propertyName";
             }
 
-            databaseConnection.AddParameter("Ids", String.Join(",", ids));
-            var queryResult = await databaseConnection.GetAsync($@"
+            foreach (var tablePrefix in idsPerTablePrefix)
+            {
+                var queryResult = await databaseConnection.GetAsync($@"
                 SELECT `id`, `item_id`, `content_type`, `content`, `content_url`, `width`, `height`, `file_name`, `extension`, `added_on`, `added_by`, `title`, `property_name`, `protected`, `itemlink_id`, extra_data
-                FROM {tablePrefix}{WiserTableNames.WiserItemFile}
-                WHERE {columnName} IN ({String.Join(",", ids)})
+                FROM {tablePrefix.Key}{WiserTableNames.WiserItemFile}
+                WHERE {columnName} IN ({String.Join(",", tablePrefix.Value)})
                 {propertyNameClause}", true);
+                
+                if (queryResult.Rows.Count == 0)
+                    continue;
 
-            if (queryResult.Rows.Count == 0)
-            {
-                return result;
-            }
-
-            foreach (DataRow dataRow in queryResult.Rows)
-            {
-                var itemFile = DataRowToItemFile(dataRow);
-                result.Add(itemFile);
+                foreach (DataRow dataRow in queryResult.Rows)
+                {
+                    var itemFile = DataRowToItemFile(dataRow);
+                    result.Add(itemFile);
+                }
             }
 
             return result;
