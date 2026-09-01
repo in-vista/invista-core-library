@@ -118,7 +118,7 @@ namespace GeeksCoreLibrary.Modules.Databases.Interfaces
         /// <param name="key">The base key used for all entries in the IN expression.</param>
         /// <param name="collection">A collection of entries to populate the IN expression value with.</param>
         /// <returns>The IN expression value to use in a query.</returns>
-        string AddInParameters(string key, IEnumerable<object> collection);
+        string AddInParameters<T>(string key, IEnumerable<T> collection);
         
         /// <summary>
         /// Adds parameters for the given collection under the given key and returns the expression value that can be used
