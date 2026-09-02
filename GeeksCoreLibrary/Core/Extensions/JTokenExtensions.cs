@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Data;
 using System.Linq;
-using GeeksCoreLibrary.Core.Models;
 using Newtonsoft.Json.Linq;
 
 namespace GeeksCoreLibrary.Core.Extensions;
@@ -11,38 +10,36 @@ public static class JTokenExtensions
 {
     public static DataTable ToDeepFlattenedDataTable(this JToken token)
     {
-        List<Dictionary<string, object?>> rows = new List<Dictionary<string, object?>>();
-        
-        Dictionary<int, int> depthCounters = new Dictionary<int, int>();
-        
-        List<Scope> rootScopes = ExtractScopes(token);
+        List<Dictionary<string, object>> rows = new List<Dictionary<string, object>>();
 
-        foreach (Scope scope in rootScopes)
+        if (token.Type == JTokenType.Array)
         {
-            List<Dictionary<string, object?>> materializedRows = Materialize(scope, depthCounters);
-
-            foreach (Dictionary<string, object?> row in materializedRows)
+            foreach (JToken child in token.Children())
             {
-                rows.Add(row);
+                rows.AddRange(FlattenObject(child, 1));
             }
+        }
+        else
+        {
+            rows.AddRange(FlattenObject(token, 1));
         }
 
         DataTable table = new DataTable();
 
-        IEnumerable<string> columns = rows.SelectMany(r => r.Keys).Distinct();
+        IEnumerable<string> columns = rows
+            .SelectMany(r => r.Keys)
+            .Distinct();
 
         foreach (string column in columns)
-        {
             table.Columns.Add(column);
-        }
 
-        foreach (Dictionary<string, object?> row in rows)
+        foreach (Dictionary<string, object> row in rows)
         {
             DataRow dataRow = table.NewRow();
 
-            foreach (KeyValuePair<string, object?> keyValuePair in row)
+            foreach (KeyValuePair<string, object> item in row)
             {
-                dataRow[keyValuePair.Key] = keyValuePair.Value ?? DBNull.Value;
+                dataRow[item.Key] = item.Value ?? DBNull.Value;
             }
 
             table.Rows.Add(dataRow);
@@ -50,125 +47,110 @@ public static class JTokenExtensions
 
         return table;
     }
-    
-    private static List<Scope> ExtractScopes(JToken token)
-    {
-        List<Scope> scopes = new List<Scope>();
 
-        if (token.Type == JTokenType.Array)
+    private static List<Dictionary<string, object>> FlattenObject(
+        JToken token,
+        int depth)
+    {
+        Dictionary<string, object> scalars =
+            new Dictionary<string, object>();
+
+        List<JArray> arrays =
+            new List<JArray>();
+
+        foreach (JProperty property in token.Children<JProperty>())
         {
-            foreach (JToken child in token.Children())
+            if (property.Value.Type == JTokenType.Array)
             {
-                Scope scope = ExtractScope(child, string.Empty);
-                scopes.Add(scope);
+                arrays.Add((JArray)property.Value);
             }
-        }
-        else
-        {
-            Scope scope = ExtractScope(token, string.Empty);
-            scopes.Add(scope);
-        }
-
-        return scopes;
-    }
-
-    private static Scope ExtractScope(JToken token, string prefix)
-    {
-        Scope scope = new Scope();
-
-        if (token.Type == JTokenType.Object)
-        {
-            foreach (JProperty property in token.Children<JProperty>())
+            else if (property.Value.Type == JTokenType.Object)
             {
-                string key = Combine(prefix, property.Name);
+                List<Dictionary<string, object>> nestedRows =
+                    FlattenObject(property.Value, depth + 1);
 
-                if (property.Value.Type == JTokenType.Object)
+                foreach (Dictionary<string, object> nestedRow in nestedRows)
                 {
-                    Scope childScope = ExtractScope(property.Value, key);
-                    scope.Merge(childScope);
-                }
-                else if (property.Value.Type == JTokenType.Array)
-                {
-                    JArray array = (JArray)property.Value;
-                    scope.Arrays[key] = array.Children().ToList();
-                }
-                else
-                {
-                    scope.Scalars[key] = property.Value.ToObject<object?>();
+                    foreach (KeyValuePair<string, object> item in nestedRow)
+                    {
+                        scalars[item.Key] = item.Value;
+                    }
                 }
             }
-        }
+            else
+            {
+                string columnName = property.Name + depth;
 
-        return scope;
-    }
-    
-    private static List<Dictionary<string, object?>> Materialize(Scope scope, Dictionary<int, int> depthCounters)
-    {
-        int depth = 1;
+                scalars[columnName] =
+                    property.Value.ToObject<object>();
+            }
+        }
         
-        int maxLength = scope.Arrays.Count == 0
-            ? 1
-            : scope.Arrays.Values.Max(a => a.Count);
+        if (arrays.Count == 0)
+        {
+            return new List<Dictionary<string, object>>
+            {
+                scalars
+            };
+        }
 
-        List<Dictionary<string, object?>> rows = new List<Dictionary<string, object?>>();
+        List<Dictionary<string, object>> rows =
+            new List<Dictionary<string, object>>();
+
+        int maxLength = arrays.Max(a => a.Count);
 
         for (int i = 0; i < maxLength; i++)
         {
-            Dictionary<string, object?> row = new Dictionary<string, object?>();
+            List<Dictionary<string, object>> childRows =
+                new List<Dictionary<string, object>>
+                {
+                    new Dictionary<string, object>()
+                };
 
-            foreach (KeyValuePair<string, object?> scalar in scope.Scalars)
+            foreach (JArray array in arrays)
             {
-                row[scalar.Key] = scalar.Value;
-            }
-            
-            // Ensure counter exists for this depth.
-            depthCounters.TryAdd(depth, 0);
-                
-            // Increase depth in the depth counters.
-            depthCounters[depth]++;
-                
-            // Add idN column.
-            int groupId = depthCounters[depth];
-            row[$"id{depth}"] = groupId;
+                if (i >= array.Count)
+                    continue;
 
-            foreach (KeyValuePair<string, List<JToken>> array in scope.Arrays)
+                List<Dictionary<string, object>> flattenedChildren =
+                    FlattenObject(array[i], depth + 1);
+
+                List<Dictionary<string, object>> newChildRows =
+                    new List<Dictionary<string, object>>();
+
+                foreach (Dictionary<string, object> existingRow in childRows)
+                {
+                    foreach (Dictionary<string, object> flattenedChild in flattenedChildren)
+                    {
+                        Dictionary<string, object> combined =
+                            new Dictionary<string, object>(existingRow);
+
+                        foreach (KeyValuePair<string, object> item in flattenedChild)
+                        {
+                            combined[item.Key] = item.Value;
+                        }
+
+                        newChildRows.Add(combined);
+                    }
+                }
+
+                childRows = newChildRows;
+            }
+
+            foreach (Dictionary<string, object> childRow in childRows)
             {
-                JToken? value = i < array.Value.Count
-                    ? array.Value[i]
-                    : null;
+                Dictionary<string, object> row =
+                    new Dictionary<string, object>(scalars);
 
-                row[array.Key] = ConvertToken(value);
+                foreach (KeyValuePair<string, object> item in childRow)
+                {
+                    row[item.Key] = item.Value;
+                }
+
+                rows.Add(row);
             }
-
-            rows.Add(row);
         }
 
         return rows;
-    }
-    
-    private static object? ConvertToken(JToken? token)
-    {
-        if (token == null)
-        {
-            return null;
-        }
-
-        if (token.Type == JTokenType.Object || token.Type == JTokenType.Array)
-        {
-            return token.ToString();
-        }
-
-        JValue value = (JValue)token;
-        return value.Value;
-    }
-
-    private static string Combine(string prefix, string name)
-    {
-        if (string.IsNullOrEmpty(prefix))
-        {
-            return name;
-        }
-
-        return prefix + "." + name;
     }
 }

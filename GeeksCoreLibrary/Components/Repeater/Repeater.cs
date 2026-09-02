@@ -310,9 +310,9 @@ namespace GeeksCoreLibrary.Components.Repeater
         /// This parses the data based on the given data source type and converts it to a <see cref="DataTable"/>.
         /// </summary>
         /// <returns>A <see cref="DataTable"/> with all the parsed data.</returns>
-        private async Task<DataTable> ParseDataAsync()
+        private async Task<DataTable> ParseDataAsync(DataSource? source = null)
         {
-            switch (Settings.DataSource)
+            switch (source ?? Settings.DataSource)
             {
                 case DataSource.Query:
                     var query = Settings.DataQuery;
@@ -403,7 +403,7 @@ namespace GeeksCoreLibrary.Components.Repeater
                 case DataSource.DirectoryOutput:
                     throw new NotImplementedException();
                 case DataSource.API:
-                    DataTable data = new DataTable();
+                    DataTable dataFromQuery = await ParseDataAsync(DataSource.Query);
                     
                     using (HttpClient client = new HttpClient())
                     {
@@ -411,6 +411,8 @@ namespace GeeksCoreLibrary.Components.Repeater
                         if (!string.IsNullOrEmpty(apiAuthorization))
                         {
                             apiAuthorization = StringReplacementsService.DoReplacements(apiAuthorization, ExtraDataForReplacements);
+                            foreach (DataRow dataRowFromQuery in dataFromQuery.Rows)
+                                apiAuthorization = StringReplacementsService.DoReplacements(apiAuthorization, dataRowFromQuery);
                             apiAuthorization = await TemplatesService.DoReplacesAsync(apiAuthorization, handleDynamicContent: false, forQuery: false);
                             
                             string[] authorizationValues = apiAuthorization.Split(" ");
@@ -423,15 +425,16 @@ namespace GeeksCoreLibrary.Components.Repeater
                         }
 
                         string apiUrl = Settings.ApiUrl;
-                        apiUrl = StringReplacementsService.DoReplacements(apiUrl, ExtraDataForReplacements);
+                        apiUrl = StringReplacementsService.DoReplacements(apiUrl, ExtraDataForReplacements, defaultFormatter: "UrlEncode");
+                        foreach (DataRow dataRowFromQuery in dataFromQuery.Rows)
+                            apiUrl = StringReplacementsService.DoReplacements(apiUrl, dataRowFromQuery, defaultFormatter: "UrlEncode");
                         apiUrl = await TemplatesService.DoReplacesAsync(apiUrl, handleDynamicContent: false, forQuery: false);
                         
                         System.Net.Http.HttpMethod httpMethod = Settings.ApiMethod.ToNativeHttpMethod();
-                        
                         HttpRequestMessage requestMessage = new HttpRequestMessage(httpMethod, apiUrl);
                         
                         // Check wether a query for the request's body is given.
-                        string bodyQuery = Settings.DataQuery;
+                        string bodyQuery = Settings.APIBodyQuery;
                         if (!string.IsNullOrEmpty(bodyQuery))
                         {
                             // Prepare the query and perform replacements to determine the JSON body.
