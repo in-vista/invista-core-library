@@ -398,9 +398,9 @@ WHERE id = ?id";
                 databaseConnection.AddParameter("attachment_urls", String.Join(Environment.NewLine, communication.AttachmentUrls));
             }
 
-            if (communication.WiserItemFilesWithEntity != null && communication.WiserItemFilesWithEntity.Any())
+            if (communication.AllWiserItemFilesWithEntity != null && communication.AllWiserItemFilesWithEntity.Any())
             {
-                databaseConnection.AddParameter("wiser_item_files", String.Join(",", communication.WiserItemFilesWithEntity.Select(x => 
+                databaseConnection.AddParameter("wiser_item_files", String.Join(",", communication.AllWiserItemFilesWithEntity.Select(x => 
                     string.IsNullOrWhiteSpace(x.EntityType)
                     ? x.FileId.ToString()
                     : $"{x.EntityType}_{x.FileId}")));
@@ -723,7 +723,7 @@ WHERE id = ?id";
                 return attachments;
             }
 
-            var wiserItemFiles = await wiserItemsService.GetItemFilesAsync(idsWithEntity: communication.WiserItemFilesWithEntity?.ToArray());
+            var wiserItemFiles = await wiserItemsService.GetItemFilesAsync(idsWithEntity: communication.AllWiserItemFilesWithEntity?.ToArray());
             foreach (var wiserItemFile in wiserItemFiles)
             {
                 byte[] fileBytes;
