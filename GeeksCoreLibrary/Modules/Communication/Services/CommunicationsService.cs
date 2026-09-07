@@ -377,6 +377,7 @@ WHERE id = ?id";
             databaseConnection.AddParameter("sender", communication.Sender);
             databaseConnection.AddParameter("sender_name", communication.SenderName);
             databaseConnection.AddParameter("send_date", communication.SendDate ?? DateTime.Now);
+            databaseConnection.AddParameter("provider", communication.Provider);
 
             if (communication.ProcessedDate.HasValue)
             {
@@ -418,19 +419,55 @@ WHERE id = ?id";
         /// <inheritdoc />
         public async Task SendEmailDirectlyAsync(SingleCommunicationModel communication, SmtpSettings smtpSettings, int timeout = 120_000)
         {
-            switch (smtpSettings.Provider)
+            var provider = communication.Provider?.ToLowerInvariant() switch
+            {
+                "smtp" => EmailServiceProviders.Smtp,
+                "smtpeter" => EmailServiceProviders.SmtPeterRestApi,
+                "mailersend" => EmailServiceProviders.MailerSendRestApi,
+                null or "" => smtpSettings.Provider,
+                _ => throw new Exception($"Provider {communication.Provider} is not supported.")
+            };
+
+            var settings = smtpSettings;
+
+            // Use other credentials if a provider other than the default provider is used.
+            if (provider != smtpSettings.Provider)
+            {
+                var providerSettings = smtpSettings.Providers?.FirstOrDefault(p => p.Provider == provider);
+
+                if (providerSettings == null)
+                {
+                    throw new Exception($"Provider {communication.Provider} not configured.");
+                }
+
+                settings = new SmtpSettings
+                {
+                    Provider = provider,
+                    Host = providerSettings.Host,
+                    Username = providerSettings.Username,
+                    Password = providerSettings.Password,
+                    UseSsl = providerSettings.UseSsl,
+                    Port = providerSettings.Port,
+                    SenderEmailAddress = providerSettings.SenderEmailAddress,
+                    SenderName = providerSettings.SenderName,
+                    SmtPeterSettings = providerSettings.SmtPeterSettings,
+                    MailerSendSettings = providerSettings.MailerSendSettings
+                };
+            }
+
+            switch (provider)
             {
                 case EmailServiceProviders.Smtp:
-                    await SendSmtpEmailDirectlyAsync(communication, smtpSettings, await GetAttachmentsAsync(communication), timeout);
+                    await SendSmtpEmailDirectlyAsync(communication, settings, await GetAttachmentsAsync(communication), timeout);
                     break;
                 case EmailServiceProviders.SmtPeterRestApi:
-                    await SendSmtPeterEmailDirectlyAsync(communication, smtpSettings, await GetAttachmentsAsync(communication), timeout);
+                    await SendSmtPeterEmailDirectlyAsync(communication, settings, await GetAttachmentsAsync(communication), timeout);
                     break;
                 case EmailServiceProviders.MailerSendRestApi:
-                    await SendMailerSendEmailDirectlyAsync(communication, smtpSettings, timeout);
+                    await SendMailerSendEmailDirectlyAsync(communication, settings, timeout);
                     break;
                 default:
-                    throw new ArgumentOutOfRangeException(nameof(smtpSettings.Provider), smtpSettings.Provider.ToString());
+                    throw new ArgumentOutOfRangeException(nameof(provider), provider, null);
             }
         }
         
