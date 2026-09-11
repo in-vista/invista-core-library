@@ -736,22 +736,37 @@ WHERE id = ?id";
             {
                 foreach (var attachmentUrl in communication.AttachmentUrls)
                 {
-                    var data = await httpClientService.Client.GetAsync(attachmentUrl);
-                    var uri = new Uri(attachmentUrl);
-                    var fileName = Path.GetFileName(uri.AbsolutePath);
+                    using var response =
+                        await httpClientService.Client.GetAsync(attachmentUrl);
 
-                    if (data.Headers.Contains("Content-Disposition") && data.Headers.GetValues("Content-Disposition").Any())
+                    response.EnsureSuccessStatusCode();if (!response.IsSuccessStatusCode)
                     {
-                        // Extract the filename from the Content-Disposition header
-                        if (ContentDisposition.TryParse(data.Headers.GetValues("Content-Disposition").First(), out var contentDisposition))
-                        {
-                            fileName = Path.GetFileName(contentDisposition.FileName);
-                        }
+                        throw new Exception(
+                            $"Could not download attachment '{attachmentUrl}'. " +
+                            $"HTTP status: {(int)response.StatusCode} {response.StatusCode}"
+                        );
                     }
 
+                    var uri = new Uri(attachmentUrl);
+                    var fileName = Path.GetFileName(uri.AbsolutePath);
+                    var contentDisposition = response.Content.Headers.ContentDisposition;
+                    if (contentDisposition != null)
+                    {
+                        var dispositionFileName =
+                            contentDisposition.FileNameStar ??
+                            contentDisposition.FileName;
+
+                        if (!String.IsNullOrWhiteSpace(dispositionFileName))
+                        {
+                            fileName = Path.GetFileName(dispositionFileName.Trim('"') );
+                        }
+                    }
                     fileName = HttpUtility.UrlDecode(fileName);
-                    attachments.Add((fileName, await data.Content.ReadAsByteArrayAsync()));
-                    data.Headers.Clear();
+
+                    var fileBytes =
+                        await response.Content.ReadAsByteArrayAsync();
+
+                    attachments.Add((fileName, fileBytes));
                 }
             }
 
@@ -766,8 +781,7 @@ WHERE id = ?id";
                 byte[] fileBytes;
                 if (!String.IsNullOrWhiteSpace(wiserItemFile.ContentUrl))
                 {
-                    fileBytes = await httpClientService.Client.GetByteArrayAsync(wiserItemFile.ContentUrl);
-                    var fileResult = await httpClientService.Client.GetAsync(wiserItemFile.ContentUrl);
+                    using var fileResult = await httpClientService.Client.GetAsync(wiserItemFile.ContentUrl);
                     if (fileResult.StatusCode == HttpStatusCode.OK)
                         fileBytes = await fileResult.Content.ReadAsByteArrayAsync();
                     else
