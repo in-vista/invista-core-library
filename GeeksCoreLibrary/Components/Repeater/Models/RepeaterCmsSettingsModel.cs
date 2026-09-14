@@ -57,6 +57,22 @@ namespace GeeksCoreLibrary.Components.Repeater.Models
         public string DataQuery { get; set; } = "";
         
         /// <summary>
+        /// The Data Query (MySQL) used to construct the API body.
+        /// </summary>
+        [CmsProperty(
+            PrettyName = "Data Query",
+            Description = "Data query",
+            DeveloperRemarks = "Format MS SQL/MySql Depending on data source (for now only MySql). The results of this query acts as the body of the request.",
+            TabName = CmsAttributes.CmsTabName.DataSource,
+            GroupName = CmsAttributes.CmsGroupName.CustomSql,
+            DisplayOrder = 11,
+            TextEditorType = CmsAttributes.CmsTextEditorType.QueryEditor,
+            HideInCms = false,
+            ReadOnlyInCms = false
+        )]
+        public string APIBodyQuery { get; set; } = "";
+        
+        /// <summary>
         /// API URL.
         /// </summary>
         [CmsProperty(
@@ -65,7 +81,7 @@ namespace GeeksCoreLibrary.Components.Repeater.Models
             DeveloperRemarks = "",
             TabName = CmsAttributes.CmsTabName.DataSource,
             GroupName = CmsAttributes.CmsGroupName.API,
-            DisplayOrder = 11,
+            DisplayOrder = 12,
             TextEditorType = CmsAttributes.CmsTextEditorType.TextField,
             HideInCms = false,
             ReadOnlyInCms = false
@@ -81,7 +97,7 @@ namespace GeeksCoreLibrary.Components.Repeater.Models
             DeveloperRemarks = "",
             TabName = CmsAttributes.CmsTabName.DataSource,
             GroupName = CmsAttributes.CmsGroupName.API,
-            DisplayOrder = 12,
+            DisplayOrder = 13,
             TextEditorType = CmsAttributes.CmsTextEditorType.TextField,
             HideInCms = false,
             ReadOnlyInCms = false
@@ -97,7 +113,7 @@ namespace GeeksCoreLibrary.Components.Repeater.Models
             DeveloperRemarks = "",
             TabName = CmsAttributes.CmsTabName.DataSource,
             GroupName = CmsAttributes.CmsGroupName.API,
-            DisplayOrder = 13,
+            DisplayOrder = 14,
             HideInCms = false,
             ReadOnlyInCms = false
         )]
@@ -112,7 +128,7 @@ namespace GeeksCoreLibrary.Components.Repeater.Models
             DeveloperRemarks = "",
             TabName = CmsAttributes.CmsTabName.DataSource,
             GroupName = CmsAttributes.CmsGroupName.API,
-            DisplayOrder = 14,
+            DisplayOrder = 15,
             TextEditorType = CmsAttributes.CmsTextEditorType.Auto,
             HideInCms = false,
             ReadOnlyInCms = false

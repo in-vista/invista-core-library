@@ -377,6 +377,7 @@ WHERE id = ?id";
             databaseConnection.AddParameter("sender", communication.Sender);
             databaseConnection.AddParameter("sender_name", communication.SenderName);
             databaseConnection.AddParameter("send_date", communication.SendDate ?? DateTime.Now);
+            databaseConnection.AddParameter("provider", communication.Provider);
 
             if (communication.ProcessedDate.HasValue)
             {
@@ -398,9 +399,9 @@ WHERE id = ?id";
                 databaseConnection.AddParameter("attachment_urls", String.Join(Environment.NewLine, communication.AttachmentUrls));
             }
 
-            if (communication.WiserItemFilesWithEntity != null && communication.WiserItemFilesWithEntity.Any())
+            if (communication.AllWiserItemFilesWithEntity != null && communication.AllWiserItemFilesWithEntity.Any())
             {
-                databaseConnection.AddParameter("wiser_item_files", String.Join(",", communication.WiserItemFilesWithEntity.Select(x => 
+                databaseConnection.AddParameter("wiser_item_files", String.Join(",", communication.AllWiserItemFilesWithEntity.Select(x => 
                     string.IsNullOrWhiteSpace(x.EntityType)
                     ? x.FileId.ToString()
                     : $"{x.EntityType}_{x.FileId}")));
@@ -418,19 +419,55 @@ WHERE id = ?id";
         /// <inheritdoc />
         public async Task SendEmailDirectlyAsync(SingleCommunicationModel communication, SmtpSettings smtpSettings, int timeout = 120_000)
         {
-            switch (smtpSettings.Provider)
+            var provider = communication.Provider?.ToLowerInvariant() switch
+            {
+                "smtp" => EmailServiceProviders.Smtp,
+                "smtpeter" => EmailServiceProviders.SmtPeterRestApi,
+                "mailersend" => EmailServiceProviders.MailerSendRestApi,
+                null or "" => smtpSettings.Provider,
+                _ => throw new Exception($"Provider {communication.Provider} is not supported.")
+            };
+
+            var settings = smtpSettings;
+
+            // Use other credentials if a provider other than the default provider is used.
+            if (provider != smtpSettings.Provider)
+            {
+                var providerSettings = smtpSettings.Providers?.FirstOrDefault(p => p.Provider == provider);
+
+                if (providerSettings == null)
+                {
+                    throw new Exception($"Provider {communication.Provider} not configured.");
+                }
+
+                settings = new SmtpSettings
+                {
+                    Provider = provider,
+                    Host = providerSettings.Host,
+                    Username = providerSettings.Username,
+                    Password = providerSettings.Password,
+                    UseSsl = providerSettings.UseSsl,
+                    Port = providerSettings.Port,
+                    SenderEmailAddress = providerSettings.SenderEmailAddress,
+                    SenderName = providerSettings.SenderName,
+                    SmtPeterSettings = providerSettings.SmtPeterSettings,
+                    MailerSendSettings = providerSettings.MailerSendSettings
+                };
+            }
+
+            switch (provider)
             {
                 case EmailServiceProviders.Smtp:
-                    await SendSmtpEmailDirectlyAsync(communication, smtpSettings, await GetAttachmentsAsync(communication), timeout);
+                    await SendSmtpEmailDirectlyAsync(communication, settings, await GetAttachmentsAsync(communication), timeout);
                     break;
                 case EmailServiceProviders.SmtPeterRestApi:
-                    await SendSmtPeterEmailDirectlyAsync(communication, smtpSettings, await GetAttachmentsAsync(communication), timeout);
+                    await SendSmtPeterEmailDirectlyAsync(communication, settings, await GetAttachmentsAsync(communication), timeout);
                     break;
                 case EmailServiceProviders.MailerSendRestApi:
-                    await SendMailerSendEmailDirectlyAsync(communication, smtpSettings, timeout);
+                    await SendMailerSendEmailDirectlyAsync(communication, settings, timeout);
                     break;
                 default:
-                    throw new ArgumentOutOfRangeException(nameof(smtpSettings.Provider), smtpSettings.Provider.ToString());
+                    throw new ArgumentOutOfRangeException(nameof(provider), provider, null);
             }
         }
         
@@ -699,22 +736,37 @@ WHERE id = ?id";
             {
                 foreach (var attachmentUrl in communication.AttachmentUrls)
                 {
-                    var data = await httpClientService.Client.GetAsync(attachmentUrl);
-                    var uri = new Uri(attachmentUrl);
-                    var fileName = Path.GetFileName(uri.AbsolutePath);
+                    using var response =
+                        await httpClientService.Client.GetAsync(attachmentUrl);
 
-                    if (data.Headers.Contains("Content-Disposition") && data.Headers.GetValues("Content-Disposition").Any())
+                    response.EnsureSuccessStatusCode();if (!response.IsSuccessStatusCode)
                     {
-                        // Extract the filename from the Content-Disposition header
-                        if (ContentDisposition.TryParse(data.Headers.GetValues("Content-Disposition").First(), out var contentDisposition))
-                        {
-                            fileName = Path.GetFileName(contentDisposition.FileName);
-                        }
+                        throw new Exception(
+                            $"Could not download attachment '{attachmentUrl}'. " +
+                            $"HTTP status: {(int)response.StatusCode} {response.StatusCode}"
+                        );
                     }
 
+                    var uri = new Uri(attachmentUrl);
+                    var fileName = Path.GetFileName(uri.AbsolutePath);
+                    var contentDisposition = response.Content.Headers.ContentDisposition;
+                    if (contentDisposition != null)
+                    {
+                        var dispositionFileName =
+                            contentDisposition.FileNameStar ??
+                            contentDisposition.FileName;
+
+                        if (!String.IsNullOrWhiteSpace(dispositionFileName))
+                        {
+                            fileName = Path.GetFileName(dispositionFileName.Trim('"') );
+                        }
+                    }
                     fileName = HttpUtility.UrlDecode(fileName);
-                    attachments.Add((fileName, await data.Content.ReadAsByteArrayAsync()));
-                    data.Headers.Clear();
+
+                    var fileBytes =
+                        await response.Content.ReadAsByteArrayAsync();
+
+                    attachments.Add((fileName, fileBytes));
                 }
             }
 
@@ -723,14 +775,13 @@ WHERE id = ?id";
                 return attachments;
             }
 
-            var wiserItemFiles = await wiserItemsService.GetItemFilesAsync(idsWithEntity: communication.WiserItemFilesWithEntity?.ToArray());
+            var wiserItemFiles = await wiserItemsService.GetItemFilesAsync(idsWithEntity: communication.AllWiserItemFilesWithEntity?.ToArray());
             foreach (var wiserItemFile in wiserItemFiles)
             {
                 byte[] fileBytes;
                 if (!String.IsNullOrWhiteSpace(wiserItemFile.ContentUrl))
                 {
-                    fileBytes = await httpClientService.Client.GetByteArrayAsync(wiserItemFile.ContentUrl);
-                    var fileResult = await httpClientService.Client.GetAsync(wiserItemFile.ContentUrl);
+                    using var fileResult = await httpClientService.Client.GetAsync(wiserItemFile.ContentUrl);
                     if (fileResult.StatusCode == HttpStatusCode.OK)
                         fileBytes = await fileResult.Content.ReadAsByteArrayAsync();
                     else
