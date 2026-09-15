@@ -21,6 +21,7 @@ using GeeksCoreLibrary.Core.Extensions;
 using GeeksCoreLibrary.Core.Helpers;
 using GeeksCoreLibrary.Core.Interfaces;
 using GeeksCoreLibrary.Core.Models;
+using GeeksCoreLibrary.Core.Models.ErrorHandling;
 using GeeksCoreLibrary.Modules.Databases.Helpers;
 using GeeksCoreLibrary.Modules.Databases.Interfaces;
 using GeeksCoreLibrary.Modules.Databases.Services;
@@ -699,11 +700,9 @@ namespace GeeksCoreLibrary.Components.OrderProcess
                 throw new Exception($"Invalid payment method ID: {paymentMethodFromRequest}");
             }
 
-            var success = await orderProcessesService.HandlePaymentServiceProviderWebhookAsync(Settings.OrderProcessId, paymentMethodId);
-            if (!success)
-            {
-                throw new Exception("Payment update webhook failed.");
-            }
+            ProcessResult<bool> paymentServiceProviderWebhookResults = await orderProcessesService.HandlePaymentServiceProviderWebhookAsync(Settings.OrderProcessId, paymentMethodId);
+            if (!paymentServiceProviderWebhookResults.Success)
+                throw paymentServiceProviderWebhookResults.Exception;
 
             return "";
         }
