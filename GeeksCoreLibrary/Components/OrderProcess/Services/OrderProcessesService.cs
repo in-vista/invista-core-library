@@ -1454,10 +1454,19 @@ namespace GeeksCoreLibrary.Components.OrderProcess.Services
             paymentServiceProviderService.LogPaymentActions = paymentMethodSettings.PaymentServiceProvider.LogAllRequests;
             
             var invoiceNumber = paymentServiceProviderService.GetInvoiceNumberFromRequest();
-            var conceptOrders = await shoppingBasketsService.GetOrdersByUniquePaymentNumberAsync(invoiceNumber, string.Equals(paymentMethodSettings.ExternalName, "softpos", StringComparison.OrdinalIgnoreCase));
 
             // Let the payment service provider service handle the status update.
             var pspUpdateResult = await paymentServiceProviderService.ProcessStatusUpdateAsync(orderProcessSettings, paymentMethodSettings);
+
+            if (!string.IsNullOrWhiteSpace(pspUpdateResult.PspTransactionId))
+            {
+                invoiceNumber = pspUpdateResult.PspTransactionId;
+            }
+
+            List<(WiserItemModel Order, List<WiserItemModel> OrderLines)> conceptOrders =
+                await shoppingBasketsService.GetOrdersByUniquePaymentNumberAsync(invoiceNumber,
+                    string.Equals(paymentMethodSettings.ExternalName, "softpos", StringComparison.OrdinalIgnoreCase));
+            
             var result = await orderProcessesService.HandlePaymentStatusUpdateAsync(orderProcessSettings, conceptOrders, pspUpdateResult.Status, pspUpdateResult.Successful, pspUpdateResult.StatusCode, true, pspUpdateResult.PaidAmount);
 
             /*var basketSettings = await shoppingBasketsService.GetSettingsAsync();

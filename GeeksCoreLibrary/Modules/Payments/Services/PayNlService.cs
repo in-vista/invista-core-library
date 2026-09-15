@@ -1,8 +1,11 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.IO;
 using System.Linq;
 using System.Net;
+using System.Security.Cryptography;
+using System.Text;
 using System.Threading.Tasks;
 using System.Web;
 using GeeksCoreLibrary.Components.OrderProcess.Interfaces;
@@ -692,53 +695,216 @@ public class PayNlService : PaymentServiceProviderBaseService, IPaymentServicePr
         }
 
         // Not softpos or refund, iDEAL and other payment methods
-        var payNlTransactionId = string.Empty;
-
+        string payNlTransactionId = string.Empty;
+        
         try
         {
-            payNlTransactionId = GetInvoiceNumberFromRequest();
-            
-            if (string.IsNullOrEmpty(payNlTransactionId))
+            PayNlSettingsModel payNlSettings = (PayNlSettingsModel)paymentMethodSettings.PaymentServiceProvider;
+
+            HttpRequest request = httpContextAccessor.HttpContext.Request;
+
+            /*
+             * SIGNED_JSON_POST
+             *
+             * The signed request contains the order and status in its JSON body.
+             */
+            if (IsSignedJsonPost(httpContextAccessor.HttpContext.Request))
             {
-                await LogIncomingPaymentActionAsync(PaymentServiceProviders.PayNl, payNlTransactionId, 0, error: "payNlTransactionId onbekend, GetInvoiceNumberFromRequest geeft null terug.");
+                request.EnableBuffering();
+                request.Body.Position = 0;
+
+                using MemoryStream memoryStream = new();
+                await request.Body.CopyToAsync(memoryStream);
+
+                byte[] body = memoryStream.ToArray();
+
+                request.Body.Position = 0;
+
+                (bool Valid, string Message) validationResult = ValidatePayNlSettings(payNlSettings);
+                if (!validationResult.Valid)
+                {
+                    logger.LogError(
+                        "Validation in 'DoPinTerminalPaymentAsync' of 'PayNlService' failed because: {Message}",
+                        validationResult.Message);
+                    return new StatusUpdateResult
+                    {
+                        Successful = false,
+                        Status = "error"
+                    };
+                }
+
+                if (!ValidatePayNlSignature(request, body, payNlSettings))
+                {
+                    // Reject the request before processing its contents.
+                    return new StatusUpdateResult
+                    {
+                        Successful = false,
+                        Status = "error",
+                        StatusCode = StatusCodes.Status401Unauthorized
+                    };
+                }
+
+                JObject responseJson = JObject.Parse(Encoding.UTF8.GetString(body));
+
+                payNlTransactionId = responseJson["object"]?["orderId"]?.ToString();
+
+                if (string.IsNullOrEmpty(payNlTransactionId))
+                {
+                    await LogIncomingPaymentActionAsync(PaymentServiceProviders.PayNl, payNlTransactionId,
+                        0, error: "payNlTransactionId onbekend, GetInvoiceNumberFromRequest geeft null terug.");
+                    return new StatusUpdateResult
+                    {
+                        Successful = false,
+                        Status = "error"
+                    };
+                }
+
+                int statusCode = responseJson["object"]?["status"]?["code"]?.Value<int?>() ?? 0;
+                string statusAction = responseJson["object"]?["status"]?["action"]?.ToString();
+
                 return new StatusUpdateResult
                 {
-                    Successful = false,
-                    Status = "error"
+                    Successful = statusCode == 100,
+                    Status = statusAction,
+                    StatusCode = statusCode,
+                    PspTransactionId = payNlTransactionId
                 };
             }
-
-            var payNlSettings = (PayNlSettingsModel) paymentMethodSettings.PaymentServiceProvider;
-            var restClient = new RestClient(BaseUrl);
-            var restRequest = new RestRequest($"/v1/orders/{payNlTransactionId}/status");
-            restRequest = AddRequestHeaders(restRequest, payNlSettings);
-            var restResponse = await restClient.ExecuteAsync(restRequest);
-        
-            if (restResponse.StatusCode != HttpStatusCode.OK || String.IsNullOrWhiteSpace(restResponse.Content))
+            else
             {
-                await LogIncomingPaymentActionAsync(PaymentServiceProviders.PayNl, payNlTransactionId, (int) restResponse.StatusCode, responseBody: restResponse.Content);
+                /*
+                 * TEXT_GET
+                 *
+                 * The TEXT_GET type is legacy, support can be removed AFTER all customers have been migrated to SIGNED_JSON_POST.
+                 */
+                payNlTransactionId = GetInvoiceNumberFromRequest();
+
+                if (string.IsNullOrEmpty(payNlTransactionId))
+                {
+                    await LogIncomingPaymentActionAsync(PaymentServiceProviders.PayNl, payNlTransactionId, 0,
+                        error: "payNlTransactionId onbekend, GetInvoiceNumberFromRequest geeft null terug.");
+                    return new StatusUpdateResult
+                    {
+                        Successful = false,
+                        Status = "error"
+                    };
+                }
+
+                RestClient restClient = new(BaseUrl);
+                RestRequest restRequest = new($"/v1/orders/{payNlTransactionId}/status");
+                restRequest = AddRequestHeaders(restRequest, payNlSettings);
+                RestResponse restResponse = await restClient.ExecuteAsync(restRequest);
+
+                if (restResponse.StatusCode != HttpStatusCode.OK || string.IsNullOrWhiteSpace(restResponse.Content))
+                {
+                    await LogIncomingPaymentActionAsync(PaymentServiceProviders.PayNl, payNlTransactionId,
+                        (int)restResponse.StatusCode, responseBody: restResponse.Content);
+                    return new StatusUpdateResult
+                    {
+                        Successful = false,
+                        Status = "error"
+                    };
+                }
+
+                JObject responseJson = JObject.Parse(restResponse.Content);
+                string invoiceNumber = responseJson["orderId"]?.ToString();
+                await LogIncomingPaymentActionAsync(PaymentServiceProviders.PayNl, invoiceNumber,
+                    (int)restResponse.StatusCode, responseBody: restResponse.Content);
                 return new StatusUpdateResult
                 {
-                    Successful = false,
-                    Status = "error"
+                    Successful = responseJson["status"]?["code"]?.ToString() == "100",
+                    Status = responseJson["status"]?["action"]?.ToString(),
+                    StatusCode = Convert.ToInt32(responseJson["status"]?["code"])
                 };
             }
-
-            var responseJson = JObject.Parse(restResponse.Content);
-            var invoiceNumber = responseJson["orderId"]?.ToString();
-            await LogIncomingPaymentActionAsync(PaymentServiceProviders.PayNl, invoiceNumber, (int) restResponse.StatusCode, responseBody: restResponse.Content);
-            return new StatusUpdateResult
-            {
-                Successful = responseJson["status"]?["code"]?.ToString() == "100",
-                Status = responseJson["status"]?["action"]?.ToString(),
-                StatusCode = Convert.ToInt32(responseJson["status"]?["code"])
-            };
         }
         catch (Exception e)
         {
             await LogIncomingPaymentActionAsync(PaymentServiceProviders.PayNl, payNlTransactionId, 0, error: e.Message);
             throw;
         }
+    }
+
+    /// <summary>
+    /// 
+    /// </summary>
+    /// <param name="request"></param>
+    /// <param name="body"></param>
+    /// <param name="payNlSettings"></param>
+    /// <returns></returns>
+    private static bool ValidatePayNlSignature(HttpRequest request, byte[] body, PayNlSettingsModel payNlSettings)
+    {
+        string signatureMethod = request.Headers["signature-method"].FirstOrDefault();
+        string signatureAlgorithm = request.Headers["signature-algorithm"].FirstOrDefault();
+        string receivedSignature = request.Headers["signature"].FirstOrDefault();
+        string keyId = request.Headers["signature-keyid"].FirstOrDefault();
+
+        if (!string.Equals(signatureMethod, "HMAC", StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        if (string.IsNullOrWhiteSpace(payNlSettings.Token) || string.IsNullOrWhiteSpace(signatureAlgorithm) ||
+            string.IsNullOrWhiteSpace(receivedSignature) || string.IsNullOrWhiteSpace(keyId))
+        {
+            return false;
+        }
+
+        string expectedSignature = ComputeHmac(body, payNlSettings.Token, signatureAlgorithm);
+
+        return CryptographicOperations.FixedTimeEquals(Convert.FromHexString(expectedSignature),
+            Convert.FromHexString(receivedSignature));
+    }
+
+    /// <summary>
+    /// 
+    /// </summary>
+    /// <param name="body"></param>
+    /// <param name="secret"></param>
+    /// <param name="algorithm"></param>
+    /// <returns></returns>
+    /// <exception cref="NotSupportedException"></exception>
+    private static string ComputeHmac(byte[] body, string secret, string algorithm)
+    {
+        byte[] key = Encoding.UTF8.GetBytes(secret);
+
+        byte[] hash = algorithm.ToLowerInvariant() switch
+        {
+            "sha256" => HMACSHA256.HashData(key, body),
+            "sha384" => HMACSHA384.HashData(key, body),
+            "sha512" => HMACSHA512.HashData(key, body),
+
+            _ => throw new NotSupportedException(
+                $"Unsupported HMAC algorithm: {algorithm}")
+        };
+
+        return Convert.ToHexString(hash).ToLowerInvariant();
+    }
+
+    /// <summary>
+    /// Determines whether the request is a JSON POST request containing the
+    /// required signature headers.
+    /// </summary>
+    /// <param name="request">
+    /// The HTTP request to evaluate.
+    /// </param>
+    /// <returns>
+    /// <see langword="true"/> if the request uses the POST method, has an
+    /// <c>application/json</c> content type, and contains both the
+    /// <c>signature</c> and <c>signature-keyid</c> headers; otherwise,
+    /// <see langword="false"/>.
+    /// </returns>
+    private static bool IsSignedJsonPost(HttpRequest request)
+    {
+        bool hasSignatureHeaders =
+            request.Headers.ContainsKey("signature") &&
+            request.Headers.ContainsKey("signature-keyid");
+
+        bool isPost = HttpMethods.IsPost(request.Method);
+
+        bool isJson = request.ContentType?.StartsWith("application/json", StringComparison.OrdinalIgnoreCase) == true;
+
+        return isPost && isJson && hasSignatureHeaders;
     }
 
     /// <inheritdoc />
