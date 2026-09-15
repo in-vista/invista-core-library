@@ -9,6 +9,7 @@ using GeeksCoreLibrary.Components.OrderProcess.Interfaces;
 using GeeksCoreLibrary.Components.OrderProcess.Models;
 using GeeksCoreLibrary.Core.Helpers;
 using GeeksCoreLibrary.Core.Interfaces;
+using GeeksCoreLibrary.Core.Models.ErrorHandling;
 using GeeksCoreLibrary.Modules.DataSelector.Interfaces;
 using GeeksCoreLibrary.Modules.Payments.Enums;
 using GeeksCoreLibrary.Modules.Templates.Enums;
@@ -150,11 +151,9 @@ namespace GeeksCoreLibrary.Components.OrderProcess.Controllers
                 throw new Exception($"Invalid payment method ID: {paymentMethodFromRequest}");
             }
 
-            var success = await orderProcessesService.HandlePaymentServiceProviderWebhookAsync(0, paymentMethodId);
-            if (!success)
-            {
-                throw new Exception("Payment update webhook failed.");
-            }
+            ProcessResult<bool> paymentServiceProviderWebhookResults = await orderProcessesService.HandlePaymentServiceProviderWebhookAsync(0, paymentMethodId);
+            if (!paymentServiceProviderWebhookResults.Success)
+                throw paymentServiceProviderWebhookResults.Exception;
 
             // Pay. expects a "TRUE" message, otherwise they will retry pushing the payment status
             // MultiSafepay sends a "timestamp" variable and expects a "OK" message, otherwise they will retry pushing the payment status
