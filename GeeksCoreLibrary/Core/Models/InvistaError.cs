@@ -31,4 +31,11 @@ public class InvistaError
     /// <param name="value">The message of the error.</param>
     /// <returns>A <see cref="InvistaError"/> instance with the <see cref="value"/> being the message of the error.</returns>
     public static implicit operator InvistaError(string value) => new InvistaError(value, null);
+    
+    /// <summary>
+    /// Implicitly converts a <see cref="InvistaError"/> instance into a string, where the string represents just the error message.
+    /// </summary>
+    /// <param name="error">The <see cref="InvistaError"/> instance to convert.</param>
+    /// <returns>A string representing the error message of the <see cref="InvistaError"/> instance.</returns>
+    public static implicit operator string(InvistaError error) => error?.Message;
 }
