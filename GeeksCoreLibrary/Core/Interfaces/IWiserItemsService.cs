@@ -273,7 +273,7 @@ namespace GeeksCoreLibrary.Core.Interfaces
         /// <param name="onlyCheckAccessRights">If this is set to true, only access rights will be checked. Any extra stuff, such as "query_before_delete" will be ignored.</param>
         /// <param name="entityType">Optional: Enter an entity type here. This is required for entities that have a dedicated table. Default is null.</param>
         /// <returns>A Tuple with a boolean and an error message. If 'ok' is 'true', the action is allowed. Otherwise it's not and the reason will be given in the error message.</returns>
-        Task<(bool ok, string errorMessage, AccessRights permissions)> CheckIfEntityActionIsPossibleAsync(ulong itemId, EntityActions action, ulong userId, WiserItemModel wiserItem = null, bool onlyCheckAccessRights = false, string entityType = null);
+        Task<(bool ok, InvistaError error, AccessRights permissions)> CheckIfEntityActionIsPossibleAsync(ulong itemId, EntityActions action, ulong userId, WiserItemModel wiserItem = null, bool onlyCheckAccessRights = false, string entityType = null);
 
         /// <summary>
         /// Check if a certain action on an item and/or entity is possible.
@@ -288,7 +288,7 @@ namespace GeeksCoreLibrary.Core.Interfaces
         /// <param name="onlyCheckAccessRights">If this is set to true, only access rights will be checked. Any extra stuff, such as "query_before_delete" will be ignored.</param>
         /// <param name="entityType">Optional: Enter an entity type here. This is required for entities that have a dedicated table. Default is null.</param>
         /// <returns>A Tuple with a boolean and an error message. If 'ok' is 'true', the action is allowed. Otherwise it's not and the reason will be given in the error message.</returns>
-        Task<(bool ok, string errorMessage, AccessRights permissions)> CheckIfEntityActionIsPossibleAsync(IWiserItemsService wiserItemsService, ulong itemId, EntityActions action, ulong userId, WiserItemModel wiserItem = null, bool onlyCheckAccessRights = false, string entityType = null);
+        Task<(bool ok, InvistaError error, AccessRights permissions)> CheckIfEntityActionIsPossibleAsync(IWiserItemsService wiserItemsService, ulong itemId, EntityActions action, ulong userId, WiserItemModel wiserItem = null, bool onlyCheckAccessRights = false, string entityType = null);
 
         /// <summary>
         /// Get item permissions for a user. This can be used for Wiser users or website users.
