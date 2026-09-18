@@ -16,6 +16,7 @@ using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Web;
 using GeeksCoreLibrary.Core.Exceptions;
 using GeeksCoreLibrary.Modules.Databases.Helpers;
 using GeeksCoreLibrary.Modules.Databases.Interfaces;
@@ -700,16 +701,14 @@ SELECT {(wiserItem.Id > 0 ? "?id" : "LAST_INSERT_ID()")} AS newId;";
                 var isPossible = await wiserItemsService.CheckIfEntityActionIsPossibleAsync(itemId, EntityActions.Update, userId, wiserItem);
                 if (!isPossible.ok)
                 {
-                    if (String.IsNullOrWhiteSpace(isPossible.errorMessage))
-                    {
-                        isPossible.errorMessage = $"User '{userId}' is not allowed to update item '{itemId}'.";
-                    }
+                    isPossible.error ??= $"User '{userId}' is not allowed to update item '{itemId}'.";
 
-                    throw new InvalidAccessPermissionsException(isPossible.errorMessage)
+                    throw new InvalidAccessPermissionsException(isPossible.error.Message)
                     {
                         Action = EntityActions.Update,
                         ItemId = itemId,
-                        UserId = userId
+                        UserId = userId,
+                        Error = isPossible.error
                     };
                 }
             }
@@ -1542,7 +1541,7 @@ SET @saveHistory = ?saveHistoryGcl;
                     if (!isPossible.ok)
                     {
                         itemsWithNoPermissionToDelete.Add(itemId);
-                        errorMessage = isPossible.errorMessage;
+                        errorMessage = isPossible.error?.Message;
                     }
                 }
 
@@ -1926,20 +1925,20 @@ VALUES ('UNDELETE_ITEM', '{tablePrefix}wiser_item', {itemId.ToString()}, IFNULL(
         }
 
         /// <inheritdoc />
-        public async Task<(bool ok, string errorMessage, AccessRights permissions)> CheckIfEntityActionIsPossibleAsync(ulong itemId, EntityActions action, ulong userId, WiserItemModel wiserItem = null, bool onlyCheckAccessRights = false, string entityType = null)
+        public async Task<(bool ok, InvistaError error, AccessRights permissions)> CheckIfEntityActionIsPossibleAsync(ulong itemId, EntityActions action, ulong userId, WiserItemModel wiserItem = null, bool onlyCheckAccessRights = false, string entityType = null)
         {
             return await CheckIfEntityActionIsPossibleAsync(this, itemId, action, userId, wiserItem, onlyCheckAccessRights, entityType);
         }
 
         /// <inheritdoc />
-        public async Task<(bool ok, string errorMessage, AccessRights permissions)> CheckIfEntityActionIsPossibleAsync(IWiserItemsService wiserItemsService, ulong itemId, EntityActions action, ulong userId, WiserItemModel wiserItem = null, bool onlyCheckAccessRights = false, string entityType = null)
+        public async Task<(bool ok, InvistaError error, AccessRights permissions)> CheckIfEntityActionIsPossibleAsync(IWiserItemsService wiserItemsService, ulong itemId, EntityActions action, ulong userId, WiserItemModel wiserItem = null, bool onlyCheckAccessRights = false, string entityType = null)
         {
             // First check the actual permissions of the item.
             var permissions = await wiserItemsService.GetUserItemPermissionsAsync(itemId, userId, entityType);
             if (permissions == AccessRights.Nothing)
             {
                 // If the user has no permissions at all, we can stop and return an error.
-                return (false, "U heeft geen rechten om deze actie uit te voeren.", permissions);
+                return (false, new InvistaError("U heeft geen rechten om deze actie uit te voeren.", "Toegang geweigerd!"), permissions);
             }
 
             // Check if the item itself is set to read only.
@@ -1959,7 +1958,7 @@ VALUES ('UNDELETE_ITEM', '{tablePrefix}wiser_item', {itemId.ToString()}, IFNULL(
 
                 if (action != EntityActions.Read)
                 {
-                    return (false, "Dit item staat ingesteld als alleen lezen.", permissions);
+                    return (false, new InvistaError("Dit item staat ingesteld als alleen lezen.", "Toegang geweigerd!"), permissions);
                 }
             }
 
@@ -1975,7 +1974,7 @@ VALUES ('UNDELETE_ITEM', '{tablePrefix}wiser_item', {itemId.ToString()}, IFNULL(
 
             if (!hasPermission)
             {
-                return (false, "U heeft geen rechten om deze actie uit te voeren.", permissions);
+                return (false, new InvistaError("U heeft geen rechten om deze actie uit te voeren.", "Toegang geweigerd!"), permissions);
             }
 
             /* TODO: I was working on this code for also implementing permissions based on entity type, but since that was not the assignment and I was running out of time, I stopped with that.
@@ -2050,7 +2049,7 @@ VALUES ('UNDELETE_ITEM', '{tablePrefix}wiser_item', {itemId.ToString()}, IFNULL(
 
             if (onlyCheckAccessRights)
             {
-                return (true, "", permissions);
+                return (true, null, permissions);
             }
 
             // Check if there is a check query set and execute that query if that is the case.
@@ -2064,7 +2063,7 @@ VALUES ('UNDELETE_ITEM', '{tablePrefix}wiser_item', {itemId.ToString()}, IFNULL(
                     columnName = "query_before_update";
                     break;
                 default:
-                    return (true, "", permissions);
+                    return (true, null, permissions);
             }
 
             query = $@"SELECT e.{columnName} AS `query`
@@ -2078,7 +2077,7 @@ VALUES ('UNDELETE_ITEM', '{tablePrefix}wiser_item', {itemId.ToString()}, IFNULL(
             if (queryResult.Rows.Count == 0)
             {
                 // If there is no query, then we don't need to check anything, so return true.
-                return (true, "", permissions);
+                return (true, null, permissions);
             }
             
             // Retrieve the before query string.
@@ -2102,7 +2101,7 @@ VALUES ('UNDELETE_ITEM', '{tablePrefix}wiser_item', {itemId.ToString()}, IFNULL(
             if (String.IsNullOrWhiteSpace(queryToExecute))
             {
                 // If there is no query, then we don't need to check anything, so return true.
-                return (true, "", permissions);
+                return (true, null, permissions);
             }
 
             // Execute the check query.
@@ -2126,13 +2125,24 @@ VALUES ('UNDELETE_ITEM', '{tablePrefix}wiser_item', {itemId.ToString()}, IFNULL(
             }
 
             var success = Convert.ToInt32(dataTable.Rows[0][0]);
-            var errorMessage = "";
-            if (dataTable.Columns.Count > 1)
+
+            int columnCount = dataTable.Columns.Count;
+            string errorMessage = null;
+            string errorMessageTitle = null;
+            // Custom error message.
+            if (columnCount >= 2)
             {
-                errorMessage = dataTable.Rows[0].Field<string>(1);
+                DataRow errorMessageRow = dataTable.Rows[0];
+                errorMessage = errorMessageRow.Field<string>(1);
+                
+                // Custom error message title.
+                if (columnCount >= 3)
+                    errorMessageTitle = errorMessageRow.Field<string>(2);
             }
 
-            return (success > 0, errorMessage, permissions);
+            InvistaError error = errorMessage != null ? new InvistaError(errorMessage, errorMessageTitle) : null;
+
+            return (success > 0, error, permissions);
         }
 
         /// <inheritdoc />

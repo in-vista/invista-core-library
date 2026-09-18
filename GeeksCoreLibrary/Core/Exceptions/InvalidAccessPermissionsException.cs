@@ -1,5 +1,6 @@
 ﻿using System;
 using GeeksCoreLibrary.Core.Enums;
+using GeeksCoreLibrary.Core.Models;
 
 namespace GeeksCoreLibrary.Core.Exceptions
 {
@@ -8,6 +9,7 @@ namespace GeeksCoreLibrary.Core.Exceptions
         public EntityActions Action { get; set; }
         public ulong ItemId { get; set; }
         public ulong UserId { get; set; }
+        public InvistaError Error { get; set; }
         
         public InvalidAccessPermissionsException()
         {
