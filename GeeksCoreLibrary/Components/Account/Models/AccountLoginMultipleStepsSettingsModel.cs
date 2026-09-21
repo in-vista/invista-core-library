@@ -26,7 +26,7 @@ namespace GeeksCoreLibrary.Components.Account.Models
                 <button type='submit' class='btn btnSend'>Volgende</button>
             </div>
             <div class='formRow center'>
-                <a href='#' id='GclResetPasswordLink{contentId}'>Wachtwoord vergeten?</a>
+                <a href='javascript:void(0)' id='GclResetPasswordLink{contentId}'>Wachtwoord vergeten?</a>
             </div>
             [endif]
             [if({stepNumber}=2)]
@@ -39,7 +39,7 @@ namespace GeeksCoreLibrary.Components.Account.Models
                 <button type='submit' class='btn btnSend'>Inloggen</button>
             </div>
             <div class='formRow center'>
-                <a href='#' id='GclResetPasswordLink{contentId}'>Wachtwoord vergeten?</a>
+                <a href='javascript:void(0)' id='GclResetPasswordLink{contentId}'>Wachtwoord vergeten?</a>
             </div>
             [endif]
             [if({stepNumber}=3)]
