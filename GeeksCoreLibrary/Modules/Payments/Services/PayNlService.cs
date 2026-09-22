@@ -537,7 +537,21 @@ public class PayNlService : PaymentServiceProviderBaseService, IPaymentServicePr
                 Status = "Error retrieving status: No HttpContext available."
             };
         }
-        
+
+        PayNlSettingsModel payNlSettings = (PayNlSettingsModel)paymentMethodSettings.PaymentServiceProvider;
+
+        // Check for SIGNED_JSON_POST request so that the newest version logic is used
+        if (IsSignedJsonPost(httpContextAccessor.HttpContext.Request))
+        {
+            return await ProcessSignedJsonPostAsync(payNlSettings, paymentMethodSettings);
+        }
+
+        /*
+         * TEXT_GET
+         *
+         * Legacy functionality. Keep this until all customers
+         * have been migrated to SIGNED_JSON_POST.
+         */
         var action = (httpContextAccessor.HttpContext.Request.HasFormContentType
             ? (Microsoft.Extensions.Primitives.StringValues?)httpContextAccessor.HttpContext.Request.Form["action"]
             : httpContextAccessor.HttpContext.Request.Query["action"]).Value.ToString();
@@ -699,124 +713,45 @@ public class PayNlService : PaymentServiceProviderBaseService, IPaymentServicePr
         
         try
         {
-            PayNlSettingsModel payNlSettings = (PayNlSettingsModel)paymentMethodSettings.PaymentServiceProvider;
+            payNlTransactionId = GetInvoiceNumberFromRequest();
 
-            HttpRequest request = httpContextAccessor.HttpContext.Request;
-
-            /*
-             * SIGNED_JSON_POST
-             *
-             * The signed request contains the order and status in its JSON body.
-             */
-            if (IsSignedJsonPost(httpContextAccessor.HttpContext.Request))
+            if (string.IsNullOrEmpty(payNlTransactionId))
             {
-                request.EnableBuffering();
-                request.Body.Position = 0;
-
-                using MemoryStream memoryStream = new();
-                await request.Body.CopyToAsync(memoryStream);
-
-                byte[] body = memoryStream.ToArray();
-
-                request.Body.Position = 0;
-
-                (bool Valid, string Message) validationResult = ValidatePayNlSettings(payNlSettings);
-                if (!validationResult.Valid)
-                {
-                    logger.LogError(
-                        "Validation in 'DoPinTerminalPaymentAsync' of 'PayNlService' failed because: {Message}",
-                        validationResult.Message);
-                    return new StatusUpdateResult
-                    {
-                        Successful = false,
-                        Status = "error"
-                    };
-                }
-
-                if (!ValidatePayNlSignature(request, body, payNlSettings))
-                {
-                    // Reject the request before processing its contents.
-                    return new StatusUpdateResult
-                    {
-                        Successful = false,
-                        Status = "error",
-                        StatusCode = StatusCodes.Status401Unauthorized
-                    };
-                }
-
-                JObject responseJson = JObject.Parse(Encoding.UTF8.GetString(body));
-
-                payNlTransactionId = responseJson["object"]?["orderId"]?.ToString();
-
-                if (string.IsNullOrEmpty(payNlTransactionId))
-                {
-                    await LogIncomingPaymentActionAsync(PaymentServiceProviders.PayNl, payNlTransactionId,
-                        0, error: "payNlTransactionId onbekend, GetInvoiceNumberFromRequest geeft null terug.");
-                    return new StatusUpdateResult
-                    {
-                        Successful = false,
-                        Status = "error"
-                    };
-                }
-
-                int statusCode = responseJson["object"]?["status"]?["code"]?.Value<int?>() ?? 0;
-                string statusAction = responseJson["object"]?["status"]?["action"]?.ToString();
-
+                await LogIncomingPaymentActionAsync(PaymentServiceProviders.PayNl, payNlTransactionId, 0,
+                    error: "payNlTransactionId onbekend, GetInvoiceNumberFromRequest geeft null terug.");
                 return new StatusUpdateResult
                 {
-                    Successful = statusCode == 100,
-                    Status = statusAction,
-                    StatusCode = statusCode,
-                    PspTransactionId = payNlTransactionId
+                    Successful = false,
+                    Status = "error"
                 };
             }
-            else
+
+            RestClient restClient = new(BaseUrl);
+            RestRequest restRequest = new($"/v1/orders/{payNlTransactionId}/status");
+            restRequest = AddRequestHeaders(restRequest, payNlSettings);
+            RestResponse restResponse = await restClient.ExecuteAsync(restRequest);
+
+            if (restResponse.StatusCode != HttpStatusCode.OK || string.IsNullOrWhiteSpace(restResponse.Content))
             {
-                /*
-                 * TEXT_GET
-                 *
-                 * The TEXT_GET type is legacy, support can be removed AFTER all customers have been migrated to SIGNED_JSON_POST.
-                 */
-                payNlTransactionId = GetInvoiceNumberFromRequest();
-
-                if (string.IsNullOrEmpty(payNlTransactionId))
-                {
-                    await LogIncomingPaymentActionAsync(PaymentServiceProviders.PayNl, payNlTransactionId, 0,
-                        error: "payNlTransactionId onbekend, GetInvoiceNumberFromRequest geeft null terug.");
-                    return new StatusUpdateResult
-                    {
-                        Successful = false,
-                        Status = "error"
-                    };
-                }
-
-                RestClient restClient = new(BaseUrl);
-                RestRequest restRequest = new($"/v1/orders/{payNlTransactionId}/status");
-                restRequest = AddRequestHeaders(restRequest, payNlSettings);
-                RestResponse restResponse = await restClient.ExecuteAsync(restRequest);
-
-                if (restResponse.StatusCode != HttpStatusCode.OK || string.IsNullOrWhiteSpace(restResponse.Content))
-                {
-                    await LogIncomingPaymentActionAsync(PaymentServiceProviders.PayNl, payNlTransactionId,
-                        (int)restResponse.StatusCode, responseBody: restResponse.Content);
-                    return new StatusUpdateResult
-                    {
-                        Successful = false,
-                        Status = "error"
-                    };
-                }
-
-                JObject responseJson = JObject.Parse(restResponse.Content);
-                string invoiceNumber = responseJson["orderId"]?.ToString();
-                await LogIncomingPaymentActionAsync(PaymentServiceProviders.PayNl, invoiceNumber,
+                await LogIncomingPaymentActionAsync(PaymentServiceProviders.PayNl, payNlTransactionId,
                     (int)restResponse.StatusCode, responseBody: restResponse.Content);
                 return new StatusUpdateResult
                 {
-                    Successful = responseJson["status"]?["code"]?.ToString() == "100",
-                    Status = responseJson["status"]?["action"]?.ToString(),
-                    StatusCode = Convert.ToInt32(responseJson["status"]?["code"])
+                    Successful = false,
+                    Status = "error"
                 };
             }
+
+            JObject responseJson = JObject.Parse(restResponse.Content);
+            string invoiceNumber = responseJson["orderId"]?.ToString();
+            await LogIncomingPaymentActionAsync(PaymentServiceProviders.PayNl, invoiceNumber,
+                (int)restResponse.StatusCode, responseBody: restResponse.Content);
+            return new StatusUpdateResult
+            {
+                Successful = responseJson["status"]?["code"]?.ToString() == "100",
+                Status = responseJson["status"]?["action"]?.ToString(),
+                StatusCode = Convert.ToInt32(responseJson["status"]?["code"])
+            };
         }
         catch (Exception e)
         {
@@ -826,12 +761,302 @@ public class PayNlService : PaymentServiceProviderBaseService, IPaymentServicePr
     }
 
     /// <summary>
-    /// 
+    /// Processes a signed JSON POST exchange from PAY.nl by validating the request
+    /// signature and routing the exchange to the appropriate payment, SoftPOS,
+    /// or refund processing logic.
     /// </summary>
-    /// <param name="request"></param>
-    /// <param name="body"></param>
-    /// <param name="payNlSettings"></param>
-    /// <returns></returns>
+    /// <param name="payNlSettings">
+    /// The PAY.nl settings used to validate the signed request.
+    /// </param>
+    /// <param name="paymentMethodSettings">
+    /// The payment method settings used to determine the appropriate processing
+    /// logic, including whether the request is for SoftPOS.
+    /// </param>
+    /// <returns>
+    /// A <see cref="StatusUpdateResult"/> containing the processed payment,
+    /// SoftPOS, or refund status, or an error result when the request cannot
+    /// be validated or processed.
+    /// </returns>
+    private async Task<StatusUpdateResult> ProcessSignedJsonPostAsync(PayNlSettingsModel payNlSettings,
+        PaymentMethodSettingsModel paymentMethodSettings)
+    {
+        HttpRequest request = httpContextAccessor?.HttpContext?.Request;
+
+        if (request is null)
+        {
+            return new StatusUpdateResult
+            {
+                Successful = false,
+                Status = "Error retrieving status: No HttpContext available."
+            };
+        }
+
+        try
+        {
+            request.EnableBuffering();
+            request.Body.Position = 0;
+
+            using MemoryStream memoryStream = new();
+            await request.Body.CopyToAsync(memoryStream);
+
+            byte[] body = memoryStream.ToArray();
+
+            // Restore the stream for anything else that may inspect it later.
+            request.Body.Position = 0;
+
+            (bool Valid, string Message) validationResult = ValidatePayNlSettings(payNlSettings);
+            if (!validationResult.Valid)
+            {
+                logger.LogError(
+                    "Validation in 'ProcessSignedJsonPostAsync' of 'PayNlService' failed because: {Message}",
+                    validationResult.Message);
+
+                return new StatusUpdateResult
+                {
+                    Successful = false,
+                    Status = "error"
+                };
+            }
+
+            // Validate the signature using the raw request body,
+            // before parsing/deserializing the JSON.
+            if (!ValidatePayNlSignature(request, body, payNlSettings))
+            {
+                return new StatusUpdateResult
+                {
+                    Successful = false,
+                    Status = "error",
+                    StatusCode = StatusCodes.Status401Unauthorized
+                };
+            }
+
+            JObject responseJson = JObject.Parse(Encoding.UTF8.GetString(body));
+
+            // Process softpos
+            if (string.Equals(paymentMethodSettings.ExternalName, "softpos", StringComparison.OrdinalIgnoreCase))
+            {
+                return await ProcessSignedSoftPos(responseJson);
+            }
+
+            //Process refunds
+            string refundAction = responseJson["action"]?.ToString();
+
+            if (refundAction?.StartsWith("refund:", StringComparison.OrdinalIgnoreCase) == true)
+            {
+                return await ProcessSignedRefund(responseJson);
+            }
+
+            // Not softpos or refund, process iDEAL and other payment methods
+            string exchangeType = responseJson["type"]?.ToString();
+
+            if (!string.Equals(exchangeType, "order", StringComparison.OrdinalIgnoreCase))
+            {
+                await LogIncomingPaymentActionAsync(
+                    PaymentServiceProviders.PayNl,
+                    GetInvoiceNumberFromRequest(),
+                    0,
+                    responseBody: responseJson.ToString(),
+                    error: $"Unknown signed Pay. exchange type: {exchangeType}");
+
+                return new StatusUpdateResult
+                {
+                    Successful = false,
+                    Status = "unknown",
+                    StatusCode = 0
+                };
+            }
+
+            string payNlTransactionId = responseJson["object"]?["orderId"]?.ToString();
+
+            if (string.IsNullOrEmpty(payNlTransactionId))
+            {
+                await LogIncomingPaymentActionAsync(
+                    PaymentServiceProviders.PayNl,
+                    payNlTransactionId,
+                    0,
+                    responseBody: responseJson.ToString(),
+                    error: "payNlTransactionId onbekend: signed exchange bevat geen object.orderId.");
+
+                return new StatusUpdateResult
+                {
+                    Successful = false,
+                    Status = "error"
+                };
+            }
+
+            int statusCode = responseJson["object"]?["status"]?["code"]?.Value<int?>() ?? 0;
+
+            string statusAction = responseJson["object"]?["status"]?["action"]?.ToString();
+
+            await LogIncomingPaymentActionAsync(
+                PaymentServiceProviders.PayNl,
+                payNlTransactionId,
+                200,
+                responseBody: responseJson.ToString());
+
+            return new StatusUpdateResult
+            {
+                Successful = statusCode == 100,
+                Status = statusAction,
+                StatusCode = statusCode,
+                PspTransactionId = payNlTransactionId
+            };
+        }
+        catch (Exception e)
+        {
+            await LogIncomingPaymentActionAsync(
+                PaymentServiceProviders.PayNl,
+                GetInvoiceNumberFromRequest(),
+                0,
+                error: e.Message);
+
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// Processes a signed PAY.nl SoftPOS exchange and maps the payment action
+    /// to the corresponding status update result, including the paid amount for
+    /// successful payments.
+    /// </summary>
+    /// <param name="responseJson">
+    /// The parsed JSON response containing the SoftPOS action, order ID,
+    /// and payment amount.
+    /// </param>
+    /// <returns>
+    /// A <see cref="StatusUpdateResult"/> indicating whether the SoftPOS payment
+    /// was successfully processed, including the PAY.nl order ID as the PSP
+    /// transaction ID and the paid amount when applicable.
+    /// </returns>
+    private async Task<StatusUpdateResult> ProcessSignedSoftPos(JObject responseJson)
+    {
+        string action = responseJson["action"]?.ToString();
+        string payNlOrderId = responseJson["orderId"]?.ToString();
+
+        await LogIncomingPaymentActionAsync(
+            PaymentServiceProviders.PayNl,
+            payNlOrderId,
+            200,
+            responseBody: responseJson.ToString());
+
+        switch (action?.ToLowerInvariant())
+        {
+            case "new_ppt":
+            {
+                decimal paidAmount = 0;
+
+                string amountPaid = responseJson["amountPaid"]?["value"]?.ToString();
+
+                if (!string.IsNullOrWhiteSpace(amountPaid))
+                {
+                    decimal.TryParse(
+                        amountPaid,
+                        NumberStyles.Any,
+                        CultureInfo.InvariantCulture,
+                        out paidAmount);
+                }
+
+                return new StatusUpdateResult
+                {
+                    Successful = true,
+                    Status = "PAID",
+                    StatusCode = 100,
+                    PaidAmount = paidAmount,
+                    PspTransactionId = payNlOrderId
+                };
+            }
+
+            case "pending":
+            case "add":
+            case "received":
+            case "send":
+                return new StatusUpdateResult
+                {
+                    Successful = false,
+                    Status = "PENDING",
+                    StatusCode = 20,
+                    PspTransactionId = payNlOrderId
+                };
+
+            case "rejected":
+            case "storno":
+            case "failed":
+                return new StatusUpdateResult
+                {
+                    Successful = false,
+                    Status = "error",
+                    StatusCode = -1,
+                    PspTransactionId = payNlOrderId
+                };
+
+            default:
+                return new StatusUpdateResult
+                {
+                    Successful = false,
+                    Status = "unknown",
+                    StatusCode = 0,
+                    PspTransactionId = payNlOrderId
+                };
+        }
+    }
+
+    /// <summary>
+    /// Processes a signed PAY.nl refund exchange and maps the refund action
+    /// to the corresponding status update result.
+    /// </summary>
+    /// <param name="responseJson">The parsed JSON response containing the refund action and order ID.</param>
+    /// <returns>
+    /// A <see cref="StatusUpdateResult"/> indicating whether the refund action was successfully processed,
+    /// including the PAY.nl order ID as the PSP transaction ID.
+    /// </returns>
+    private async Task<StatusUpdateResult> ProcessSignedRefund(JObject responseJson)
+    {
+        string payNlOrderId = responseJson["order_id"]?.ToString();
+
+        await LogIncomingPaymentActionAsync(
+            PaymentServiceProviders.PayNl,
+            payNlOrderId,
+            200,
+            responseBody: responseJson.ToString());
+
+        string action = responseJson["action"]?.ToString();
+
+        switch (action?.ToLowerInvariant())
+        {
+            case "refund:add":
+            case "refund:received":
+            case "refund:send":
+            case "refund:storno":
+                return new StatusUpdateResult
+                {
+                    Successful = true,
+                    Status = "REFUND",
+                    StatusCode = 100,
+                    PspTransactionId = payNlOrderId
+                };
+
+            default:
+                return new StatusUpdateResult
+                {
+                    Successful = false,
+                    Status = "unknown",
+                    StatusCode = 0,
+                    PspTransactionId = payNlOrderId
+                };
+        }
+    }
+
+    /// <summary>
+    /// Validates the HMAC signature of a PAY request using the request headers,
+    /// raw request body, and configured PAY.nl token.
+    /// </summary>
+    /// <param name="request">The HTTP request containing the PAY signature headers.</param>
+    /// <param name="body">The raw request body bytes used to calculate the expected signature.</param>
+    /// <param name="payNlSettings">The PAY.nl settings containing the token used as the HMAC secret.</param>
+    /// <returns>
+    /// <c>true</c> if the request uses HMAC and the calculated signature matches the received signature;
+    /// otherwise, <c>false</c>.
+    /// </returns>
     private static bool ValidatePayNlSignature(HttpRequest request, byte[] body, PayNlSettingsModel payNlSettings)
     {
         string signatureMethod = request.Headers["signature-method"].FirstOrDefault();
@@ -852,18 +1077,32 @@ public class PayNlService : PaymentServiceProviderBaseService, IPaymentServicePr
 
         string expectedSignature = ComputeHmac(body, payNlSettings.Token, signatureAlgorithm);
 
-        return CryptographicOperations.FixedTimeEquals(Convert.FromHexString(expectedSignature),
-            Convert.FromHexString(receivedSignature));
+        try
+        {
+            return CryptographicOperations.FixedTimeEquals(
+                Convert.FromHexString(expectedSignature),
+                Convert.FromHexString(receivedSignature));
+        }
+        catch (FormatException)
+        {
+            return false;
+        }
     }
 
     /// <summary>
-    /// 
+    /// Computes an HMAC signature for the specified request body using the provided secret
+    /// and HMAC hashing algorithm.
     /// </summary>
-    /// <param name="body"></param>
-    /// <param name="secret"></param>
-    /// <param name="algorithm"></param>
-    /// <returns></returns>
-    /// <exception cref="NotSupportedException"></exception>
+    /// <param name="body">The raw request body bytes to sign.</param>
+    /// <param name="secret">The secret key used to compute the HMAC.</param>
+    /// <param name="algorithm">
+    /// The HMAC hashing algorithm to use. Supported values are <c>sha256</c>,
+    /// <c>sha384</c>, and <c>sha512</c>.
+    /// </param>
+    /// <returns>The computed HMAC signature as a lowercase hexadecimal string.</returns>
+    /// <exception cref="NotSupportedException">
+    /// Thrown when the specified HMAC hashing algorithm is not supported.
+    /// </exception>
     private static string ComputeHmac(byte[] body, string secret, string algorithm)
     {
         byte[] key = Encoding.UTF8.GetBytes(secret);
@@ -897,8 +1136,10 @@ public class PayNlService : PaymentServiceProviderBaseService, IPaymentServicePr
     private static bool IsSignedJsonPost(HttpRequest request)
     {
         bool hasSignatureHeaders =
-            request.Headers.ContainsKey("signature") &&
-            request.Headers.ContainsKey("signature-keyid");
+            request.Headers.ContainsKey("signature")
+            && request.Headers.ContainsKey("signature-method")
+            && request.Headers.ContainsKey("signature-algorithm")
+            && request.Headers.ContainsKey("signature-keyid");
 
         bool isPost = HttpMethods.IsPost(request.Method);
 
