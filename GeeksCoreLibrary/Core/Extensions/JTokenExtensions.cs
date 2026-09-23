@@ -32,7 +32,20 @@ public static class JTokenExtensions
             .Distinct();
 
         foreach (string column in columns)
-            table.Columns.Add(column);
+        {
+            Type columnType = typeof(string);
+
+            foreach (Dictionary<string, object> row in rows)
+            {
+                if (!row.TryGetValue(column, out object value) || value == null)
+                    continue;
+
+                columnType = value.GetType();
+                break;
+            }
+
+            table.Columns.Add(column, columnType);
+        }
 
         foreach (Dictionary<string, object> row in rows)
         {
