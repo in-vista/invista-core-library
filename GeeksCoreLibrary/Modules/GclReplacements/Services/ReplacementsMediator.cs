@@ -658,15 +658,15 @@ public class ReplacementsMediator : IReplacementsMediator, IScopedService
         type = Nullable.GetUnderlyingType(type) ?? type;
         if (type == typeof(decimal))
         {
-            return Convert.ToDecimal(input, new CultureInfo("en-US"));
+            return Convert.ToDecimal(input, CultureInfo.CurrentCulture);
         }
         if (type == typeof(double))
         {
-            return Convert.ToDouble(input, new CultureInfo("en-US"));
+            return Convert.ToDouble(input, CultureInfo.CurrentCulture);
         }
         if (type == typeof(DateTime))
         {
-            return Convert.ToDateTime(input, new CultureInfo("en-US"));
+            return Convert.ToDateTime(input, CultureInfo.CurrentCulture);
         }
 
         return Convert.ChangeType(input, type);
