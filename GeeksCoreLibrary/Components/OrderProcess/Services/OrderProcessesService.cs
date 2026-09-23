@@ -1187,6 +1187,12 @@ namespace GeeksCoreLibrary.Components.OrderProcess.Services
         /// <inheritdoc />
         public async Task<bool> HandlePaymentStatusUpdateAsync(IOrderProcessesService orderProcessesService, OrderProcessSettingsModel orderProcessSettings, ICollection<(WiserItemModel Main, List<WiserItemModel> Lines)> conceptOrders, StatusUpdateResult statusUpdateResult, bool convertConceptOrderToOrder = true, decimal paidAmount = 0)
         {
+            // Return successfully, nothing else needs to be done here for canceled payments
+            if (string.Equals(statusUpdateResult.Status, "CANCEL"))
+            {
+                return true;
+            }
+            
             if (conceptOrders.Count == 0) // Set payment update unsuccessful if there is no order or conceptorder
                 return false;
             
