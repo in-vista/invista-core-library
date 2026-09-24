@@ -376,8 +376,9 @@ namespace GeeksCoreLibrary.Core.Interfaces
         /// <param name="reverse">Optional: Set to true to get the items that this item is linked to, instead of the items linked to this item. Default is false.</param>
         /// <param name="itemIdEntityType">Optional: You can enter the entity type of the given itemId here, if you want to get items from a dedicated table and those items can have multiple different entity types. This only works if all those items exist in the same table. Default is null.</param>
         /// <param name="skipPermissionsCheck">Optional: Whether to skip the check for permissions. Only do this for things that should always be possible by anyone, such as creating a basket.</param>
+        /// <param name="inTableEntityType">Optional: The entity type for the linked items to retrieve as named within the table they are retrieved from. This parameter overrides that of <see cref="entityType"/>.</param>
         /// <returns>A list of <see cref="WiserItemModel"/>. Empty list if no items have been found.</returns>
-        Task<List<WiserItemModel>> GetLinkedItemDetailsAsync(ulong itemId, int linkType = -1, string entityType = null, bool includeDeletedItems = false, ulong userId = 0, bool reverse = false, string itemIdEntityType = null, bool skipPermissionsCheck = false);
+        Task<List<WiserItemModel>> GetLinkedItemDetailsAsync(ulong itemId, int linkType = -1, string entityType = null, bool includeDeletedItems = false, ulong userId = 0, bool reverse = false, string itemIdEntityType = null, bool skipPermissionsCheck = false, string inTableEntityType = null);
 
         /// <summary>
         /// By default this function gets all items linked to the given <see cref="itemId"/>, unless the parameter <see cref="reverse"/> is set to true,
@@ -392,8 +393,9 @@ namespace GeeksCoreLibrary.Core.Interfaces
         /// <param name="reverse">Optional: Set to true to get the items that this item is linked to, instead of the items linked to this item. Default is false.</param>
         /// <param name="itemIdEntityType">Optional: You can enter the entity type of the given itemId here, if you want to get items from a dedicated table and those items can have multiple different entity types. This only works if all those items exist in the same table. Default is null.</param>
         /// <param name="skipPermissionsCheck">Optional: Whether to skip the check for permissions. Only do this for things that should always be possible by anyone, such as creating a basket.</param>
+        /// <param name="inTableEntityType">Optional: The entity type for the linked items to retrieve as named within the table they are retrieved from. This parameter overrides that of <see cref="entityType"/>.</param>
         /// <returns>A list of <see cref="WiserItemModel"/>. Empty list if no items have been found.</returns>
-        Task<List<WiserItemModel>> GetLinkedItemDetailsAsync(IWiserItemsService wiserItemsService, ulong itemId, int linkType = -1, string entityType = null, bool includeDeletedItems = false, ulong userId = 0, bool reverse = false, string itemIdEntityType = null, bool skipPermissionsCheck = false);
+        Task<List<WiserItemModel>> GetLinkedItemDetailsAsync(IWiserItemsService wiserItemsService, ulong itemId, int linkType = -1, string entityType = null, bool includeDeletedItems = false, ulong userId = 0, bool reverse = false, string itemIdEntityType = null, bool skipPermissionsCheck = false, string inTableEntityType = null);
 
         /// <summary>
         /// By default this function gets the IDs of all items linked to the given <see cref="itemId"/>, unless the parameter <see cref="reverse"/> is set to tue,
@@ -407,8 +409,9 @@ namespace GeeksCoreLibrary.Core.Interfaces
         /// <param name="reverse">Optional: Set to true to get the items that this item is linked to, instead of the items linked to this item. Default is false.</param>
         /// <param name="itemIdEntityType">Optional: You can enter the entity type of the given itemId here, if you want to get items from a dedicated table and those items can have multiple different entity types. This only works if all those items exist in the same table. Default is null.</param>
         /// <param name="skipPermissionsCheck">Optional: Whether to skip the check for permissions. Only do this for things that should always be possible by anyone, such as creating a basket.</param>
+        /// <param name="inTableEntityType">Optional: The entity type for the linked items to retrieve as named within the table they are retrieved from. This parameter overrides that of <see cref="entityType"/>.</param>
         /// <returns>A list of <see cref="WiserItemModel"/>. Empty list if no items have been found.</returns>
-        Task<List<ulong>> GetLinkedItemIdsAsync(ulong itemId, int linkType, string entityType = null, bool includeDeletedItems = false, ulong userId = 0, bool reverse = false, string itemIdEntityType = null, bool skipPermissionsCheck = false);
+        Task<List<ulong>> GetLinkedItemIdsAsync(ulong itemId, int linkType, string entityType = null, bool includeDeletedItems = false, ulong userId = 0, bool reverse = false, string itemIdEntityType = null, bool skipPermissionsCheck = false, string inTableEntityType = null);
 
         /// <summary>
         /// By default this function gets the IDs of all items linked to the given <see cref="itemId"/>, unless the parameter <see cref="reverse"/> is set to tue,
@@ -423,8 +426,9 @@ namespace GeeksCoreLibrary.Core.Interfaces
         /// <param name="reverse">Optional: Set to true to get the items that this item is linked to, instead of the items linked to this item. Default is false.</param>
         /// <param name="itemIdEntityType">Optional: You can enter the entity type of the given itemId here, if you want to get items from a dedicated table and those items can have multiple different entity types. This only works if all those items exist in the same table. Default is null.</param>
         /// <param name="skipPermissionsCheck">Optional: Whether to skip the check for permissions. Only do this for things that should always be possible by anyone, such as creating a basket.</param>
+        /// <param name="inTableEntityType">Optional: The entity type for the linked items to retrieve as named within the table they are retrieved from. This parameter overrides that of <see cref="entityType"/>.</param>
         /// <returns>A list of <see cref="WiserItemModel"/>. Empty list if no items have been found.</returns>
-        Task<List<ulong>> GetLinkedItemIdsAsync(IWiserItemsService wiserItemsService, ulong itemId, int linkType, string entityType = null, bool includeDeletedItems = false, ulong userId = 0, bool reverse = false, string itemIdEntityType = null, bool skipPermissionsCheck = false);
+        Task<List<ulong>> GetLinkedItemIdsAsync(IWiserItemsService wiserItemsService, ulong itemId, int linkType, string entityType = null, bool includeDeletedItems = false, ulong userId = 0, bool reverse = false, string itemIdEntityType = null, bool skipPermissionsCheck = false, string inTableEntityType = null);
 
         /// <summary>
         /// Gets the settings for an entity type.

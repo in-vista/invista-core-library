@@ -2595,13 +2595,13 @@ WHERE {String.Join(" AND ", where)}";
         }
 
         /// <inheritdoc />
-        public async Task<List<WiserItemModel>> GetLinkedItemDetailsAsync(ulong itemId, int linkType = -1, string entityType = null, bool includeDeletedItems = false, ulong userId = 0, bool reverse = false, string itemIdEntityType = null, bool skipPermissionsCheck = false)
+        public async Task<List<WiserItemModel>> GetLinkedItemDetailsAsync(ulong itemId, int linkType = -1, string entityType = null, bool includeDeletedItems = false, ulong userId = 0, bool reverse = false, string itemIdEntityType = null, bool skipPermissionsCheck = false, string inTableEntityType = null)
         {
-            return await GetLinkedItemDetailsAsync(this, itemId, linkType, entityType, includeDeletedItems, userId, reverse, itemIdEntityType, skipPermissionsCheck);
+            return await GetLinkedItemDetailsAsync(this, itemId, linkType, entityType, includeDeletedItems, userId, reverse, itemIdEntityType, skipPermissionsCheck, inTableEntityType);
         }
 
         /// <inheritdoc />
-        public async Task<List<WiserItemModel>> GetLinkedItemDetailsAsync(IWiserItemsService wiserItemsService, ulong itemId, int linkType = -1, string entityType = null, bool includeDeletedItems = false, ulong userId = 0, bool reverse = false, string itemIdEntityType = null, bool skipPermissionsCheck = false)
+        public async Task<List<WiserItemModel>> GetLinkedItemDetailsAsync(IWiserItemsService wiserItemsService, ulong itemId, int linkType = -1, string entityType = null, bool includeDeletedItems = false, ulong userId = 0, bool reverse = false, string itemIdEntityType = null, bool skipPermissionsCheck = false, string inTableEntityType = null)
         {
             var result = new List<WiserItemModel>();
 
@@ -2624,7 +2624,7 @@ WHERE {String.Join(" AND ", where)}";
             if (!String.IsNullOrWhiteSpace(entityType))
             {
                 tablePrefix = await wiserItemsService.GetTablePrefixForEntityAsync(entityType);
-                databaseConnection.AddParameter("entityType", entityType);
+                databaseConnection.AddParameter("entityType", inTableEntityType ?? entityType);
                 where.Add("item.entity_type = ?entityType");
             }
             else if (!String.IsNullOrWhiteSpace(itemIdEntityType))
@@ -2796,13 +2796,13 @@ WHERE {String.Join(" AND ", where)}";
         }
 
         /// <inheritdoc />
-        public async Task<List<ulong>> GetLinkedItemIdsAsync(ulong itemId, int linkType, string entityType = null, bool includeDeletedItems = false, ulong userId = 0, bool reverse = false, string itemIdEntityType = null, bool skipPermissionsCheck = false)
+        public async Task<List<ulong>> GetLinkedItemIdsAsync(ulong itemId, int linkType, string entityType = null, bool includeDeletedItems = false, ulong userId = 0, bool reverse = false, string itemIdEntityType = null, bool skipPermissionsCheck = false, string inTableEntityType = null)
         {
-            return await GetLinkedItemIdsAsync(this, itemId, linkType, entityType, includeDeletedItems, userId, reverse, itemIdEntityType, skipPermissionsCheck);
+            return await GetLinkedItemIdsAsync(this, itemId, linkType, entityType, includeDeletedItems, userId, reverse, itemIdEntityType, skipPermissionsCheck, inTableEntityType);
         }
 
         /// <inheritdoc />
-        public async Task<List<ulong>> GetLinkedItemIdsAsync(IWiserItemsService wiserItemsService, ulong itemId, int linkType, string entityType = null, bool includeDeletedItems = false, ulong userId = 0, bool reverse = false, string itemIdEntityType = null, bool skipPermissionsCheck = false)
+        public async Task<List<ulong>> GetLinkedItemIdsAsync(IWiserItemsService wiserItemsService, ulong itemId, int linkType, string entityType = null, bool includeDeletedItems = false, ulong userId = 0, bool reverse = false, string itemIdEntityType = null, bool skipPermissionsCheck = false, string inTableEntityType = null)
         {
             var result = new List<ulong>();
             var linkSettings = await wiserItemsService.GetLinkTypeSettingsAsync(linkType, reverse ? itemIdEntityType : entityType, reverse ? entityType : itemIdEntityType);
@@ -2824,7 +2824,7 @@ WHERE {String.Join(" AND ", where)}";
             if (!String.IsNullOrWhiteSpace(entityType))
             {
                 tablePrefix = await GetTablePrefixForEntityAsync(entityType);
-                databaseConnection.AddParameter("entityType", entityType);
+                databaseConnection.AddParameter("entityType", inTableEntityType ?? entityType);
                 where.Add("item.entity_type = ?entityType");
             }
             else if (!String.IsNullOrWhiteSpace(itemIdEntityType))
