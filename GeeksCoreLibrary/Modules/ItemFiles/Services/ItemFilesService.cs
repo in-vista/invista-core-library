@@ -568,10 +568,11 @@ namespace GeeksCoreLibrary.Modules.ItemFiles.Services
                         // No image bytes were found, try to retrieve the image from the content URL.
                         if (fileBytes == null || fileBytes.Length == 0)
                         {
-                            if (Uri.IsWellFormedUriString(contentUrl, UriKind.Absolute))
+                            if (Uri.TryCreate(contentUrl, UriKind.Absolute, out var encodedContentUri))
                             {
                                 // First try to get the content from the URL, only if that is successful read the bytes.
-                                using var fileResult = await httpClientService.Client.GetAsync(contentUrl);
+                                using var fileResult = await httpClientService.Client.GetAsync(encodedContentUri);
+
                                 if (fileResult.IsSuccessStatusCode)
                                     fileBytes = await fileResult.Content.ReadAsByteArrayAsync();
                             }
