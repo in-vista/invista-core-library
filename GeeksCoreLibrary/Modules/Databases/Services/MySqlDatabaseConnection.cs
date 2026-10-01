@@ -616,85 +616,117 @@ namespace GeeksCoreLibrary.Modules.Databases.Services
         /// <inheritdoc />
         public async Task EnsureOpenConnectionForReadingAsync()
         {
-            var createdNewConnection = false;
+            bool createdNewConnection = false;
+            
             if (ConnectionForReading == null)
             {
-                var (sshClient, localPort, forwardedPortLocal) = await ConnectToSshAsync(sshSettingsForReading, connectionStringForReading.Server, connectionStringForReading.Port);
+                var (sshClient, localPort, forwardedPortLocal) = await ConnectToSshAsync(
+                    sshSettingsForReading,
+                    connectionStringForReading.Server,
+                    connectionStringForReading.Port);
+
                 SshClientForReading = sshClient;
                 ForwardedPortLocalForReading = forwardedPortLocal;
+                
                 if (sshClient != null)
                 {
                     connectionStringForReading.Server = Localhost;
                     connectionStringForReading.Port = localPort;
                 }
-
-                ConnectionForReading = new MySqlConnection {ConnectionString = connectionStringForReading.ConnectionString};
+                
+                ConnectionForReading = new MySqlConnection
+                {
+                    ConnectionString = connectionStringForReading.ConnectionString
+                };
+                
                 createdNewConnection = true;
             }
-
-            // Remember the database name that was connected to.
-            ConnectedDatabase = ConnectionForReading.Database;
-
-            if (ConnectionForReading.State != ConnectionState.Closed)
+            else if (ConnectionForReading.State == ConnectionState.Open)
             {
                 return;
             }
-
+            else if (ConnectionForReading.State == ConnectionState.Broken)
+            {
+                await ConnectionForReading.DisposeAsync();
+                
+                ConnectionForReading = new MySqlConnection
+                {
+                    ConnectionString = connectionStringForReading.ConnectionString
+                };
+                
+                createdNewConnection = true;
+            }
+            
             await ConnectionForReading.OpenAsync();
-
+            
+            ConnectedDatabase = ConnectionForReading.Database;
+            
             await SetTimezone(ConnectionForReading);
             await SetCharacterSetAndCollationAsync(ConnectionForReading);
-
+            
             if (createdNewConnection)
-            {
-                // Log the opening of the connection.
                 await AddConnectionOpenLogAsync(false);
-            }
         }
 
         /// <inheritdoc />
         public async Task EnsureOpenConnectionForWritingAsync()
         {
-            if (String.IsNullOrWhiteSpace(connectionStringForWriting?.ConnectionString))
+            if (string.IsNullOrWhiteSpace(connectionStringForWriting?.ConnectionString))
             {
                 ConnectedDatabaseForWriting = null;
                 return;
             }
-
-            var createdNewConnection = false;
+            
+            bool createdNewConnection = false;
+            
             if (ConnectionForWriting == null)
             {
-                var (sshClient, localPort, forwardedPortLocal) = await ConnectToSshAsync(sshSettingsForWriting, connectionStringForWriting.Server, connectionStringForWriting.Port);
+                var (sshClient, localPort, forwardedPortLocal) = await ConnectToSshAsync(
+                    sshSettingsForWriting,
+                    connectionStringForWriting.Server,
+                    connectionStringForWriting.Port);
+                
                 SshClientForWriting = sshClient;
                 ForwardedPortLocalForWriting = forwardedPortLocal;
+                
                 if (sshClient != null)
                 {
                     connectionStringForWriting.Server = Localhost;
                     connectionStringForWriting.Port = localPort;
                 }
-
-                ConnectionForWriting = new MySqlConnection { ConnectionString = connectionStringForWriting.ConnectionString };
+                
+                ConnectionForWriting = new MySqlConnection
+                {
+                    ConnectionString = connectionStringForWriting.ConnectionString
+                };
+                
                 createdNewConnection = true;
             }
-
-            // Remember the database name that was connected to.
-            ConnectedDatabaseForWriting = ConnectionForWriting.Database;
-
-            if (ConnectionForWriting.State != ConnectionState.Closed)
+            else if (ConnectionForWriting.State == ConnectionState.Open)
             {
                 return;
             }
-
+            else if (ConnectionForWriting.State == ConnectionState.Broken)
+            {
+                await ConnectionForWriting.DisposeAsync();
+                
+                ConnectionForWriting = new MySqlConnection
+                {
+                    ConnectionString = connectionStringForWriting.ConnectionString
+                };
+                
+                createdNewConnection = true;
+            }
+            
             await ConnectionForWriting.OpenAsync();
-
+            
+            ConnectedDatabaseForWriting = ConnectionForWriting.Database;
+            
             await SetTimezone(ConnectionForWriting);
             await SetCharacterSetAndCollationAsync(ConnectionForWriting);
-
+            
             if (createdNewConnection)
-            {
-                // Log the opening of the connection.
                 await AddConnectionOpenLogAsync(true);
-            }
         }
 
         /// <inheritdoc />
