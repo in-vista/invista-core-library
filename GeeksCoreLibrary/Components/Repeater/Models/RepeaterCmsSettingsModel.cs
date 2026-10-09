@@ -1,6 +1,7 @@
 ﻿using GeeksCoreLibrary.Core.Cms;
 using GeeksCoreLibrary.Core.Cms.Attributes;
 using System.Collections.Generic;
+using GeeksCoreLibrary.Core.Enums;
 
 namespace GeeksCoreLibrary.Components.Repeater.Models
 {
@@ -46,7 +47,7 @@ namespace GeeksCoreLibrary.Components.Repeater.Models
         [CmsProperty(
             PrettyName = "Data Query",
             Description = "Data query",
-            DeveloperRemarks = "Format MS SQL/MySql Depending on data source (for now only MySql). When having selected 'API' as data source, the results of this field acts as the body of the request.",
+            DeveloperRemarks = "Format MS SQL/MySql Depending on data source (for now only MySql). When having selected 'API' as data source, the results of this field can be used to build the body in the API body query.",
             TabName = CmsAttributes.CmsTabName.DataSource,
             GroupName = CmsAttributes.CmsGroupName.CustomSql,
             DisplayOrder = 10,
@@ -57,11 +58,11 @@ namespace GeeksCoreLibrary.Components.Repeater.Models
         public string DataQuery { get; set; } = "";
         
         /// <summary>
-        /// The Data Query (MySQL) used to construct the API body.
+        /// The API body query (MySQL) used to construct the API body.
         /// </summary>
         [CmsProperty(
-            PrettyName = "Data Query",
-            Description = "Data query",
+            PrettyName = "API body query",
+            Description = "API body query",
             DeveloperRemarks = "Format MS SQL/MySql Depending on data source (for now only MySql). The results of this query acts as the body of the request.",
             TabName = CmsAttributes.CmsTabName.DataSource,
             GroupName = CmsAttributes.CmsGroupName.CustomSql,
@@ -117,7 +118,7 @@ namespace GeeksCoreLibrary.Components.Repeater.Models
             HideInCms = false,
             ReadOnlyInCms = false
         )]
-        public Repeater.HttpMethod ApiMethod { get; set; } = Repeater.HttpMethod.Get;
+        public HttpMethod ApiMethod { get; set; } = HttpMethod.Get;
         
         /// <summary>
         /// API data query results as array.

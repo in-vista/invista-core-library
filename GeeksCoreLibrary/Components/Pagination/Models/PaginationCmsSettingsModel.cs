@@ -1,5 +1,6 @@
 ﻿using GeeksCoreLibrary.Core.Cms;
 using GeeksCoreLibrary.Core.Cms.Attributes;
+using GeeksCoreLibrary.Core.Enums;
 
 namespace GeeksCoreLibrary.Components.Pagination.Models
 {
@@ -22,16 +23,125 @@ namespace GeeksCoreLibrary.Components.Pagination.Models
         #endregion
 
         #region Tab DataSource properties
-
+        /// <summary>
+        /// The data source that should be used
+        /// </summary>
         [CmsProperty(
-            PrettyName = "Data Query",
-            Description = "The data query used to count the amount of items.",
+            PrettyName = "Data source",
+            Description = "The data source that should be used",
+            DeveloperRemarks = "",
             TabName = CmsAttributes.CmsTabName.DataSource,
             GroupName = CmsAttributes.CmsGroupName.Basic,
+            DisplayOrder = 10,
+            HideInCms = false,
+            ReadOnlyInCms = false
+        )]
+        public Pagination.DataSource DataSource { get; set; } = Pagination.DataSource.Query;
+        
+        [CmsProperty(
+            PrettyName = "Data Query",
+            Description = "Format MS SQL/MySql Depending on data source (for now only MySql). When having selected 'API' as data source, the results of this field can be used to build the body in the API body query.",
+            TabName = CmsAttributes.CmsTabName.DataSource,
+            GroupName = CmsAttributes.CmsGroupName.CustomSql,
             DisplayOrder = 10,
             TextEditorType = CmsAttributes.CmsTextEditorType.QueryEditor
         )]
         public string DataQuery { get; set; }
+        
+        /// <summary>
+        /// The API body query (MySQL) used to construct the API body.
+        /// </summary>
+        [CmsProperty(
+            PrettyName = "API body query",
+            Description = "API body query",
+            DeveloperRemarks = "Format MS SQL/MySql Depending on data source (for now only MySql). The results of this query acts as the body of the request.",
+            TabName = CmsAttributes.CmsTabName.DataSource,
+            GroupName = CmsAttributes.CmsGroupName.CustomSql,
+            DisplayOrder = 11,
+            TextEditorType = CmsAttributes.CmsTextEditorType.QueryEditor,
+            HideInCms = false,
+            ReadOnlyInCms = false
+        )]
+        public string APIBodyQuery { get; set; } = "";
+        
+        /// <summary>
+        /// API URL.
+        /// </summary>
+        [CmsProperty(
+            PrettyName = "API URL",
+            Description = "The API URL used for the endpoint to make the request to.",
+            DeveloperRemarks = "",
+            TabName = CmsAttributes.CmsTabName.DataSource,
+            GroupName = CmsAttributes.CmsGroupName.API,
+            DisplayOrder = 12,
+            TextEditorType = CmsAttributes.CmsTextEditorType.TextField,
+            HideInCms = false,
+            ReadOnlyInCms = false
+        )]
+        public string ApiUrl { get; set; } = "";
+        
+        /// <summary>
+        /// API authorization value.
+        /// </summary>
+        [CmsProperty(
+            PrettyName = "API authorization value",
+            Description = "The authorization value used in the Authorization header. When left empty, this header will not be used.",
+            DeveloperRemarks = "",
+            TabName = CmsAttributes.CmsTabName.DataSource,
+            GroupName = CmsAttributes.CmsGroupName.API,
+            DisplayOrder = 13,
+            TextEditorType = CmsAttributes.CmsTextEditorType.TextField,
+            HideInCms = false,
+            ReadOnlyInCms = false
+        )]
+        public string ApiAuthorization { get; set; } = "";
+        
+        /// <summary>
+        /// API data query results as array.
+        /// </summary>
+        [CmsProperty(
+            PrettyName = "API request method",
+            Description = "The HTTP method used for making the API request.",
+            DeveloperRemarks = "",
+            TabName = CmsAttributes.CmsTabName.DataSource,
+            GroupName = CmsAttributes.CmsGroupName.API,
+            DisplayOrder = 14,
+            HideInCms = false,
+            ReadOnlyInCms = false
+        )]
+        public HttpMethod ApiMethod { get; set; } = HttpMethod.Get;
+        
+        /// <summary>
+        /// API data query results as array.
+        /// </summary>
+        [CmsProperty(
+            PrettyName = "API data query results as array",
+            Description = "Whether to collect the results of the data query as an object or an array.",
+            DeveloperRemarks = "",
+            TabName = CmsAttributes.CmsTabName.DataSource,
+            GroupName = CmsAttributes.CmsGroupName.API,
+            DisplayOrder = 15,
+            TextEditorType = CmsAttributes.CmsTextEditorType.Auto,
+            HideInCms = false,
+            ReadOnlyInCms = false
+        )]
+        public bool ApiBodyAsArray { get; set; } = false;
+        
+        /// <summary>
+        /// API property name.
+        /// </summary>
+        [CmsProperty(
+            PrettyName = "API property name",
+            Description = "The property name from the response of the API request to use as the item count value.",
+            DeveloperRemarks = "",
+            TabName = CmsAttributes.CmsTabName.DataSource,
+            GroupName = CmsAttributes.CmsGroupName.API,
+            DisplayOrder = 16,
+            TextEditorType = CmsAttributes.CmsTextEditorType.Auto,
+            HideInCms = false,
+            ReadOnlyInCms = false
+        )]
+        public string ApiPropertyName { get; set; }
 
         #endregion
 

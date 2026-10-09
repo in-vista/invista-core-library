@@ -1,6 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Data;
 using System.Linq;
+using System.Net.Http;
+using System.Net.Http.Headers;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
@@ -10,6 +13,7 @@ using GeeksCoreLibrary.Components.Filter.Interfaces;
 using GeeksCoreLibrary.Components.Pagination.Models;
 using GeeksCoreLibrary.Core.Cms;
 using GeeksCoreLibrary.Core.Cms.Attributes;
+using GeeksCoreLibrary.Core.Extensions;
 using GeeksCoreLibrary.Core.Helpers;
 using GeeksCoreLibrary.Core.Models;
 using GeeksCoreLibrary.Modules.Databases.Interfaces;
@@ -21,6 +25,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Primitives;
+using Newtonsoft.Json.Linq;
 
 namespace GeeksCoreLibrary.Components.Pagination
 {
@@ -43,6 +48,12 @@ namespace GeeksCoreLibrary.Components.Pagination
             /// </summary>
             [CmsEnum(HideInCms = true)]
             Legacy
+        }
+        
+        public enum DataSource
+        {
+            Query,
+            API
         }
 
         #endregion
@@ -174,13 +185,114 @@ namespace GeeksCoreLibrary.Components.Pagination
 
                 // Perform replacements on the query.
                 parsedQuery = await TemplatesService.DoReplacesAsync(parsedQuery, evaluateLogicSnippets: Settings.EvaluateIfElseInTemplates, removeUnknownVariables: Settings.RemoveUnknownVariables, forQuery: true);
-
-                var getCountResult = await DatabaseConnection.GetAsync(parsedQuery);
-                if (getCountResult.Rows.Count > 0)
+                
+                // Execute the query of the data query.
+                DataTable dataQueryResult = await DatabaseConnection.GetAsync(parsedQuery);
+                
+                switch (Settings.DataSource)
                 {
-                    // Simply try to convert the first row's first column to a UInt32.
-                    totalItemCount = Convert.ToUInt32(getCountResult.Rows[0][0]);
+                    case DataSource.Query:
+                        // Simply try to convert the first row's first column to a UInt32.
+                        if (dataQueryResult.Rows.Count > 0)
+                            totalItemCount = Convert.ToUInt32(dataQueryResult.Rows[0][0]);
+                        break;
+                    case DataSource.API:
+                        using (HttpClient client = new HttpClient())
+                        {
+                            string apiAuthorization = Settings.ApiAuthorization;
+                            if (!string.IsNullOrEmpty(apiAuthorization))
+                            {
+                                apiAuthorization = StringReplacementsService.DoReplacements(apiAuthorization, ExtraDataForReplacements);
+                                foreach (DataRow dataRowFromQuery in dataQueryResult.Rows)
+                                    apiAuthorization = StringReplacementsService.DoReplacements(apiAuthorization, dataRowFromQuery);
+                                apiAuthorization = await TemplatesService.DoReplacesAsync(apiAuthorization, handleDynamicContent: false, forQuery: false);
+                                
+                                string[] authorizationValues = apiAuthorization.Split(" ");
+
+                                if (authorizationValues.Length < 2)
+                                    throw new ArgumentException("Authorization value for data source was given, but is invalid.");
+                                
+                                client.DefaultRequestHeaders.Authorization =
+                                    new AuthenticationHeaderValue(authorizationValues[0], authorizationValues[1]);
+                            }
+
+                            string apiUrl = Settings.ApiUrl;
+                            apiUrl = StringReplacementsService.DoReplacements(apiUrl, ExtraDataForReplacements, defaultFormatter: "UrlEncode");
+                            foreach (DataRow dataRowFromQuery in dataQueryResult.Rows)
+                                apiUrl = StringReplacementsService.DoReplacements(apiUrl, dataRowFromQuery, defaultFormatter: "UrlEncode");
+                            apiUrl = await TemplatesService.DoReplacesAsync(apiUrl, handleDynamicContent: false, forQuery: false);
+                            
+                            HttpMethod httpMethod = Settings.ApiMethod.ToNativeHttpMethod();
+                            HttpRequestMessage requestMessage = new HttpRequestMessage(httpMethod, apiUrl);
+                            
+                            // Check wether a query for the request's body is given.
+                            string bodyQuery = Settings.APIBodyQuery;
+                            if (!string.IsNullOrEmpty(bodyQuery))
+                            {
+                                // Prepare the query and perform replacements to determine the JSON body.
+                                if (ExtraDataForReplacements != null && ExtraDataForReplacements.Any())
+                                    bodyQuery = StringReplacementsService.DoReplacements(bodyQuery, ExtraDataForReplacements, true);
+                                bodyQuery = await TemplatesService.DoReplacesAsync(bodyQuery, handleDynamicContent: false, forQuery: true);
+                                
+                                // Store the currently used main connection strings.
+                                string currentConnectionStringForReading = DatabaseConnection.GetConnectionStringForReading();
+                                string currentConnectionStringForWriting = DatabaseConnection.GetConnectionStringForWriting();
+                    
+                                // If an alternative connection string is given, retrieve its value by name from the app settings and temporarily set it.
+                                if (!string.IsNullOrEmpty(Settings.AlternativeConnectionString))
+                                    if(GclSettings.AlternativeConnectionStrings.TryGetValue(Settings.AlternativeConnectionString, out string alternateConnectionString))
+                                        await DatabaseConnection.ChangeConnectionStringsAsync(alternateConnectionString, alternateConnectionString);
+                    
+                                // Create an empty result for this component.
+                                DataTable bodyResults;
+                    
+                                // Retrieve the results.
+                                try
+                                {
+                                    bodyResults = await DatabaseConnection.GetAsync(bodyQuery, true);
+                                }
+                                finally
+                                {
+                                    // If anything, revert the database connection back to the original.
+                                    await DatabaseConnection.ChangeConnectionStringsAsync(currentConnectionStringForReading, currentConnectionStringForWriting);
+                                }
+                                
+                                // Transform the body results into a workable JSON format.
+                                JToken json;
+                                if (Settings.ApiBodyAsArray)
+                                    json = JArray.FromObject(bodyResults);
+                                else
+                                    json = JArray.FromObject(bodyResults).First;
+                                
+                                // Populate the request with the JSON.
+                                if(json != null)
+                                    requestMessage.Content = new StringContent(json.ToString(), Encoding.UTF8, "application/json");
+                            }
+                            
+                            // Perform the API request and retrieve the response.
+                            HttpResponseMessage responseMessage = await client.SendAsync(requestMessage);
+                            
+                            // Parse the response to JSON.
+                            string responseString = await responseMessage.Content.ReadAsStringAsync();
+                            JToken responseJson = JToken.Parse(responseString);
+                            
+                            // Convert the response JSON to a JSON object instance.
+                            JObject responseJsonObject;
+                            if (responseJson is JObject jObject)
+                                responseJsonObject = jObject;
+                            else if (responseJson is JArray { Count: > 0 } jArray && jArray[0] is JObject jArrayJObject)
+                                responseJsonObject = jArrayJObject;
+                            else
+                                throw new ArgumentException("Invalid JSON response from API source.");
+                            
+                            // Retrieve the items count value from the JSON object and set the total item count value.
+                            totalItemCount = responseJsonObject.Value<uint>(Settings.ApiPropertyName);
+                        }
+                        
+                        break;
                 }
+                
+                
             }
 
             if (!UInt32.TryParse(HttpContextHelpers.GetRequestValue(HttpContext, Settings.PageNumberVariableName), out var currentPage))
