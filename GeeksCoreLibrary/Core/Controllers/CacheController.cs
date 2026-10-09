@@ -7,6 +7,10 @@ namespace GeeksCoreLibrary.Core.Controllers
     [Area("Cache")]
     public class CacheController : Controller
     {
+        // Bind the multiple servers property to all GET requests to optionally avoid clearing all servers
+        [BindProperty(SupportsGet = true)] 
+        public bool MultipleServers { get; set; } = true;
+        
         private readonly ICacheService cacheService;
 
         public CacheController(ICacheService cacheService)
@@ -24,7 +28,7 @@ namespace GeeksCoreLibrary.Core.Controllers
                 return NotFound();
             }
 
-            cacheService.ClearCacheInArea(cacheArea);
+            cacheService.ClearCacheInArea(cacheArea, MultipleServers);
             return Ok();
         }
         
@@ -34,7 +38,7 @@ namespace GeeksCoreLibrary.Core.Controllers
         [HttpGet]
         public IActionResult ClearCache()
         {
-            cacheService.ClearMemoryCache();
+            cacheService.ClearMemoryCache(MultipleServers);
             return Ok();
         }
 
@@ -43,7 +47,7 @@ namespace GeeksCoreLibrary.Core.Controllers
         [HttpGet]
         public IActionResult ClearOutputCache()
         {
-            cacheService.ClearOutputCache();
+            cacheService.ClearOutputCache(MultipleServers);
             return Ok();
         }
 
@@ -52,7 +56,7 @@ namespace GeeksCoreLibrary.Core.Controllers
         [HttpGet]
         public IActionResult ClearImageCache()
         {
-            cacheService.ClearFilesCache();
+            cacheService.ClearFilesCache(MultipleServers);
             return Ok();
         }
         
@@ -61,7 +65,7 @@ namespace GeeksCoreLibrary.Core.Controllers
         [HttpGet]
         public IActionResult ClearAllCache()
         {
-            cacheService.ClearAllCache();
+            cacheService.ClearAllCache(MultipleServers);
             return Ok();
         }
     }
