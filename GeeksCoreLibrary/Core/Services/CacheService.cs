@@ -18,6 +18,7 @@ using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Primitives;
+using HttpMethod = System.Net.Http.HttpMethod;
 
 namespace GeeksCoreLibrary.Core.Services
 {
