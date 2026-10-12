@@ -14,7 +14,13 @@ namespace GeeksCoreLibrary.Modules.Objects.Interfaces
         /// <returns></returns>
         Task<string> GetObjectValueAsync(string key, int typeNumber = -1);
 
-        Task<string> GetSystemObjectValueAsync(string key);
+        /// <summary>
+        /// GetAsync a system object value from easy_objects. This only retrieves values with: <c>typeNumber = -1</c>.
+        /// </summary>
+        /// <param name="key">The key of the system object to retrieve</param>
+        /// <param name="skipCache">Optional: skip the cache. Default: <c>false</c></param>
+        /// <returns></returns>
+        Task<string> GetSystemObjectValueAsync(string key, bool skipCache = false);
 
         /// <summary>
         /// Set an object value for the specified key and type number.

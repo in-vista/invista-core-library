@@ -163,7 +163,7 @@ namespace GeeksCoreLibrary.Modules.Objects.Services
         }
 
         /// <inheritdoc />
-        public Task<string> GetSystemObjectValueAsync(string key)
+        public Task<string> GetSystemObjectValueAsync(string key, bool skipCache = false)
         {
             return GetObjectValueAsync(key, -1);
         }
