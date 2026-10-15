@@ -29,27 +29,32 @@ namespace GeeksCoreLibrary.Core.Interfaces
         /// Clear the cache from a specific cache area.
         /// </summary>
         /// <param name="cacheArea"></param>
-        void ClearCacheInArea(CacheAreas cacheArea);
+        /// <param name="multipleServers">Optional: Set to true to clear the cache on multiple servers defined in easy_objects.</param>
+        void ClearCacheInArea(CacheAreas cacheArea, bool multipleServers = true);
 
         /// <summary>
         /// Clear the cache of all cache areas.
         /// </summary>
-        void ClearMemoryCache();
+        /// <param name="multipleServers">Optional: Set to true to clear the cache on multiple servers defined in easy_objects.</param>
+        void ClearMemoryCache(bool multipleServers = true);
 
         /// <summary>
         /// Attempt to delete all files in the "contentcache" folder.
         /// </summary>
-        void ClearOutputCache();
+        /// <param name="multipleServers">Optional: Set to true to clear the cache on multiple servers defined in easy_objects.</param>
+        void ClearOutputCache(bool multipleServers = true);
 
         /// <summary>
         /// Attempt to delete all files in the "contentfiles" folder.
         /// </summary>
-        void ClearFilesCache();
+        /// <param name="multipleServers">Optional: Set to true to clear the cache on multiple servers defined in easy_objects.</param>
+        void ClearFilesCache(bool multipleServers = true);
 
         /// <summary>
         /// Clear all memory cache and file cache.
         /// </summary>
-        void ClearAllCache();
+        /// <param name="multipleServers">Optional: Set to true to clear the cache on multiple servers defined in easy_objects.</param>
+        void ClearAllCache(bool multipleServers = true);
 
         /// <summary>
         /// Creates a <see cref="MemoryCacheEntryOptions"/> object that can be used in LazyCache's GetOrAdd function.

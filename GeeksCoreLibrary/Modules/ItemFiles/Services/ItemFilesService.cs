@@ -59,7 +59,7 @@ namespace GeeksCoreLibrary.Modules.ItemFiles.Services
         }
 
         /// <inheritdoc />
-        public async Task<(byte[] FileBytes, DateTime LastModified)> GetWiserItemImageAsync(ulong itemId, string propertyName, int preferredWidth, int preferredHeight, string filename, int fileNumber, ResizeModes resizeMode = ResizeModes.Normal, AnchorPositions anchorPosition = AnchorPositions.Center, string encryptedItemId = null, string entityType = null, string tablePrefixParameter = null, string connectionString = null)
+        public async Task<(byte[] FileBytes, DateTime LastModified)> GetWiserItemImageAsync(ulong itemId, string propertyName, uint preferredWidth, uint preferredHeight, string filename, int fileNumber, ResizeModes resizeMode = ResizeModes.Normal, AnchorPositions anchorPosition = AnchorPositions.Center, string encryptedItemId = null, string entityType = null, string tablePrefixParameter = null, string connectionString = null)
         {
             if (!TryGetFinalId(itemId, encryptedItemId, out var finalItemId))
             {
@@ -113,7 +113,7 @@ namespace GeeksCoreLibrary.Modules.ItemFiles.Services
         }
 
         /// <inheritdoc />
-        public async Task<(byte[] FileBytes, DateTime LastModified)> GetWiserItemLinkImageAsync(ulong itemLinkId, string propertyName, int preferredWidth, int preferredHeight, string filename, int fileNumber, ResizeModes resizeMode = ResizeModes.Normal, AnchorPositions anchorPosition = AnchorPositions.Center, string encryptedItemLinkId = null, int linkType = 0, string connectionString = null)
+        public async Task<(byte[] FileBytes, DateTime LastModified)> GetWiserItemLinkImageAsync(ulong itemLinkId, string propertyName, uint preferredWidth, uint preferredHeight, string filename, int fileNumber, ResizeModes resizeMode = ResizeModes.Normal, AnchorPositions anchorPosition = AnchorPositions.Center, string encryptedItemLinkId = null, int linkType = 0, string connectionString = null)
         {
             if (!TryGetFinalId(itemLinkId, encryptedItemLinkId, out var finalItemLinkId))
             {
@@ -165,7 +165,7 @@ namespace GeeksCoreLibrary.Modules.ItemFiles.Services
         }
 
         /// <inheritdoc />
-        public async Task<(byte[] FileBytes, DateTime LastModified)> GetWiserDirectImageAsync(ulong itemId, int preferredWidth, int preferredHeight, string filename, ResizeModes resizeMode = ResizeModes.Normal, AnchorPositions anchorPosition = AnchorPositions.Center, string encryptedItemId = null, string entityType = null, string tablePrefixParameter = null, string connectionString = null)
+        public async Task<(byte[] FileBytes, DateTime LastModified)> GetWiserDirectImageAsync(ulong itemId, uint preferredWidth, uint preferredHeight, string filename, ResizeModes resizeMode = ResizeModes.Normal, AnchorPositions anchorPosition = AnchorPositions.Center, string encryptedItemId = null, string entityType = null, string tablePrefixParameter = null, string connectionString = null)
         {
             if (!TryGetFinalId(itemId, encryptedItemId, out var finalItemId))
             {
@@ -214,7 +214,7 @@ namespace GeeksCoreLibrary.Modules.ItemFiles.Services
         }
 
         /// <inheritdoc />
-        public async Task<(byte[] fileBytes, DateTime lastModified)> GetWiserImageByFileNameAsync(ulong itemId, string propertyName, int preferredWidth, int preferredHeight, string filename, ResizeModes resizeMode = ResizeModes.Normal, AnchorPositions anchorPosition = AnchorPositions.Center, string encryptedItemId = null, string entityType = null, string connectionString = null)
+        public async Task<(byte[] fileBytes, DateTime lastModified)> GetWiserImageByFileNameAsync(ulong itemId, string propertyName, uint preferredWidth, uint preferredHeight, string filename, ResizeModes resizeMode = ResizeModes.Normal, AnchorPositions anchorPosition = AnchorPositions.Center, string encryptedItemId = null, string entityType = null, string connectionString = null)
         {
             if (!TryGetFinalId(itemId, encryptedItemId, out var finalItemId) || finalItemId == 0 || String.IsNullOrWhiteSpace(filename))
             {
@@ -496,7 +496,7 @@ namespace GeeksCoreLibrary.Modules.ItemFiles.Services
         /// <param name="resizeMode"></param>
         /// <param name="anchorPosition"></param>
         /// <returns></returns>
-        private async Task<(byte[] FileBytes, DateTime LastModified)> HandleImage(DataRow dataRow, string saveLocation, string propertyName, int preferredWidth, int preferredHeight, ResizeModes resizeMode = ResizeModes.Normal, AnchorPositions anchorPosition = AnchorPositions.Center)
+        private async Task<(byte[] FileBytes, DateTime LastModified)> HandleImage(DataRow dataRow, string saveLocation, string propertyName, uint preferredWidth, uint preferredHeight, ResizeModes resizeMode = ResizeModes.Normal, AnchorPositions anchorPosition = AnchorPositions.Center)
         {
             if (String.IsNullOrEmpty(webHostEnvironment?.WebRootPath))
             {
@@ -568,12 +568,12 @@ namespace GeeksCoreLibrary.Modules.ItemFiles.Services
                         // No image bytes were found, try to retrieve the image from the content URL.
                         if (fileBytes == null || fileBytes.Length == 0)
                         {
-                            if (Uri.IsWellFormedUriString(contentUrl, UriKind.Absolute))
+                            if (Uri.TryCreate(contentUrl, UriKind.Absolute, out var encodedContentUri))
                             {
-                                var requestUri = new Uri(contentUrl);
-                                fileBytes = await httpClientService.Client.GetByteArrayAsync(requestUri);
-                                var fileResult = await httpClientService.Client.GetAsync(contentUrl);
-                                if (fileResult.StatusCode == HttpStatusCode.OK)
+                                // First try to get the content from the URL, only if that is successful read the bytes.
+                                using var fileResult = await httpClientService.Client.GetAsync(encodedContentUri);
+
+                                if (fileResult.IsSuccessStatusCode)
                                     fileBytes = await fileResult.Content.ReadAsByteArrayAsync();
                             }
                             else
@@ -650,8 +650,10 @@ namespace GeeksCoreLibrary.Modules.ItemFiles.Services
 
                     if (Uri.IsWellFormedUriString(contentUrl, UriKind.Absolute))
                     {
-                        var requestUri = new Uri(contentUrl);
-                        fileBytes = await httpClientService.Client.GetByteArrayAsync(requestUri);
+                        // First try to get the content from the URL, only if that is successful read the bytes.
+                        using var fileResult = await httpClientService.Client.GetAsync(contentUrl);
+                        if (fileResult.IsSuccessStatusCode)
+                            fileBytes = await fileResult.Content.ReadAsByteArrayAsync();
                     }
                     else
                     {
@@ -690,13 +692,13 @@ namespace GeeksCoreLibrary.Modules.ItemFiles.Services
         /// <param name="resizeMode">The method of resizing.</param>
         /// <param name="anchorPosition">The anchor position that the <see cref="ResizeModes.Crop"/> and <see cref="ResizeModes.Fill"/> resize modes use.</param>
         /// <returns>The byte array of the resized image.</returns>
-        private async Task<byte[]> ResizeImageWithImageMagick(byte[] fileBytes, string saveLocation, bool imageIsProtected, int preferredWidth, int preferredHeight, ResizeModes resizeMode = ResizeModes.Normal, AnchorPositions anchorPosition = AnchorPositions.Center)
+        private async Task<byte[]> ResizeImageWithImageMagick(byte[] fileBytes, string saveLocation, bool imageIsProtected, uint preferredWidth, uint preferredHeight, ResizeModes resizeMode = ResizeModes.Normal, AnchorPositions anchorPosition = AnchorPositions.Center)
         {
             var extension = Path.GetExtension(saveLocation);
 
             // Determine image format.
             MagickFormat imageFormat;
-            var imageQuality = 100;
+            uint imageQuality = 100;
             switch (extension.ToLowerInvariant())
             {
                 case ".jpg":
@@ -712,7 +714,7 @@ namespace GeeksCoreLibrary.Modules.ItemFiles.Services
                     break;
                 case ".webp":
                     imageFormat = MagickFormat.WebP;
-                    if (!Int32.TryParse(await objectsService.FindSystemObjectByDomainNameAsync("image_webp_quality", "80"), out imageQuality))
+                    if (!uint.TryParse(await objectsService.FindSystemObjectByDomainNameAsync("image_webp_quality", "80"), out imageQuality))
                     {
                         imageQuality = 80;
                     }

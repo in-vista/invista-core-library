@@ -62,7 +62,8 @@ namespace GeeksCoreLibrary.Components.Account.Interfaces
         /// </summary>
         /// <param name="settings">The settings of the account component.</param>
         /// <param name="isAutoLogout">Optional: Whether this is an automatic logout via code or not.</param>
-        Task LogoutUserAsync(AccountCmsSettingsModel settings, bool isAutoLogout = false);
+        /// <param name="deleteOciHookUrlCookie">If the logout is triggered when logging in, then don't delete the cookie when just set</param>
+        Task LogoutUserAsync(AccountCmsSettingsModel settings, bool isAutoLogout = false, bool deleteOciHookUrlCookie = true);
 
         /// <summary>
         /// Do all replacements for the account component on a string.

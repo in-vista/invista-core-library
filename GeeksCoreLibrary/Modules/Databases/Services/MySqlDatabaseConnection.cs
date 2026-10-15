@@ -176,8 +176,10 @@ namespace GeeksCoreLibrary.Modules.Databases.Services
             {
                 if (retryCount >= gclSettings.MaximumRetryCountForQueries || !MySqlHelpers.IsErrorToRetry(invalidOperationException))
                 {
-                    logger.LogError(invalidOperationException, "Error trying to run this query: {query}", query);
-                    throw new GclQueryException("Error trying to run query", query, invalidOperationException);
+                    var commandParameters = GetCommandParametersForLogging(commandToUse);
+                    
+                    logger.LogError(invalidOperationException, "Error trying to run this query: {query}. Parameters: {parameters}", query, commandParameters);
+                    throw new GclQueryException($"Error trying to run query. Parameters: {commandParameters}", query, invalidOperationException);
                 }
 
                 logger.LogError(invalidOperationException, $"Retry - (due to nvalid operation) executing query for {retryCount} time", query);
@@ -191,11 +193,14 @@ namespace GeeksCoreLibrary.Modules.Databases.Services
                 // Also, if we've reached the maximum number of retries, don't retry anymore.
                 if (HasActiveTransaction() || retryCount >= gclSettings.MaximumRetryCountForQueries || !MySqlHelpers.IsErrorToRetry(mySqlException))
                 {
-                    string safeLogMessage = query
+                    var commandParameters = GetCommandParametersForLogging(commandToUse);
+                    
+                    var safeLogMessage = query
                         .Replace("{", "{{")
                         .Replace("}", "}}");
-                    logger.LogError(mySqlException, $"Error trying to run this query: {safeLogMessage}", query);
-                    throw new GclQueryException("Error trying to run query", query, mySqlException);
+                    
+                    logger.LogError(mySqlException, "Error trying to run this query: {safeLogMessage}. Parameters: {parameters}", safeLogMessage, commandParameters);
+                    throw new GclQueryException($"Error trying to run query. Parameters: {commandParameters}", query, mySqlException);
                 }
 
                 // If we're not in a transaction, retry the query if it's a deadlock.
@@ -220,6 +225,11 @@ namespace GeeksCoreLibrary.Modules.Databases.Services
         /// <inheritdoc />
         public async Task<string> GetAsJsonAsync(string query, bool formatResult = false, bool skipCache = false)
         {
+            JsonSerializerSettings settings = new JsonSerializerSettings
+            {
+                NullValueHandling = NullValueHandling.Include
+            };
+            
             return JsonConvert.SerializeObject(await GetAsync(query), formatResult ? Formatting.Indented : Formatting.None);
         }
 
@@ -263,8 +273,10 @@ namespace GeeksCoreLibrary.Modules.Databases.Services
             {
                 if (retryCount >= gclSettings.MaximumRetryCountForQueries || !MySqlHelpers.IsErrorToRetry(invalidOperationException))
                 {
-                    logger.LogError(invalidOperationException, "Error trying to run this query: {query}", query);
-                    throw new GclQueryException("Error trying to run query", query, invalidOperationException);
+                    var commandParameters = GetCommandParametersForLogging(commandToUse);
+                    
+                    logger.LogError(invalidOperationException, "Error trying to run this query: {query}. Parameters: {parameters}", query, commandParameters);
+                    throw new GclQueryException($"Error trying to run query. Parameters: {commandParameters}", query, invalidOperationException);
                 }
 
                 Thread.Sleep(gclSettings.TimeToWaitBeforeRetryingQueryInMilliseconds);
@@ -277,8 +289,14 @@ namespace GeeksCoreLibrary.Modules.Databases.Services
                 // Also, if we've reached the maximum number of retries, don't retry anymore.
                 if (HasActiveTransaction() || retryCount >= gclSettings.MaximumRetryCountForQueries || !MySqlHelpers.IsErrorToRetry(mySqlException))
                 {
-                    logger.LogError(mySqlException, "Error trying to run this query: {query}", query);
-                    throw new GclQueryException("Error trying to run query", query, mySqlException);
+                    var commandParameters = GetCommandParametersForLogging(commandToUse);
+                    
+                    var safeLogMessage = query
+                        .Replace("{", "{{")
+                        .Replace("}", "}}");
+                    
+                    logger.LogError(mySqlException, "Error trying to run this query: {safeLogMessage}. Parameters: {parameters}", safeLogMessage, commandParameters);
+                    throw new GclQueryException($"Error trying to run query. Parameters: {commandParameters}", query, mySqlException);
                 }
 
                 // If we're not in a transaction, retry the query if it's a deadlock.
@@ -390,8 +408,10 @@ namespace GeeksCoreLibrary.Modules.Databases.Services
             {
                 if (retryCount >= gclSettings.MaximumRetryCountForQueries || !MySqlHelpers.IsErrorToRetry(invalidOperationException))
                 {
-                    logger.LogError(invalidOperationException, "Error trying to run this query: {query}", query);
-                    throw new GclQueryException("Error trying to run query", query, invalidOperationException);
+                    var commandParameters = GetCommandParametersForLogging(commandToUse);
+                    
+                    logger.LogError(invalidOperationException, "Error trying to run this query: {query}. Parameters: {parameters}", query, commandParameters);
+                    throw new GclQueryException($"Error trying to run query. Parameters: {commandParameters}", query, invalidOperationException);
                 }
 
                 Thread.Sleep(gclSettings.TimeToWaitBeforeRetryingQueryInMilliseconds);
@@ -404,8 +424,14 @@ namespace GeeksCoreLibrary.Modules.Databases.Services
                 // Also, if we've reached the maximum number of retries, don't retry anymore.
                 if (HasActiveTransaction() || retryCount >= gclSettings.MaximumRetryCountForQueries || !MySqlHelpers.IsErrorToRetry(mySqlException))
                 {
-                    logger.LogError(mySqlException, "Error trying to run this query: {query}", query);
-                    throw new GclQueryException("Error trying to run query", query, mySqlException);
+                    var commandParameters = GetCommandParametersForLogging(commandToUse);
+                    
+                    var safeLogMessage = query
+                        .Replace("{", "{{")
+                        .Replace("}", "}}");
+                    
+                    logger.LogError(mySqlException, "Error trying to run this query: {safeLogMessage}. Parameters: {parameters}", safeLogMessage, commandParameters);
+                    throw new GclQueryException($"Error trying to run query. Parameters: {commandParameters}", query, mySqlException);
                 }
 
                 // If we're not in a transaction, retry the query if it's a deadlock.
@@ -527,7 +553,7 @@ namespace GeeksCoreLibrary.Modules.Databases.Services
         }
         
         /// <inheritdoc />
-        public string AddInParameters(string key, IEnumerable<object> collection)
+        public string AddInParameters<T>(string key, IEnumerable<T> collection)
         {
             string joinedEntries = string.Join(", ", collection.Select((entry, entryIndex) =>
             {
@@ -537,6 +563,19 @@ namespace GeeksCoreLibrary.Modules.Databases.Services
             }));
             
             return $"({joinedEntries})";
+        }
+        
+        /// <inheritdoc/>
+        public string AddInsertIntoParameters(string key, IEnumerable<object> collection)
+        {
+            string joinedEntries = string.Join(", ", collection.Select((entry, entryIndex) =>
+            {
+                string parameterName = $"{key}_{entryIndex}";
+                AddParameter(parameterName, entry);
+                return $"(?{parameterName})";
+            }));
+            
+            return $"{joinedEntries}";
         }
 
         private async Task CleanUpAsync()
@@ -577,85 +616,117 @@ namespace GeeksCoreLibrary.Modules.Databases.Services
         /// <inheritdoc />
         public async Task EnsureOpenConnectionForReadingAsync()
         {
-            var createdNewConnection = false;
+            bool createdNewConnection = false;
+            
             if (ConnectionForReading == null)
             {
-                var (sshClient, localPort, forwardedPortLocal) = await ConnectToSshAsync(sshSettingsForReading, connectionStringForReading.Server, connectionStringForReading.Port);
+                var (sshClient, localPort, forwardedPortLocal) = await ConnectToSshAsync(
+                    sshSettingsForReading,
+                    connectionStringForReading.Server,
+                    connectionStringForReading.Port);
+
                 SshClientForReading = sshClient;
                 ForwardedPortLocalForReading = forwardedPortLocal;
+                
                 if (sshClient != null)
                 {
                     connectionStringForReading.Server = Localhost;
                     connectionStringForReading.Port = localPort;
                 }
-
-                ConnectionForReading = new MySqlConnection {ConnectionString = connectionStringForReading.ConnectionString};
+                
+                ConnectionForReading = new MySqlConnection
+                {
+                    ConnectionString = connectionStringForReading.ConnectionString
+                };
+                
                 createdNewConnection = true;
             }
-
-            // Remember the database name that was connected to.
-            ConnectedDatabase = ConnectionForReading.Database;
-
-            if (ConnectionForReading.State != ConnectionState.Closed)
+            else if (ConnectionForReading.State == ConnectionState.Open)
             {
                 return;
             }
-
+            else if (ConnectionForReading.State == ConnectionState.Broken)
+            {
+                await ConnectionForReading.DisposeAsync();
+                
+                ConnectionForReading = new MySqlConnection
+                {
+                    ConnectionString = connectionStringForReading.ConnectionString
+                };
+                
+                createdNewConnection = true;
+            }
+            
             await ConnectionForReading.OpenAsync();
-
+            
+            ConnectedDatabase = ConnectionForReading.Database;
+            
             await SetTimezone(ConnectionForReading);
             await SetCharacterSetAndCollationAsync(ConnectionForReading);
-
+            
             if (createdNewConnection)
-            {
-                // Log the opening of the connection.
                 await AddConnectionOpenLogAsync(false);
-            }
         }
 
         /// <inheritdoc />
         public async Task EnsureOpenConnectionForWritingAsync()
         {
-            if (String.IsNullOrWhiteSpace(connectionStringForWriting?.ConnectionString))
+            if (string.IsNullOrWhiteSpace(connectionStringForWriting?.ConnectionString))
             {
                 ConnectedDatabaseForWriting = null;
                 return;
             }
-
-            var createdNewConnection = false;
+            
+            bool createdNewConnection = false;
+            
             if (ConnectionForWriting == null)
             {
-                var (sshClient, localPort, forwardedPortLocal) = await ConnectToSshAsync(sshSettingsForWriting, connectionStringForWriting.Server, connectionStringForWriting.Port);
+                var (sshClient, localPort, forwardedPortLocal) = await ConnectToSshAsync(
+                    sshSettingsForWriting,
+                    connectionStringForWriting.Server,
+                    connectionStringForWriting.Port);
+                
                 SshClientForWriting = sshClient;
                 ForwardedPortLocalForWriting = forwardedPortLocal;
+                
                 if (sshClient != null)
                 {
                     connectionStringForWriting.Server = Localhost;
                     connectionStringForWriting.Port = localPort;
                 }
-
-                ConnectionForWriting = new MySqlConnection { ConnectionString = connectionStringForWriting.ConnectionString };
+                
+                ConnectionForWriting = new MySqlConnection
+                {
+                    ConnectionString = connectionStringForWriting.ConnectionString
+                };
+                
                 createdNewConnection = true;
             }
-
-            // Remember the database name that was connected to.
-            ConnectedDatabaseForWriting = ConnectionForWriting.Database;
-
-            if (ConnectionForWriting.State != ConnectionState.Closed)
+            else if (ConnectionForWriting.State == ConnectionState.Open)
             {
                 return;
             }
-
+            else if (ConnectionForWriting.State == ConnectionState.Broken)
+            {
+                await ConnectionForWriting.DisposeAsync();
+                
+                ConnectionForWriting = new MySqlConnection
+                {
+                    ConnectionString = connectionStringForWriting.ConnectionString
+                };
+                
+                createdNewConnection = true;
+            }
+            
             await ConnectionForWriting.OpenAsync();
-
+            
+            ConnectedDatabaseForWriting = ConnectionForWriting.Database;
+            
             await SetTimezone(ConnectionForWriting);
             await SetCharacterSetAndCollationAsync(ConnectionForWriting);
-
+            
             if (createdNewConnection)
-            {
-                // Log the opening of the connection.
                 await AddConnectionOpenLogAsync(true);
-            }
         }
 
         /// <inheritdoc />
@@ -1119,6 +1190,39 @@ SELECT LAST_INSERT_ID();";
                 Thread.Sleep(10);
                 counter++;
             }
+        }
+        
+        /// <summary>
+        /// Builds a readable string containing all command parameters and their values,
+        /// intended for logging and debugging purposes.
+        /// </summary>
+        /// <param name="command">
+        /// The <see cref="MySqlCommand"/> whose parameters should be formatted.
+        /// </param>
+        /// <returns>
+        /// A comma-separated list of parameter name/value pairs. Parameter values that are
+        /// <see langword="null"/> or <see cref="DBNull.Value"/> are written as <c>"NULL"</c>.
+        /// Returns <c>"No parameters"</c> if the command has no parameters.
+        /// </returns>
+        private static string GetCommandParametersForLogging(MySqlCommand command)
+        {
+            if (command?.Parameters == null || command.Parameters.Count == 0)
+            {
+                return "No parameters";
+            }
+
+            var parameterParts = new List<string>();
+
+            foreach (MySqlParameter parameter in command.Parameters)
+            {
+                var parameterValue = parameter.Value == null || parameter.Value == DBNull.Value
+                    ? "NULL"
+                    : parameter.Value.ToString();
+
+                parameterParts.Add($"{parameter.ParameterName}={parameterValue}");
+            }
+
+            return string.Join(", ", parameterParts);
         }
 
         /// <summary>

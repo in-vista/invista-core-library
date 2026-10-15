@@ -9,6 +9,7 @@ using GeeksCoreLibrary.Core.Enums;
 using GeeksCoreLibrary.Core.Interfaces;
 using GeeksCoreLibrary.Core.Models;
 using GeeksCoreLibrary.Modules.Databases.Interfaces;
+using HttpMethod = System.Net.Http.HttpMethod;
 
 namespace GeeksCoreLibrary.Core.Services;
 

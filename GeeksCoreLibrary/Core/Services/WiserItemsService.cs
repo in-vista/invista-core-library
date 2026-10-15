@@ -16,6 +16,7 @@ using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Web;
 using GeeksCoreLibrary.Core.Exceptions;
 using GeeksCoreLibrary.Modules.Databases.Helpers;
 using GeeksCoreLibrary.Modules.Databases.Interfaces;
@@ -349,6 +350,7 @@ namespace GeeksCoreLibrary.Core.Services
                     databaseConnection.AddParameter("userId", userId);
                     databaseConnection.AddParameter("publishedEnvironment",
                                                     wiserItem.PublishedEnvironment ?? Environments.Live | Environments.Acceptance | Environments.Test | Environments.Development);
+                    databaseConnection.AddParameter("unique_uuid", !string.IsNullOrEmpty(wiserItem.UniqueUuid) ? wiserItem.UniqueUuid : string.Empty);
                     databaseConnection.AddParameter("json", wiserItem.Json);
                     databaseConnection.AddParameter("jsonLastProcessedDate", wiserItem.JsonLastProcessedDate);
                     databaseConnection.AddParameter("saveHistoryGcl", saveHistory); // This is used in triggers.
@@ -362,8 +364,8 @@ namespace GeeksCoreLibrary.Core.Services
                     var query = $@"SET @saveHistory = ?saveHistoryGcl;
 SET @_userId = ?userId;
 SET @saveHistory = ?saveHistoryGcl;
-INSERT INTO {tablePrefix}{WiserTableNames.WiserItem} ({(wiserItem.Id > 0 ? "id," : "")} parent_item_id, ordering, moduleid, title, entity_type, added_on, added_by, published_environment, json, json_last_processed_date{(string.IsNullOrEmpty(additionalAggregatedColumns) ? "" : ", ")}{additionalAggregatedColumns})
-VALUES ({(wiserItem.Id > 0 ? "?id," : "")} ?parentId, ?newOrdering, ?moduleId, ?title, ?entityType, ?addedOn, ?username, ?publishedEnvironment, ?json, ?jsonLastProcessedDate{(string.IsNullOrEmpty(additionalAggregatedColumnParameterNames) ? "" : ", ")}{additionalAggregatedColumnParameterNames});
+INSERT INTO {tablePrefix}{WiserTableNames.WiserItem} ({(wiserItem.Id > 0 ? "id," : "")} parent_item_id, ordering, moduleid, title, entity_type, added_on, added_by, published_environment, unique_uuid, json, json_last_processed_date{(string.IsNullOrEmpty(additionalAggregatedColumns) ? "" : ", ")}{additionalAggregatedColumns})
+VALUES ({(wiserItem.Id > 0 ? "?id," : "")} ?parentId, ?newOrdering, ?moduleId, ?title, ?entityType, ?addedOn, ?username, ?publishedEnvironment, ?unique_uuid, ?json, ?jsonLastProcessedDate{(string.IsNullOrEmpty(additionalAggregatedColumnParameterNames) ? "" : ", ")}{additionalAggregatedColumnParameterNames});
 SELECT {(wiserItem.Id > 0 ? "?id" : "LAST_INSERT_ID()")} AS newId;";
                     var queryResult = await databaseConnection.GetAsync(query, true);
 
@@ -699,16 +701,14 @@ SELECT {(wiserItem.Id > 0 ? "?id" : "LAST_INSERT_ID()")} AS newId;";
                 var isPossible = await wiserItemsService.CheckIfEntityActionIsPossibleAsync(itemId, EntityActions.Update, userId, wiserItem);
                 if (!isPossible.ok)
                 {
-                    if (String.IsNullOrWhiteSpace(isPossible.errorMessage))
-                    {
-                        isPossible.errorMessage = $"User '{userId}' is not allowed to update item '{itemId}'.";
-                    }
+                    isPossible.error ??= $"User '{userId}' is not allowed to update item '{itemId}'.";
 
-                    throw new InvalidAccessPermissionsException(isPossible.errorMessage)
+                    throw new InvalidAccessPermissionsException(isPossible.error.Message)
                     {
                         Action = EntityActions.Update,
                         ItemId = itemId,
-                        UserId = userId
+                        UserId = userId,
+                        Error = isPossible.error
                     };
                 }
             }
@@ -1444,7 +1444,7 @@ SET @saveHistory = ?saveHistoryGcl;
                         throw;
                     }
                 }
-                catch(Exception exp)
+                catch(Exception)
                 {
                     if (createNewTransaction && !alreadyHadTransaction) await databaseConnection.RollbackTransactionAsync();
                     throw;
@@ -1541,7 +1541,7 @@ SET @saveHistory = ?saveHistoryGcl;
                     if (!isPossible.ok)
                     {
                         itemsWithNoPermissionToDelete.Add(itemId);
-                        errorMessage = isPossible.errorMessage;
+                        errorMessage = isPossible.error?.Message;
                     }
                 }
 
@@ -1925,20 +1925,20 @@ VALUES ('UNDELETE_ITEM', '{tablePrefix}wiser_item', {itemId.ToString()}, IFNULL(
         }
 
         /// <inheritdoc />
-        public async Task<(bool ok, string errorMessage, AccessRights permissions)> CheckIfEntityActionIsPossibleAsync(ulong itemId, EntityActions action, ulong userId, WiserItemModel wiserItem = null, bool onlyCheckAccessRights = false, string entityType = null)
+        public async Task<(bool ok, InvistaError error, AccessRights permissions)> CheckIfEntityActionIsPossibleAsync(ulong itemId, EntityActions action, ulong userId, WiserItemModel wiserItem = null, bool onlyCheckAccessRights = false, string entityType = null)
         {
             return await CheckIfEntityActionIsPossibleAsync(this, itemId, action, userId, wiserItem, onlyCheckAccessRights, entityType);
         }
 
         /// <inheritdoc />
-        public async Task<(bool ok, string errorMessage, AccessRights permissions)> CheckIfEntityActionIsPossibleAsync(IWiserItemsService wiserItemsService, ulong itemId, EntityActions action, ulong userId, WiserItemModel wiserItem = null, bool onlyCheckAccessRights = false, string entityType = null)
+        public async Task<(bool ok, InvistaError error, AccessRights permissions)> CheckIfEntityActionIsPossibleAsync(IWiserItemsService wiserItemsService, ulong itemId, EntityActions action, ulong userId, WiserItemModel wiserItem = null, bool onlyCheckAccessRights = false, string entityType = null)
         {
             // First check the actual permissions of the item.
             var permissions = await wiserItemsService.GetUserItemPermissionsAsync(itemId, userId, entityType);
             if (permissions == AccessRights.Nothing)
             {
                 // If the user has no permissions at all, we can stop and return an error.
-                return (false, "U heeft geen rechten om deze actie uit te voeren.", permissions);
+                return (false, new InvistaError("U heeft geen rechten om deze actie uit te voeren.", "Toegang geweigerd!"), permissions);
             }
 
             // Check if the item itself is set to read only.
@@ -1958,7 +1958,7 @@ VALUES ('UNDELETE_ITEM', '{tablePrefix}wiser_item', {itemId.ToString()}, IFNULL(
 
                 if (action != EntityActions.Read)
                 {
-                    return (false, "Dit item staat ingesteld als alleen lezen.", permissions);
+                    return (false, new InvistaError("Dit item staat ingesteld als alleen lezen.", "Toegang geweigerd!"), permissions);
                 }
             }
 
@@ -1974,7 +1974,7 @@ VALUES ('UNDELETE_ITEM', '{tablePrefix}wiser_item', {itemId.ToString()}, IFNULL(
 
             if (!hasPermission)
             {
-                return (false, "U heeft geen rechten om deze actie uit te voeren.", permissions);
+                return (false, new InvistaError("U heeft geen rechten om deze actie uit te voeren.", "Toegang geweigerd!"), permissions);
             }
 
             /* TODO: I was working on this code for also implementing permissions based on entity type, but since that was not the assignment and I was running out of time, I stopped with that.
@@ -2049,7 +2049,7 @@ VALUES ('UNDELETE_ITEM', '{tablePrefix}wiser_item', {itemId.ToString()}, IFNULL(
 
             if (onlyCheckAccessRights)
             {
-                return (true, "", permissions);
+                return (true, null, permissions);
             }
 
             // Check if there is a check query set and execute that query if that is the case.
@@ -2063,7 +2063,7 @@ VALUES ('UNDELETE_ITEM', '{tablePrefix}wiser_item', {itemId.ToString()}, IFNULL(
                     columnName = "query_before_update";
                     break;
                 default:
-                    return (true, "", permissions);
+                    return (true, null, permissions);
             }
 
             query = $@"SELECT e.{columnName} AS `query`
@@ -2077,7 +2077,7 @@ VALUES ('UNDELETE_ITEM', '{tablePrefix}wiser_item', {itemId.ToString()}, IFNULL(
             if (queryResult.Rows.Count == 0)
             {
                 // If there is no query, then we don't need to check anything, so return true.
-                return (true, "", permissions);
+                return (true, null, permissions);
             }
             
             // Retrieve the before query string.
@@ -2101,7 +2101,7 @@ VALUES ('UNDELETE_ITEM', '{tablePrefix}wiser_item', {itemId.ToString()}, IFNULL(
             if (String.IsNullOrWhiteSpace(queryToExecute))
             {
                 // If there is no query, then we don't need to check anything, so return true.
-                return (true, "", permissions);
+                return (true, null, permissions);
             }
 
             // Execute the check query.
@@ -2125,13 +2125,24 @@ VALUES ('UNDELETE_ITEM', '{tablePrefix}wiser_item', {itemId.ToString()}, IFNULL(
             }
 
             var success = Convert.ToInt32(dataTable.Rows[0][0]);
-            var errorMessage = "";
-            if (dataTable.Columns.Count > 1)
+
+            int columnCount = dataTable.Columns.Count;
+            string errorMessage = null;
+            string errorMessageTitle = null;
+            // Custom error message.
+            if (columnCount >= 2)
             {
-                errorMessage = dataTable.Rows[0].Field<string>(1);
+                DataRow errorMessageRow = dataTable.Rows[0];
+                errorMessage = errorMessageRow.Field<string>(1);
+                
+                // Custom error message title.
+                if (columnCount >= 3)
+                    errorMessageTitle = errorMessageRow.Field<string>(2);
             }
 
-            return (success > 0, errorMessage, permissions);
+            InvistaError error = errorMessage != null ? new InvistaError(errorMessage, errorMessageTitle) : null;
+
+            return (success > 0, error, permissions);
         }
 
         /// <inheritdoc />
@@ -2584,13 +2595,13 @@ WHERE {String.Join(" AND ", where)}";
         }
 
         /// <inheritdoc />
-        public async Task<List<WiserItemModel>> GetLinkedItemDetailsAsync(ulong itemId, int linkType = -1, string entityType = null, bool includeDeletedItems = false, ulong userId = 0, bool reverse = false, string itemIdEntityType = null, bool skipPermissionsCheck = false)
+        public async Task<List<WiserItemModel>> GetLinkedItemDetailsAsync(ulong itemId, int linkType = -1, string entityType = null, bool includeDeletedItems = false, ulong userId = 0, bool reverse = false, string itemIdEntityType = null, bool skipPermissionsCheck = false, string inTableEntityType = null)
         {
-            return await GetLinkedItemDetailsAsync(this, itemId, linkType, entityType, includeDeletedItems, userId, reverse, itemIdEntityType, skipPermissionsCheck);
+            return await GetLinkedItemDetailsAsync(this, itemId, linkType, entityType, includeDeletedItems, userId, reverse, itemIdEntityType, skipPermissionsCheck, inTableEntityType);
         }
 
         /// <inheritdoc />
-        public async Task<List<WiserItemModel>> GetLinkedItemDetailsAsync(IWiserItemsService wiserItemsService, ulong itemId, int linkType = -1, string entityType = null, bool includeDeletedItems = false, ulong userId = 0, bool reverse = false, string itemIdEntityType = null, bool skipPermissionsCheck = false)
+        public async Task<List<WiserItemModel>> GetLinkedItemDetailsAsync(IWiserItemsService wiserItemsService, ulong itemId, int linkType = -1, string entityType = null, bool includeDeletedItems = false, ulong userId = 0, bool reverse = false, string itemIdEntityType = null, bool skipPermissionsCheck = false, string inTableEntityType = null)
         {
             var result = new List<WiserItemModel>();
 
@@ -2613,7 +2624,7 @@ WHERE {String.Join(" AND ", where)}";
             if (!String.IsNullOrWhiteSpace(entityType))
             {
                 tablePrefix = await wiserItemsService.GetTablePrefixForEntityAsync(entityType);
-                databaseConnection.AddParameter("entityType", entityType);
+                databaseConnection.AddParameter("entityType", inTableEntityType ?? entityType);
                 where.Add("item.entity_type = ?entityType");
             }
             else if (!String.IsNullOrWhiteSpace(itemIdEntityType))
@@ -2785,13 +2796,13 @@ WHERE {String.Join(" AND ", where)}";
         }
 
         /// <inheritdoc />
-        public async Task<List<ulong>> GetLinkedItemIdsAsync(ulong itemId, int linkType, string entityType = null, bool includeDeletedItems = false, ulong userId = 0, bool reverse = false, string itemIdEntityType = null, bool skipPermissionsCheck = false)
+        public async Task<List<ulong>> GetLinkedItemIdsAsync(ulong itemId, int linkType, string entityType = null, bool includeDeletedItems = false, ulong userId = 0, bool reverse = false, string itemIdEntityType = null, bool skipPermissionsCheck = false, string inTableEntityType = null)
         {
-            return await GetLinkedItemIdsAsync(this, itemId, linkType, entityType, includeDeletedItems, userId, reverse, itemIdEntityType, skipPermissionsCheck);
+            return await GetLinkedItemIdsAsync(this, itemId, linkType, entityType, includeDeletedItems, userId, reverse, itemIdEntityType, skipPermissionsCheck, inTableEntityType);
         }
 
         /// <inheritdoc />
-        public async Task<List<ulong>> GetLinkedItemIdsAsync(IWiserItemsService wiserItemsService, ulong itemId, int linkType, string entityType = null, bool includeDeletedItems = false, ulong userId = 0, bool reverse = false, string itemIdEntityType = null, bool skipPermissionsCheck = false)
+        public async Task<List<ulong>> GetLinkedItemIdsAsync(IWiserItemsService wiserItemsService, ulong itemId, int linkType, string entityType = null, bool includeDeletedItems = false, ulong userId = 0, bool reverse = false, string itemIdEntityType = null, bool skipPermissionsCheck = false, string inTableEntityType = null)
         {
             var result = new List<ulong>();
             var linkSettings = await wiserItemsService.GetLinkTypeSettingsAsync(linkType, reverse ? itemIdEntityType : entityType, reverse ? entityType : itemIdEntityType);
@@ -2813,7 +2824,7 @@ WHERE {String.Join(" AND ", where)}";
             if (!String.IsNullOrWhiteSpace(entityType))
             {
                 tablePrefix = await GetTablePrefixForEntityAsync(entityType);
-                databaseConnection.AddParameter("entityType", entityType);
+                databaseConnection.AddParameter("entityType", inTableEntityType ?? entityType);
                 where.Add("item.entity_type = ?entityType");
             }
             else if (!String.IsNullOrWhiteSpace(itemIdEntityType))
@@ -3630,16 +3641,48 @@ WHERE {String.Join(" AND ", where)}";
         }
 
         /// <inheritdoc />
-        public async Task<List<WiserItemFileModel>> GetItemFilesAsync(ulong[] ids, string field = "Id", string propertyName = null, string entityType = null, int linkType = 0)
+        public async Task<List<WiserItemFileModel>> GetItemFilesAsync(ulong[] ids = null, string field = "Id", string propertyName = null, string entityType = null, int linkType = 0, (string EntityType, ulong FileId)[] idsWithEntity = null)
         {
-            return await GetItemFilesAsync(this, ids, field, propertyName, entityType, linkType);
+            return await GetItemFilesAsync(this, ids, field, propertyName, entityType, linkType, idsWithEntity);
         }
 
         /// <inheritdoc />
-        public async Task<List<WiserItemFileModel>> GetItemFilesAsync(IWiserItemsService wiserItemsService, ulong[] ids, string field = "Id", string propertyName = null, string entityType = null, int linkType = 0)
+        public async Task<List<WiserItemFileModel>> GetItemFilesAsync(IWiserItemsService wiserItemsService, ulong[] ids = null, string field = "Id", string propertyName = null, string entityType = null, int linkType = 0, (string EntityType, ulong FileId)[] idsWithEntity = null)
         {
             var result = new List<WiserItemFileModel>();
+            
+            // Maak een lijst met unieke entities en dan per entity de file id's
+            var idsPerEntity = new Dictionary<string, ulong[]>();
+            if (ids != null && ids.Length > 0)
+            {
+                if (!string.IsNullOrWhiteSpace(entityType))
+                    idsPerEntity[entityType] = ids;    
+                else
+                    idsPerEntity[""] = ids;
+            }
+            if (idsWithEntity != null && idsWithEntity.Length > 0)
+            {
+                foreach (var group in idsWithEntity.GroupBy(x => x.EntityType ?? string.Empty))
+                {
+                    var entityIds = group
+                        .Select(x => x.FileId)
+                        .ToArray();
 
+                    // EntityType can already exists because of 'ids'
+                    if (idsPerEntity.ContainsKey(group.Key))
+                    {
+                        idsPerEntity[group.Key] = idsPerEntity[group.Key]
+                            .Concat(entityIds)
+                            .Distinct()
+                            .ToArray();
+                    }
+                    else
+                    {
+                        idsPerEntity[group.Key] = entityIds;
+                    }
+                }
+            }
+           
             string columnName;
 
             // Make sure we can't use non-existing column names.
@@ -3653,11 +3696,18 @@ WHERE {String.Join(" AND ", where)}";
                 default:
                     throw new NotImplementedException($"Unknown field '{field}' given.");
             }
+            
+            // Make a list of id's per table prefix
+            var idsPerTablePrefix = new Dictionary<string, ulong[]>();
+            foreach (var entity in idsPerEntity)
+            {
+                var newKey = linkType > 0
+                    ? await wiserItemsService.GetTablePrefixForLinkAsync(linkType, entity.Key)
+                    : await wiserItemsService.GetTablePrefixForEntityAsync(entity.Key);
 
-            var tablePrefix = linkType > 0
-                ? await wiserItemsService.GetTablePrefixForLinkAsync(linkType, entityType)
-                : await wiserItemsService.GetTablePrefixForEntityAsync(entityType);
-
+                idsPerTablePrefix[newKey] = entity.Value;
+            }
+            
             var propertyNameClause = "";
             if (!String.IsNullOrWhiteSpace(propertyName))
             {
@@ -3665,22 +3715,22 @@ WHERE {String.Join(" AND ", where)}";
                 propertyNameClause = "AND property_name = ?propertyName";
             }
 
-            databaseConnection.AddParameter("Ids", String.Join(",", ids));
-            var queryResult = await databaseConnection.GetAsync($@"
+            foreach (var tablePrefix in idsPerTablePrefix)
+            {
+                var queryResult = await databaseConnection.GetAsync($@"
                 SELECT `id`, `item_id`, `content_type`, `content`, `content_url`, `width`, `height`, `file_name`, `extension`, `added_on`, `added_by`, `title`, `property_name`, `protected`, `itemlink_id`, extra_data
-                FROM {tablePrefix}{WiserTableNames.WiserItemFile}
-                WHERE {columnName} IN ({String.Join(",", ids)})
+                FROM {tablePrefix.Key}{WiserTableNames.WiserItemFile}
+                WHERE {columnName} IN ({String.Join(",", tablePrefix.Value)})
                 {propertyNameClause}", true);
+                
+                if (queryResult.Rows.Count == 0)
+                    continue;
 
-            if (queryResult.Rows.Count == 0)
-            {
-                return result;
-            }
-
-            foreach (DataRow dataRow in queryResult.Rows)
-            {
-                var itemFile = DataRowToItemFile(dataRow);
-                result.Add(itemFile);
+                foreach (DataRow dataRow in queryResult.Rows)
+                {
+                    var itemFile = DataRowToItemFile(dataRow);
+                    result.Add(itemFile);
+                }
             }
 
             return result;

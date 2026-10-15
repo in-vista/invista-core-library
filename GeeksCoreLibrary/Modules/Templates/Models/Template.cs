@@ -99,12 +99,6 @@ namespace GeeksCoreLibrary.Modules.Templates.Models
         public List<string> WiserCdnFiles { get; set; } = new();
 
         /// <summary>
-        /// Gets or sets if and how the template will be cached. Legacy.
-        /// </summary>
-        [Obsolete("This property exists for backwards compatibility only. Use the booleans CachePerUrl, CachePerQueryString, CachePerHostName and CacheUsingRegex instead.")]
-        public TemplateCachingModes CachingMode { get; set; } = TemplateCachingModes.NoCaching;
-
-        /// <summary>
         /// Gets or sets whether the caching is seperated by SEO url.
         /// </summary>
         public bool CachePerUrl { get; set; }

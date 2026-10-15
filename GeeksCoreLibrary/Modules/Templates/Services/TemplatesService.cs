@@ -52,7 +52,6 @@ namespace GeeksCoreLibrary.Modules.Templates.Services
         private readonly IHttpContextAccessor httpContextAccessor;
         private readonly IViewComponentHelper viewComponentHelper;
         private readonly ITempDataProvider tempDataProvider;
-        private readonly IActionContextAccessor actionContextAccessor;
         private readonly IWebHostEnvironment webHostEnvironment;
         private readonly IObjectsService objectsService;
         private readonly ILanguagesService languagesService;
@@ -77,7 +76,6 @@ namespace GeeksCoreLibrary.Modules.Templates.Services
             IReplacementsMediator replacementsMediator,
             IHttpClientService httpClientService,
             IHttpContextAccessor httpContextAccessor = null,
-            IActionContextAccessor actionContextAccessor = null,
             IViewComponentHelper viewComponentHelper = null,
             IWebHostEnvironment webHostEnvironment = null,
             ITempDataProvider tempDataProvider = null)
@@ -89,7 +87,6 @@ namespace GeeksCoreLibrary.Modules.Templates.Services
             this.httpContextAccessor = httpContextAccessor;
             this.viewComponentHelper = viewComponentHelper;
             this.tempDataProvider = tempDataProvider;
-            this.actionContextAccessor = actionContextAccessor;
             this.webHostEnvironment = webHostEnvironment;
             this.filtersService = filtersService;
             this.objectsService = objectsService;
@@ -1337,8 +1334,10 @@ ORDER BY id ASC");
             {
                 return "";
             }
+            
+            ActionContext actionContext = httpContextAccessor?.HttpContext?.GetActionContext();
 
-            if (httpContextAccessor?.HttpContext == null || actionContextAccessor?.ActionContext == null)
+            if (httpContextAccessor?.HttpContext == null || actionContext == null)
             {
                 throw new Exception("No httpContext found. Did you add the dependency in Program.cs or Startup.cs?");
             }
@@ -1358,7 +1357,7 @@ ORDER BY id ASC");
 
                 // Create a fake ViewContext (but with a real ActionContext and a real HttpContext).
                 var viewContext = new ViewContext(
-                    actionContextAccessor.ActionContext,
+                    actionContext,
                     NullView.Instance,
                     new ViewDataDictionary(new EmptyModelMetadataProvider(), new ModelStateDictionary()),
                     new TempDataDictionary(httpContextAccessor.HttpContext, tempDataProvider),
@@ -1443,7 +1442,7 @@ ORDER BY id ASC");
                     var dynamicContentData = componentOverrides?.FirstOrDefault(d => d.Id == contentId);
                     var html = dynamicContentData == null ? await templatesService.GenerateDynamicContentHtmlAsync(contentId, extraData: extraData) : await templatesService.GenerateDynamicContentHtmlAsync(dynamicContentData, extraData: extraData);
                     if (!string.IsNullOrEmpty(httpContextAccessor.HttpContext?.Response?.ContentType) 
-                        && httpContextAccessor.HttpContext.Response.ContentType.ToLower().Contains("xml")) // For example: Account component in CXmlPunchOutLogin mode, response is then xml
+                        && (httpContextAccessor.HttpContext.Response.ContentType.ToLower().Contains("xml") || httpContextAccessor.HttpContext.Response.ContentType.ToLower().Contains("application/json"))) // For example: Account component in CXmlPunchOutLogin mode, response is then xml
                     {
                         template = template.Replace(match.Value, $"{(string)html}");    
                     }

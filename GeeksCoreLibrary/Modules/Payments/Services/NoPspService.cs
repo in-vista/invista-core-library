@@ -17,7 +17,7 @@ namespace GeeksCoreLibrary.Modules.Payments.Services
     public class NoPspService : PaymentServiceProviderBaseService, IPaymentServiceProviderService, IScopedService
     {
         /// <inheritdoc />
-        public bool LogPaymentActions { get; set; }
+        public new bool LogPaymentActions { get; set; }
 
         public NoPspService(IDatabaseHelpersService databaseHelpersService,
             IDatabaseConnection databaseConnection,

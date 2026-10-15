@@ -73,9 +73,11 @@ namespace GeeksCoreLibrary.Modules.Templates.Services
             var templateContent = "";
             var foundInOutputCache = false;
             string fullCachePath = null;
-            var cacheSettings = !includeContent ? new Template { CachingMode = TemplateCachingModes.NoCaching } : await GetTemplateCacheSettingsAsync(id, name, parentId, parentName);
+            var cacheSettings = !includeContent ? new () : await GetTemplateCacheSettingsAsync(id, name, parentId, parentName);
+            bool usesCaching = cacheSettings.CachePerUrl || cacheSettings.CachePerHostName || cacheSettings.CachePerQueryString ||
+                               cacheSettings.CachePerUser || cacheSettings.CacheUsingRegex;
             string contentCacheKey = null;
-            if (includeContent && cacheSettings.CachingMode != TemplateCachingModes.NoCaching && cacheSettings.CachingMinutes > 0)
+            if (includeContent && usesCaching && cacheSettings.CachingMinutes > 0)
             {
                 // Get folder and file name.
                 var cacheFolder = FileSystemHelpers.GetContentCacheFolderPath(webHostEnvironment);

@@ -682,6 +682,8 @@ namespace GeeksCoreLibrary.Components.OrderProcess.Services
                                 CAST(paymentMethodMaximumAmount.value AS decimal(65,30)) AS paymentMethodMaximumAmount,
                                 CAST(IFNULL(paymentMethodUseMinimalAmount.`value`, 0) AS SIGNED) AS paymentMethodUseMinimalAmount,
                                 CAST(IFNULL(paymentMethodUseMaximumAmount.`value`, 0) AS SIGNED) AS paymentMethodUseMaximumAmount,
+                                paymentMethodTerminalCode.`value` AS paymentMethodTerminalCode,
+                                IFNULL(paymentMethodPendingUrl.`value`, '') AS paymentMethodPendingUrl,
 
                                 paymentServiceProviderLogAllRequests.`value` AS paymentServiceProviderLogAllRequests,
                                 paymentServiceProviderSetOrdersDirectlyToFinished.`value` AS paymentServiceProviderSetOrdersDirectlyToFinished,
@@ -698,6 +700,8 @@ namespace GeeksCoreLibrary.Components.OrderProcess.Services
                             LEFT JOIN {WiserTableNames.WiserItemDetail} AS paymentMethodMaximumAmount ON paymentMethodMaximumAmount.item_id = paymentMethod.id AND paymentMethodMaximumAmount.`key` = '{Constants.PaymentMethodMaximumAmountProperty}'
                             LEFT JOIN {WiserTableNames.WiserItemDetail} AS paymentMethodUseMinimalAmount ON paymentMethodUseMinimalAmount.item_id = paymentMethod.id AND paymentMethodUseMinimalAmount.`key` = '{Constants.PaymentMethodUseMinimalAmountProperty}'
                             LEFT JOIN {WiserTableNames.WiserItemDetail} AS paymentMethodUseMaximumAmount ON paymentMethodUseMaximumAmount.item_id = paymentMethod.id AND paymentMethodUseMaximumAmount.`key` = '{Constants.PaymentMethodUseMaximumAmountProperty}'
+                            LEFT JOIN {WiserTableNames.WiserItemDetail} AS paymentMethodTerminalCode ON paymentMethodTerminalCode.item_id = paymentMethod.id AND paymentMethodTerminalCode.`key` = '{Constants.PaymentMethodTerminalCodeProperty}'
+                            LEFT JOIN {WiserTableNames.WiserItemDetail} AS paymentMethodPendingUrl ON paymentMethodPendingUrl.item_id = paymentMethod.id AND paymentMethodPendingUrl.`key` = '{Constants.PaymentMethodPendingUrlProperty}'
 
                             # PSP
                             JOIN {WiserTableNames.WiserItemDetail} AS linkedProvider ON linkedProvider.item_id = paymentMethod.id AND linkedProvider.`key` = '{Constants.PaymentMethodServiceProviderProperty}'
@@ -748,8 +752,62 @@ namespace GeeksCoreLibrary.Components.OrderProcess.Services
         /// <inheritdoc />
         public async Task<PaymentRequestResult> HandlePaymentRequestAsync(IOrderProcessesService orderProcessesService, ulong orderProcessId, string failUrl, string successUrl, string pendingUrl, OrderProcessBasketToConceptOrderMethods basketToConceptOrderMethod, OrderProcessSettingsModel orderProcessSettings)
         {
+            List<(WiserItemModel Main, List<WiserItemModel> Lines)> shoppingBaskets = null;
             // Retrieve baskets.
-            var shoppingBaskets = await shoppingBasketsService.GetShoppingBasketsAsync();
+            if (!string.IsNullOrEmpty(httpContextAccessor.HttpContext.Request.Query["dpo-basketid"]))
+            {
+                shoppingBaskets = new List<(WiserItemModel Main, List<WiserItemModel> Lines)>();
+
+                var basketId = Convert.ToUInt64(httpContextAccessor.HttpContext.Request.Query["dpo-basketid"].ToString().Decrypt());
+                var basket = await wiserItemsService.GetItemDetailsAsync(basketId, entityType: ShoppingBasket.Models.Constants.BasketEntityType, skipPermissionsCheck: true);
+                if (basket == null)
+                    basket = await wiserItemsService.GetItemDetailsAsync(basketId, entityType: "conceptorder", skipPermissionsCheck: true);
+
+                if (basket == null)
+                {
+                    return new PaymentRequestResult
+                    {
+                        Successful = false,
+                        Action = PaymentRequestActions.Redirect,
+                        ActionData = failUrl,
+                        ErrorMessage = $"Basket '{basketId}' not found"
+                    };
+                }
+                
+                var lines = await wiserItemsService.GetLinkedItemDetailsAsync(basketId, ShoppingBasket.Models.Constants.BasketLineToBasketLinkType, ShoppingBasket.Models.Constants.BasketLineEntityType, itemIdEntityType: ShoppingBasket.Models.Constants.BasketEntityType, skipPermissionsCheck: true);
+                
+                // In onderstaande code wordt "order" meegestuurd ipv "conceptorder", omdat meestal het record in wiser_link er anders niet is
+                if (lines.Count == 0)
+                    lines = await wiserItemsService.GetLinkedItemDetailsAsync(basketId, ShoppingBasket.Models.Constants.BasketLineToBasketLinkType, "orderline", itemIdEntityType: "order", skipPermissionsCheck: true);    
+                
+                if (lines.Count == 0)
+                {
+                    return new PaymentRequestResult
+                    {
+                        Successful = false,
+                        Action = PaymentRequestActions.Redirect,
+                        ActionData = failUrl,
+                        ErrorMessage = $"Nog basket lines found for basket '{basketId}'"
+                    };
+                }
+                
+                shoppingBaskets.Add((basket, lines));
+            }
+            else
+            {
+                shoppingBaskets = await shoppingBasketsService.GetShoppingBasketsAsync();    
+                
+                if (shoppingBaskets.Count == 0)
+                {
+                    return new PaymentRequestResult
+                    {
+                        Successful = false,
+                        Action = PaymentRequestActions.Redirect,
+                        ActionData = failUrl,
+                        ErrorMessage = "No shopping baskets found"
+                    };
+                }
+            }
             var selectedPaymentMethodId = shoppingBaskets.First().Main.GetDetailValue<ulong>(Constants.PaymentMethodProperty);
             var conceptOrders = new List<(WiserItemModel Main, List<WiserItemModel> Lines)>();
 
@@ -969,14 +1027,14 @@ namespace GeeksCoreLibrary.Components.OrderProcess.Services
                 foreach (var (main, lines) in conceptOrders)
                 {
                     main.SetDetail(Constants.PaymentMethodProperty, paymentMethodSettings.Id);
-                    main.SetDetail(Constants.PaymentMethodNameProperty, paymentMethodSettings.Title);
+                    //main.SetDetail(Constants.PaymentMethodNameProperty, paymentMethodSettings.Title);
                     main.SetDetail(Constants.PaymentProviderProperty, paymentMethodSettings.PaymentServiceProvider.Id);
-                    main.SetDetail(Constants.PaymentProviderNameProperty, paymentMethodSettings.PaymentServiceProvider.Title);
+                    //main.SetDetail(Constants.PaymentProviderNameProperty, paymentMethodSettings.PaymentServiceProvider.Title);
                     main.SetDetail(Constants.UniquePaymentNumberProperty, uniquePaymentNumber);
-                    main.SetDetail(Constants.InvoiceNumberProperty, invoiceNumber);
-                    main.SetDetail(Constants.LanguageCodeProperty, languagesService?.CurrentLanguageCode ?? "");
+                    //main.SetDetail(Constants.InvoiceNumberProperty, invoiceNumber);
+                    if (languagesService?.CurrentLanguageCode is string languageCode && languageCode != "NL") main.SetDetail(Constants.LanguageCodeProperty, languageCode);
                     main.SetDetail(Constants.CountryCodeProperty, await objectsService.FindSystemObjectByDomainNameAsync(Constants.CountryCodeProperty));
-                    main.SetDetail(Constants.IsTestOrderProperty, isTestOrder ? 1 : 0);
+                    if (isTestOrder) main.SetDetail(Constants.IsTestOrderProperty, 1);
                     await shoppingBasketsService.SaveAsync(main, lines, basketSettings);
                 }
 
@@ -1129,6 +1187,12 @@ namespace GeeksCoreLibrary.Components.OrderProcess.Services
         /// <inheritdoc />
         public async Task<bool> HandlePaymentStatusUpdateAsync(IOrderProcessesService orderProcessesService, OrderProcessSettingsModel orderProcessSettings, ICollection<(WiserItemModel Main, List<WiserItemModel> Lines)> conceptOrders, StatusUpdateResult statusUpdateResult, bool convertConceptOrderToOrder = true, decimal paidAmount = 0)
         {
+            // Return successfully, nothing else needs to be done here for canceled payments
+            if (string.Equals(statusUpdateResult.Status, "CANCEL"))
+            {
+                return true;
+            }
+            
             if (conceptOrders.Count == 0) // Set payment update unsuccessful if there is no order or conceptorder
                 return false;
             
@@ -1402,7 +1466,7 @@ namespace GeeksCoreLibrary.Components.OrderProcess.Services
             var pspUpdateResult = await paymentServiceProviderService.ProcessStatusUpdateAsync(orderProcessSettings, paymentMethodSettings);
             var result = await orderProcessesService.HandlePaymentStatusUpdateAsync(orderProcessSettings, conceptOrders, pspUpdateResult.Status, pspUpdateResult.Successful, pspUpdateResult.StatusCode, true, pspUpdateResult.PaidAmount);
 
-            var basketSettings = await shoppingBasketsService.GetSettingsAsync();
+            /*var basketSettings = await shoppingBasketsService.GetSettingsAsync();
             foreach (var (main, lines) in conceptOrders)
             {
                 // Set payment completed to true if the PSP indicated that the payment was successful.
@@ -1411,7 +1475,7 @@ namespace GeeksCoreLibrary.Components.OrderProcess.Services
                 if (!string.IsNullOrEmpty(pspUpdateResult.PspTransactionId))
                     main.SetDetail(Constants.PaymentProviderTransactionId, pspUpdateResult.PspTransactionId);
                 await shoppingBasketsService.SaveAsync(main, lines, basketSettings);
-            }
+            }*/
             
             /*if (string.Equals(paymentMethodSettings.ExternalName, "softpos", StringComparison.OrdinalIgnoreCase))
             {
@@ -1585,6 +1649,8 @@ namespace GeeksCoreLibrary.Components.OrderProcess.Services
                 UseMaximumAmountCheck =  Convert.ToBoolean(dataRow.Field<Int64>(Constants.PaymentMethodUseMaximumAmountProperty)),
                 MinimalAmountCheck =  minimalAmountProperty,
                 MaximumAmountCheck = maximumAmountProperty,
+                TerminalCode = dataRow.Field<string>("paymentMethodTerminalCode"),
+                TerminalPendingUrl = dataRow.Field<string>("paymentMethodPendingUrl"),
                 PaymentServiceProvider = new PaymentServiceProviderSettingsModel
                 {
                     // Settings that are the same for all PSPs.

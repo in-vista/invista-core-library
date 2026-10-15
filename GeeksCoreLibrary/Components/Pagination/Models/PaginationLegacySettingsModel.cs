@@ -90,7 +90,7 @@ namespace GeeksCoreLibrary.Components.Pagination.Models
 
                 // Inherited items from abstract parent
                 HandleRequest = HandleRequest,
-                DataQuery = SQLQuery
+                DataQuery = SqlQuery
             };
 
             return paginationCmsSettingsModel;
@@ -125,7 +125,7 @@ namespace GeeksCoreLibrary.Components.Pagination.Models
 
                 showPagingOnOnePage = settings.RenderForSinglePage,
                 HandleRequest = settings.HandleRequest,
-                SQLQuery = settings.DataQuery
+                SqlQuery = settings.DataQuery
             };
         }
     }

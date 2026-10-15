@@ -53,7 +53,7 @@ namespace GeeksCoreLibrary.Components.Account.Models
     [if({isLoggedIn}=true)]
     <p>Je wachtwoord is gewijzigd en je bent automatisch ingelogd.</p>
     [else]
-    <p>Je wachtwoord is gewijzigd, je kunt nu <a href='#' class='btnBack'>direct inloggen</a> met dit nieuwe wachtwoord.</p>
+    <p>Je wachtwoord is gewijzigd, je kunt nu <a href='javascript:void(0)' class='btnBack'>direct inloggen</a> met dit nieuwe wachtwoord.</p>
     [endif]
     [endif]
 </div>")]

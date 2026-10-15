@@ -2,6 +2,8 @@
 using System.Collections.Generic;
 using System.Data;
 using System.Linq;
+using System.Net.Http;
+using System.Net.Http.Headers;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
@@ -23,6 +25,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 
 namespace GeeksCoreLibrary.Components.Repeater
 {
@@ -64,7 +67,8 @@ namespace GeeksCoreLibrary.Components.Repeater
             Csv,
             Json,
             Wiser2ParentLinks,
-            DirectoryOutput
+            DirectoryOutput,
+            API
         }
 
         #endregion
@@ -292,9 +296,9 @@ namespace GeeksCoreLibrary.Components.Repeater
         /// This parses the data based on the given data source type and converts it to a <see cref="DataTable"/>.
         /// </summary>
         /// <returns>A <see cref="DataTable"/> with all the parsed data.</returns>
-        private async Task<DataTable> ParseDataAsync()
+        private async Task<DataTable> ParseDataAsync(DataSource? source = null)
         {
-            switch (Settings.DataSource)
+            switch (source ?? Settings.DataSource)
             {
                 case DataSource.Query:
                     var query = Settings.DataQuery;
@@ -384,6 +388,95 @@ namespace GeeksCoreLibrary.Components.Repeater
                     throw new NotImplementedException();
                 case DataSource.DirectoryOutput:
                     throw new NotImplementedException();
+                case DataSource.API:
+                    DataTable dataFromQuery = await ParseDataAsync(DataSource.Query);
+                    
+                    using (HttpClient client = new HttpClient())
+                    {
+                        string apiAuthorization = Settings.ApiAuthorization;
+                        if (!string.IsNullOrEmpty(apiAuthorization))
+                        {
+                            apiAuthorization = StringReplacementsService.DoReplacements(apiAuthorization, ExtraDataForReplacements);
+                            foreach (DataRow dataRowFromQuery in dataFromQuery.Rows)
+                                apiAuthorization = StringReplacementsService.DoReplacements(apiAuthorization, dataRowFromQuery);
+                            apiAuthorization = await TemplatesService.DoReplacesAsync(apiAuthorization, handleDynamicContent: false, forQuery: false);
+                            
+                            string[] authorizationValues = apiAuthorization.Split(" ");
+
+                            if (authorizationValues.Length < 2)
+                                throw new ArgumentException("Authorization value for data source was given, but is invalid.");
+                            
+                            client.DefaultRequestHeaders.Authorization =
+                                new AuthenticationHeaderValue(authorizationValues[0], authorizationValues[1]);
+                        }
+
+                        string apiUrl = Settings.ApiUrl;
+                        apiUrl = StringReplacementsService.DoReplacements(apiUrl, ExtraDataForReplacements, defaultFormatter: "UrlEncode");
+                        foreach (DataRow dataRowFromQuery in dataFromQuery.Rows)
+                            apiUrl = StringReplacementsService.DoReplacements(apiUrl, dataRowFromQuery, defaultFormatter: "UrlEncode");
+                        apiUrl = await TemplatesService.DoReplacesAsync(apiUrl, handleDynamicContent: false, forQuery: false);
+                        
+                        HttpMethod httpMethod = Settings.ApiMethod.ToNativeHttpMethod();
+                        HttpRequestMessage requestMessage = new HttpRequestMessage(httpMethod, apiUrl);
+                        
+                        // Check wether a query for the request's body is given.
+                        string bodyQuery = Settings.APIBodyQuery;
+                        if (!string.IsNullOrEmpty(bodyQuery))
+                        {
+                            // Prepare the query and perform replacements to determine the JSON body.
+                            if (ExtraDataForReplacements != null && ExtraDataForReplacements.Any())
+                                bodyQuery = StringReplacementsService.DoReplacements(bodyQuery, ExtraDataForReplacements, true);
+                            bodyQuery = await TemplatesService.DoReplacesAsync(bodyQuery, handleDynamicContent: false, forQuery: true);
+                            
+                            // Store the currently used main connection strings.
+                            string currentConnectionStringForReading = DatabaseConnection.GetConnectionStringForReading();
+                            string currentConnectionStringForWriting = DatabaseConnection.GetConnectionStringForWriting();
+                
+                            // If an alternative connection string is given, retrieve its value by name from the app settings and temporarily set it.
+                            if (!string.IsNullOrEmpty(Settings.AlternativeConnectionString))
+                                if(GclSettings.AlternativeConnectionStrings.TryGetValue(Settings.AlternativeConnectionString, out string alternateConnectionString))
+                                    await DatabaseConnection.ChangeConnectionStringsAsync(alternateConnectionString, alternateConnectionString);
+                
+                            // Create an empty result for this component.
+                            DataTable bodyResults;
+                
+                            // Retrieve the results.
+                            try
+                            {
+                                bodyResults = await DatabaseConnection.GetAsync(bodyQuery, true);
+                            }
+                            finally
+                            {
+                                // If anything, revert the database connection back to the original.
+                                await DatabaseConnection.ChangeConnectionStringsAsync(currentConnectionStringForReading, currentConnectionStringForWriting);
+                            }
+                            
+                            // Transform the body results into a workable JSON format.
+                            JToken json;
+                            if (Settings.ApiBodyAsArray)
+                                json = JArray.FromObject(bodyResults);
+                            else
+                                json = JArray.FromObject(bodyResults).First;
+                            
+                            // Populate the request with the JSON.
+                            if(json != null)
+                                requestMessage.Content = new StringContent(json.ToString(), Encoding.UTF8, "application/json");
+                        }
+                        
+                        // Perform the API request and retrieve the response.
+                        HttpResponseMessage responseMessage = await client.SendAsync(requestMessage);
+                        
+                        // Parse the response to JSON.
+                        string responseString = await responseMessage.Content.ReadAsStringAsync();
+                        JToken responseJson = JToken.Parse(responseString);
+                        
+                        // If the response is an object, make sure it is wrapped inside a JArray instance.
+                        if (responseJson is JObject)
+                            responseJson = new JArray(new object[] { responseJson });
+                        
+                        // Flatten the response JSON into a flattened datatable, which supports multi-layer flattening.
+                        return responseJson.ToDeepFlattenedDataTable();
+                    }
                 default:
                     throw new ArgumentOutOfRangeException("DataSource", Settings.DataSource, "Data source type not supported.");
             }

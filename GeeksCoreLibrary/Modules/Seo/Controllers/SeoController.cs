@@ -5,6 +5,7 @@ using GeeksCoreLibrary.Core.Models;
 using GeeksCoreLibrary.Core.Enums;
 using GeeksCoreLibrary.Modules.Objects.Interfaces;
 using GeeksCoreLibrary.Modules.Seo.Interfaces;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
 
@@ -39,7 +40,7 @@ namespace GeeksCoreLibrary.Modules.Seo.Controllers
                 return NotFound();
             }
 
-            Response.Headers.Add("Accept-Ranges", "bytes");
+            Response.Headers.Append("Accept-Ranges", "bytes");
             return Content(robotsTxt, "text/plain", Encoding.UTF8);
         }
 

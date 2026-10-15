@@ -124,13 +124,13 @@ namespace GeeksCoreLibrary.Core.Services
         }
 
         /// <inheritdoc />
-        public async Task<(bool ok, string errorMessage, AccessRights permissions)> CheckIfEntityActionIsPossibleAsync(ulong itemId, EntityActions action, ulong userId, WiserItemModel wiserItem = null, bool onlyCheckAccessRights = false, string entityType = null)
+        public async Task<(bool ok, InvistaError error, AccessRights permissions)> CheckIfEntityActionIsPossibleAsync(ulong itemId, EntityActions action, ulong userId, WiserItemModel wiserItem = null, bool onlyCheckAccessRights = false, string entityType = null)
         {
             return await CheckIfEntityActionIsPossibleAsync(this, itemId, action, userId, wiserItem, onlyCheckAccessRights, entityType);
         }
 
         /// <inheritdoc />
-        public async Task<(bool ok, string errorMessage, AccessRights permissions)> CheckIfEntityActionIsPossibleAsync(IWiserItemsService service, ulong itemId, EntityActions action, ulong userId, WiserItemModel wiserItem = null, bool onlyCheckAccessRights = false, string entityType = null)
+        public async Task<(bool ok, InvistaError error, AccessRights permissions)> CheckIfEntityActionIsPossibleAsync(IWiserItemsService service, ulong itemId, EntityActions action, ulong userId, WiserItemModel wiserItem = null, bool onlyCheckAccessRights = false, string entityType = null)
         {
             return await wiserItemsService.CheckIfEntityActionIsPossibleAsync(service, itemId, action, userId, wiserItem, onlyCheckAccessRights, entityType);
         }
@@ -202,27 +202,27 @@ namespace GeeksCoreLibrary.Core.Services
         }
 
         /// <inheritdoc />
-        public async Task<List<WiserItemModel>> GetLinkedItemDetailsAsync(ulong itemId, int linkType = -1, string entityType = null, bool includeDeletedItems = false, ulong userId = 0, bool reverse = false, string itemIdEntityType = null, bool skipPermissionsCheck = false)
+        public async Task<List<WiserItemModel>> GetLinkedItemDetailsAsync(ulong itemId, int linkType = -1, string entityType = null, bool includeDeletedItems = false, ulong userId = 0, bool reverse = false, string itemIdEntityType = null, bool skipPermissionsCheck = false, string inTableEntityType = null)
         {
-            return await GetLinkedItemDetailsAsync(this, itemId, linkType, entityType, includeDeletedItems, userId, reverse, itemIdEntityType, skipPermissionsCheck);
+            return await GetLinkedItemDetailsAsync(this, itemId, linkType, entityType, includeDeletedItems, userId, reverse, itemIdEntityType, skipPermissionsCheck, inTableEntityType);
         }
 
         /// <inheritdoc />
-        public async Task<List<WiserItemModel>> GetLinkedItemDetailsAsync(IWiserItemsService service, ulong itemId, int linkType = -1, string entityType = null, bool includeDeletedItems = false, ulong userId = 0, bool reverse = false, string itemIdEntityType = null, bool skipPermissionsCheck = false)
+        public async Task<List<WiserItemModel>> GetLinkedItemDetailsAsync(IWiserItemsService service, ulong itemId, int linkType = -1, string entityType = null, bool includeDeletedItems = false, ulong userId = 0, bool reverse = false, string itemIdEntityType = null, bool skipPermissionsCheck = false, string inTableEntityType = null)
         {
-            return await wiserItemsService.GetLinkedItemDetailsAsync(service, itemId, linkType, entityType, includeDeletedItems, userId, reverse, itemIdEntityType, skipPermissionsCheck);
+            return await wiserItemsService.GetLinkedItemDetailsAsync(service, itemId, linkType, entityType, includeDeletedItems, userId, reverse, itemIdEntityType, skipPermissionsCheck, inTableEntityType);
         }
 
         /// <inheritdoc />
-        public async Task<List<ulong>> GetLinkedItemIdsAsync(ulong itemId, int linkType, string entityType = null, bool includeDeletedItems = false, ulong userId = 0, bool reverse = false, string itemIdEntityType = null, bool skipPermissionsCheck = false)
+        public async Task<List<ulong>> GetLinkedItemIdsAsync(ulong itemId, int linkType, string entityType = null, bool includeDeletedItems = false, ulong userId = 0, bool reverse = false, string itemIdEntityType = null, bool skipPermissionsCheck = false, string inTableEntityType = null)
         {
-            return await GetLinkedItemIdsAsync(this, itemId, linkType, entityType, includeDeletedItems, userId, reverse, itemIdEntityType, skipPermissionsCheck);
+            return await GetLinkedItemIdsAsync(this, itemId, linkType, entityType, includeDeletedItems, userId, reverse, itemIdEntityType, skipPermissionsCheck, inTableEntityType);
         }
 
         /// <inheritdoc />
-        public async Task<List<ulong>> GetLinkedItemIdsAsync(IWiserItemsService service, ulong itemId, int linkType, string entityType = null, bool includeDeletedItems = false, ulong userId = 0, bool reverse = false, string itemIdEntityType = null, bool skipPermissionsCheck = false)
+        public async Task<List<ulong>> GetLinkedItemIdsAsync(IWiserItemsService service, ulong itemId, int linkType, string entityType = null, bool includeDeletedItems = false, ulong userId = 0, bool reverse = false, string itemIdEntityType = null, bool skipPermissionsCheck = false, string inTableEntityType = null)
         {
-            return await wiserItemsService.GetLinkedItemIdsAsync(service, itemId, linkType, entityType, includeDeletedItems, userId, reverse, itemIdEntityType, skipPermissionsCheck);
+            return await wiserItemsService.GetLinkedItemIdsAsync(service, itemId, linkType, entityType, includeDeletedItems, userId, reverse, itemIdEntityType, skipPermissionsCheck, inTableEntityType);
         }
 
         /// <inheritdoc />
@@ -394,15 +394,15 @@ namespace GeeksCoreLibrary.Core.Services
         }
 
         /// <inheritdoc />
-        public async Task<List<WiserItemFileModel>> GetItemFilesAsync(ulong[] ids, string field = "Id", string propertyName = null, string entityType = null, int linkType = 0)
+        public async Task<List<WiserItemFileModel>> GetItemFilesAsync(ulong[] ids = null, string field = "Id", string propertyName = null, string entityType = null, int linkType = 0, (string EntityType, ulong FileId)[] idsWithEntity = null)
         {
-            return await GetItemFilesAsync(this, ids, field, propertyName, entityType, linkType);
+            return await GetItemFilesAsync(this, ids, field, propertyName, entityType, linkType, idsWithEntity);
         }
 
         /// <inheritdoc />
-        public async Task<List<WiserItemFileModel>> GetItemFilesAsync(IWiserItemsService service, ulong[] ids, string field = "id", string propertyName = null, string entityType = null, int linkType = 0)
+        public async Task<List<WiserItemFileModel>> GetItemFilesAsync(IWiserItemsService service, ulong[] ids = null, string field = "id", string propertyName = null, string entityType = null, int linkType = 0, (string EntityType, ulong FileId)[] idsWithEntity = null)
         {
-            return await wiserItemsService.GetItemFilesAsync(service, ids, field, propertyName, entityType, linkType);
+            return await wiserItemsService.GetItemFilesAsync(service, ids, field, propertyName, entityType, linkType, idsWithEntity);
         }
 
         /// <inheritdoc />

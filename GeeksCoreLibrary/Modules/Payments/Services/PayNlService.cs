@@ -5,6 +5,7 @@ using System.Linq;
 using System.Net;
 using System.Threading.Tasks;
 using System.Web;
+using GeeksCoreLibrary.Components.OrderProcess.Interfaces;
 using GeeksCoreLibrary.Components.OrderProcess.Models;
 using GeeksCoreLibrary.Components.ShoppingBasket;
 using GeeksCoreLibrary.Components.ShoppingBasket.Interfaces;
@@ -39,10 +40,11 @@ public class PayNlService : PaymentServiceProviderBaseService, IPaymentServicePr
     private const string BaseUrlSoftPos = "https://rest.pay.nl";
     private readonly IDatabaseConnection databaseConnection;
     private readonly ILogger<PaymentServiceProviderBaseService> logger;
-    private readonly IHttpContextAccessor? httpContextAccessor;
+    private readonly IHttpContextAccessor httpContextAccessor;
     private readonly GclSettings gclSettings;
     private IWiserItemsService wiserItemsService;
     private readonly IShoppingBasketsService shoppingBasketsService;
+    private IOrderProcessesService orderProcessesService;
 
     public PayNlService(IDatabaseHelpersService databaseHelpersService,
         IDatabaseConnection databaseConnection,
@@ -50,7 +52,8 @@ public class PayNlService : PaymentServiceProviderBaseService, IPaymentServicePr
         IOptions<GclSettings> gclSettings,
         IShoppingBasketsService shoppingBasketsService,
         IWiserItemsService wiserItemsService,
-        IHttpContextAccessor httpContextAccessor = null)
+        IHttpContextAccessor httpContextAccessor = null,
+        IOrderProcessesService orderProcessesService = null)
         : base(databaseHelpersService, databaseConnection, logger, httpContextAccessor)
     {
         this.databaseConnection = databaseConnection;
@@ -59,6 +62,7 @@ public class PayNlService : PaymentServiceProviderBaseService, IPaymentServicePr
         this.gclSettings = gclSettings.Value;
         this.wiserItemsService = wiserItemsService;
         this.shoppingBasketsService = shoppingBasketsService;
+        this.orderProcessesService = orderProcessesService;
     }
 
     /// <inheritdoc />
@@ -83,9 +87,8 @@ public class PayNlService : PaymentServiceProviderBaseService, IPaymentServicePr
         var totalPrice = await CalculatePriceAsync(conceptOrders);
         var error = string.Empty;
         
-        
         // Get currency from first basket
-        var currency = conceptOrders.First().Main.GetDetailValue("currency");
+        var currency = conceptOrders.First().Main.GetDetailValue("currency") ?? "";
         switch (currency)
         {
             case "$":
@@ -106,7 +109,7 @@ public class PayNlService : PaymentServiceProviderBaseService, IPaymentServicePr
         var language = conceptOrders.First().Main.GetDetailValue("language");
         language = string.IsNullOrWhiteSpace(language) ? "en_GB" : language.ToLower();
         
-        // Get descriptin from first basket
+        // Get description from first basket
         var description = conceptOrders.First().Main.GetDetailValue("TransactionReference");
         description = string.IsNullOrWhiteSpace(description) ? $"Order #{invoiceNumber}" : description.Replace("{invoiceNumber}", invoiceNumber);
         
@@ -248,8 +251,18 @@ public class PayNlService : PaymentServiceProviderBaseService, IPaymentServicePr
             case "nexi":
                 PayNLPaymentMethodID = 1945;
                 break;
+            case "terminal":
+                PayNLPaymentMethodID = 1927;
+                break;
         }
-        
+
+        var paymentMethod = new PaymentMethod { Id = PayNLPaymentMethodID };
+        if (paymentMethod.Id == 1927) // C-TAP Pin terminal
+        {
+            paymentMethod.Input = new PaymentMethodInput();
+            paymentMethod.Input.TerminalCode = paymentMethodSettings.TerminalCode;
+        } 
+
         var requestBody = new PayNLOrderCreateRequestModel()
         {
             Amount = new Amount { Value = (int) Math.Round(totalPrice * 100), Currency = currency },
@@ -258,9 +271,9 @@ public class PayNlService : PaymentServiceProviderBaseService, IPaymentServicePr
             Reference = invoiceNumber.Replace("-","X"), // dash is not allowed
             ReturnUrl = payNlSettings.SuccessUrl,
             ExchangeUrl = payNlSettings.WebhookUrl,
-            Integration = new Integration { Test = gclSettings.Environment.InList(Environments.Test, Environments.Development)},
+            Integration = new Integration { Test = !payNlSettings.ForceProduction && gclSettings.Environment.InList(Environments.Test, Environments.Development)},
             Customer = new Customer { Locale = language },
-            PaymentMethod = new PaymentMethod { Id = PayNLPaymentMethodID }
+            PaymentMethod = paymentMethod
         };
         restRequest.AddJsonBody(requestBody);
         
@@ -273,26 +286,57 @@ public class PayNlService : PaymentServiceProviderBaseService, IPaymentServicePr
 
             if (!responseSuccessful)
             {
-                throw new Exception(responseJson.ToString());
+                if (responseJson["code"]?.Value<string>() == "PAY-2107") // Pin terminal not available, send status back to application
+                {
+                    return new PaymentRequestResult
+                    {
+                        Successful = true,
+                        Action = PaymentRequestActions.Redirect,
+                        ActionData = "/?pinResult=Pin terminal niet beschikbaar"
+                    };
+                }
+                else
+                {
+                    throw new Exception(responseJson.ToString());    
+                }
             }
 
             // Save transaction id, because we need it for the status update.
             foreach (var order in conceptOrders)
             {
-                if (responseJson["orderId"]?.ToString() == null) continue;
-                var transactionId = new WiserItemDetailModel()
+                if (responseJson["id"]?.ToString() != null)
                 {
-                    Key = "uniquePaymentNumber",
-                    Value = responseJson["orderId"]?.ToString()
-                };
-                await wiserItemsService.SaveItemDetailAsync(transactionId, order.Main.Id, entityType: "ConceptOrder");
+                    var paymentId = new WiserItemDetailModel()
+                    {
+                        Key = "uniquePaymentId",
+                        Value = responseJson["id"]?.ToString()
+                    };
+                    await wiserItemsService.SaveItemDetailAsync(paymentId, order.Main.Id, entityType: "ConceptOrder");    
+                }
+
+                if (responseJson["orderId"]?.ToString() != null)
+                {
+                    var transactionId = new WiserItemDetailModel()
+                    {
+                        Key = "uniquePaymentNumber",
+                        Value = responseJson["orderId"]?.ToString()
+                    };
+                    await wiserItemsService.SaveItemDetailAsync(transactionId, order.Main.Id, entityType: "ConceptOrder");    
+                }
+            }
+
+            var redirectUrl = responseJson["links"]?["redirect"]?.ToString();
+            if (!string.IsNullOrEmpty(paymentMethodSettings.TerminalPendingUrl))
+            {
+                var abortUrl = responseJson["links"]?["abort"]?.ToString();
+                redirectUrl = $"{paymentMethodSettings.TerminalPendingUrl}{(paymentMethodSettings.TerminalPendingUrl.Contains('?') ? "&" : "?")}event={description}&ref={responseJson["id"]}&amount={totalPrice.ToString().Replace(",",".")}&abortUrl={abortUrl}";
             }
 
             return new PaymentRequestResult
             {
                 Successful = responseSuccessful,
                 Action = PaymentRequestActions.Redirect,
-                ActionData = responseSuccessful ? responseJson["links"]?["redirect"]?.ToString() : payNlSettings.FailUrl
+                ActionData = responseSuccessful ? redirectUrl : payNlSettings.FailUrl
             };
         }
         catch (Exception e)
@@ -302,6 +346,111 @@ public class PayNlService : PaymentServiceProviderBaseService, IPaymentServicePr
             {
                 Action = PaymentRequestActions.Redirect,
                 ActionData = paymentMethodSettings.PaymentServiceProvider.FailUrl,
+                Successful = false,
+                ErrorMessage = e.Message
+            };
+        }
+        finally
+        {
+            var resp = responseJson == null ? null : JsonConvert.SerializeObject(responseJson);
+            await AddLogEntryAsync(PaymentServiceProviders.PayNl, invoiceNumber, requestBody: JsonConvert.SerializeObject(requestBody), responseBody: resp, error: error, isIncomingRequest: false);
+        }
+    }
+    
+    public async Task<PaymentRequestResult> DoPinTerminalPaymentAsync(decimal amount, ulong paymentMethodId, string invoiceNumber, string description = "", string exchangeUrl = "")
+    {
+        var paymentMethodSettings = await orderProcessesService.GetPaymentMethodAsync(paymentMethodId);
+        var payNlSettings = (PayNlSettingsModel) paymentMethodSettings.PaymentServiceProvider;
+        var validationResult = ValidatePayNlSettings(payNlSettings);
+       
+        if (!validationResult.Valid)
+        {
+            logger.LogError("Validation in 'DoPinTerminalPaymentAsync' of 'PayNlService' failed because: {Message}", validationResult.Message);
+            return new PaymentRequestResult
+            {
+                Successful = false,
+                ErrorMessage = $"Validation in 'DoPinTerminalPaymentAsync' of 'PayNlService' failed because: {validationResult.Message}"
+            };
+        }
+
+        var error = string.Empty;
+        
+        description = string.IsNullOrWhiteSpace(description) ? $"Order #{invoiceNumber}" : description.Replace("{invoiceNumber}", invoiceNumber);
+    
+        RestResponse restResponse = null;
+        JObject responseJson = null;
+
+        // Build and execute payment request.
+        var restRequest = new RestRequest("/v1/orders", Method.Post);
+        restRequest = AddRequestHeaders(restRequest, payNlSettings);
+      
+        var paymentMethod = new PaymentMethod { Id = 1927 };
+        paymentMethod.Input = new PaymentMethodInput();
+        paymentMethod.Input.TerminalCode = paymentMethodSettings.TerminalCode;
+
+        var requestBody = new PayNLOrderCreateRequestModel()
+        {
+            Amount = new Amount { Value = (int) Math.Round(amount * 100), Currency = "EUR" },
+            ServiceId = payNlSettings.ServiceId,
+            Description = description, // Maximum of 32 characters, otherwise Pay. will shorten the description
+            Reference = invoiceNumber.Replace("-","X"), // dash is not allowed
+            ReturnUrl = payNlSettings.SuccessUrl,
+            ExchangeUrl = exchangeUrl,
+            Integration = new Integration { Test = !payNlSettings.ForceProduction && gclSettings.Environment.InList(Environments.Test, Environments.Development)},
+            Customer = new Customer { Locale = "nl_NL" },
+            PaymentMethod = paymentMethod
+        };
+        restRequest.AddJsonBody(requestBody);
+        
+        try
+        {
+            var restClient = new RestClient(BaseUrl);
+            restResponse = await restClient.ExecuteAsync(restRequest);
+            responseJson = String.IsNullOrWhiteSpace(restResponse.Content) ? new JObject() : JObject.Parse(restResponse.Content);
+            var responseSuccessful = restResponse.StatusCode == HttpStatusCode.Created;
+
+            if (!responseSuccessful)
+            {
+                if (responseJson["code"]?.Value<string>() == "PAY-2107") // Pin terminal not available, send status back to application
+                {
+                    return new PaymentRequestResult
+                    {
+                        Successful = false,
+                        ErrorMessage = "Pin terminal niet beschikbaar"
+                    };
+                }
+                else
+                {
+                    return new PaymentRequestResult
+                    {
+                        Successful = false,
+                        ErrorMessage = responseJson.ToString()
+                    };
+                }
+            }
+            
+            //var payId = responseJson["id"]?.ToString();
+            var payOrderId = responseJson["orderId"]?.ToString();
+            
+            var redirectUrl = responseJson["links"]?["redirect"]?.ToString();
+            if (!string.IsNullOrEmpty(paymentMethodSettings.TerminalPendingUrl))
+            {
+                var abortUrl = responseJson["links"]?["abort"]?.ToString();
+                redirectUrl = $"{paymentMethodSettings.TerminalPendingUrl}{(paymentMethodSettings.TerminalPendingUrl.Contains('?') ? "&" : "?")}event={description}&ref={responseJson["id"]}&amount={amount.ToString().Replace(",",".")}&abortUrl={abortUrl}";
+            }
+
+            return new PaymentRequestResult
+            {
+                Successful = true,
+                ActionData = redirectUrl,
+                PspTransactionReference = payOrderId
+            };
+        }
+        catch (Exception e)
+        {
+            error = e.ToString();
+            return new PaymentRequestResult
+            {
                 Successful = false,
                 ErrorMessage = e.Message
             };
@@ -342,7 +491,7 @@ public class PayNlService : PaymentServiceProviderBaseService, IPaymentServicePr
             },
             integration = new
             {
-                testMode = gclSettings.Environment.InList(Environments.Test, Environments.Development)
+                testMode = !payNlSettings.ForceProduction && gclSettings.Environment.InList(Environments.Test, Environments.Development)
             }
         };
      
@@ -385,19 +534,29 @@ public class PayNlService : PaymentServiceProviderBaseService, IPaymentServicePr
                 Status = "Error retrieving status: No HttpContext available."
             };
         }
+        
+        var action = (httpContextAccessor.HttpContext.Request.HasFormContentType
+            ? (Microsoft.Extensions.Primitives.StringValues?)httpContextAccessor.HttpContext.Request.Form["action"]
+            : httpContextAccessor.HttpContext.Request.Query["action"]).Value.ToString();
    
         if (string.Equals(paymentMethodSettings.ExternalName, "softpos", StringComparison.OrdinalIgnoreCase))
         {
             try
             {
                 var reference = httpContextAccessor.HttpContext.Request.Query["reference"].FirstOrDefault();
-                var requestForm = httpContextAccessor.HttpContext.Request.Form;
-                var payNlOrderId = requestForm["order_id"].FirstOrDefault();
+               
+                var payNlOrderId = (httpContextAccessor.HttpContext.Request.HasFormContentType
+                    ? (Microsoft.Extensions.Primitives.StringValues?)httpContextAccessor.HttpContext.Request.Form["order_id"]
+                    : httpContextAccessor.HttpContext.Request.Query["order_id"]).Value.ToString();
+                
+                var amount = (httpContextAccessor.HttpContext.Request.HasFormContentType
+                    ? (Microsoft.Extensions.Primitives.StringValues?)httpContextAccessor.HttpContext.Request.Form["amount"]
+                    : httpContextAccessor.HttpContext.Request.Query["amount"]).Value.ToString();
                 
                 await LogIncomingPaymentActionAsync(PaymentServiceProviders.PayNl, reference, 0);
                 
                 // See this URL for the different action values: https://developer.pay.nl/docs/payouts
-                switch (requestForm["action"].FirstOrDefault())
+                switch (action)
                 {
                     case "new_ppt":
                         return new StatusUpdateResult
@@ -405,7 +564,7 @@ public class PayNlService : PaymentServiceProviderBaseService, IPaymentServicePr
                             Successful = true,
                             Status = "PAID",
                             StatusCode = 100,
-                            PaidAmount = Convert.ToDecimal(requestForm["amount"], new System.Globalization.CultureInfo("en-US")),
+                            PaidAmount = Convert.ToDecimal(amount, new System.Globalization.CultureInfo("en-US")),
                             PspTransactionId = payNlOrderId
                         };
                     case "pending":
@@ -486,14 +645,69 @@ public class PayNlService : PaymentServiceProviderBaseService, IPaymentServicePr
                 throw;
             }  
         }
+        
+        if (action.StartsWith("refund:"))
+        {
+            try
+            {
+                var payNlOrderId = (httpContextAccessor.HttpContext.Request.HasFormContentType
+                    ? (Microsoft.Extensions.Primitives.StringValues?)httpContextAccessor.HttpContext.Request.Form["order_id"]
+                    : httpContextAccessor.HttpContext.Request.Query["order_id"]).Value.ToString();
+                
+                //var amount = (httpContextAccessor.HttpContext.Request.HasFormContentType
+                //    ? (Microsoft.Extensions.Primitives.StringValues?)httpContextAccessor.HttpContext.Request.Form["amount"]
+                //    : httpContextAccessor.HttpContext.Request.Query["amount"]).Value.ToString();
+                
+                await LogIncomingPaymentActionAsync(PaymentServiceProviders.PayNl, payNlOrderId, 0);
+                
+                // See this URL for the different action values: https://developer.pay.nl/docs/payouts
+                switch (action)
+                {
+                    case "refund:add":
+                    case "refund:received":
+                    case "refund:send":
+                    case "refund:storno":
+                        return new StatusUpdateResult
+                        {
+                            Successful = true,
+                            Status = "REFUND",
+                            StatusCode = 100,
+                            PspTransactionId = payNlOrderId
+                        };
+                    default:
+                        return new StatusUpdateResult
+                        {
+                            Successful = false,
+                            Status = "unknown",
+                            StatusCode = 0,
+                            PspTransactionId = payNlOrderId
+                        };
+                }
+            }
+            catch (Exception e)
+            {
+                await LogIncomingPaymentActionAsync(PaymentServiceProviders.PayNl, GetInvoiceNumberFromRequest(), 0, error: e.Message);
+                throw;
+            }  
+        }
 
-        // Not softpos, iDEAL and other payment methods
+        // Not softpos or refund, iDEAL and other payment methods
         var payNlTransactionId = string.Empty;
 
         try
         {
             payNlTransactionId = GetInvoiceNumberFromRequest();
-          
+            
+            if (string.IsNullOrEmpty(payNlTransactionId))
+            {
+                await LogIncomingPaymentActionAsync(PaymentServiceProviders.PayNl, payNlTransactionId, 0, error: "payNlTransactionId onbekend, GetInvoiceNumberFromRequest geeft null terug.");
+                return new StatusUpdateResult
+                {
+                    Successful = false,
+                    Status = "error"
+                };
+            }
+
             var payNlSettings = (PayNlSettingsModel) paymentMethodSettings.PaymentServiceProvider;
             var restClient = new RestClient(BaseUrl);
             var restRequest = new RestRequest($"/v1/orders/{payNlTransactionId}/status");
@@ -535,11 +749,13 @@ public class PayNlService : PaymentServiceProviderBaseService, IPaymentServicePr
         var query = $@"SELECT
             payNlAccountCode.`value` AS payNlAccountCode,
             payNlToken.`value` AS payNlToken,
-            payNlServiceId.`value` AS payNlServiceId
+            payNlServiceId.`value` AS payNlServiceId,
+            payNlForceProduction.`value` AS payNlForceProduction            
         FROM {WiserTableNames.WiserItem} AS paymentServiceProvider
         LEFT JOIN {WiserTableNames.WiserItemDetail} AS payNlAccountCode ON payNlAccountCode.item_id = paymentServiceProvider.id AND payNlAccountCode.`key` = '{PayNlConstants.PayNlAccountCodeProperty}'
         LEFT JOIN {WiserTableNames.WiserItemDetail} AS payNlToken ON payNlToken.item_id = paymentServiceProvider.id AND payNlToken.`key` = '{PayNlConstants.PayNlTokenProperty}'
         LEFT JOIN {WiserTableNames.WiserItemDetail} AS payNlServiceId ON payNlServiceId.item_id = paymentServiceProvider.id AND payNlServiceId.`key` = '{PayNlConstants.PayNlServiceIdProperty}'
+        LEFT JOIN {WiserTableNames.WiserItemDetail} AS payNlForceProduction ON payNlForceProduction.item_id = paymentServiceProvider.id AND payNlForceProduction.`key` = '{PayNlConstants.PayNlForceProductionProperty}'
         WHERE paymentServiceProvider.id = ?id
         AND paymentServiceProvider.entity_type = '{Constants.PaymentServiceProviderEntityType}'";
 
@@ -566,6 +782,7 @@ public class PayNlService : PaymentServiceProviderBaseService, IPaymentServicePr
         result.AccountCode = row.GetAndDecryptSecretKey($"payNlAccountCode");
         result.Token = row.GetAndDecryptSecretKey($"payNlToken");
         result.ServiceId = row.GetAndDecryptSecretKey($"payNlServiceId");
+        result.ForceProduction = row["payNlForceProduction"].ToString() == "1";
         return result;
     }
 
@@ -573,6 +790,7 @@ public class PayNlService : PaymentServiceProviderBaseService, IPaymentServicePr
     public string GetInvoiceNumberFromRequest()
     {
         var invoiceNumber = HttpContextHelpers.GetRequestValue(httpContextAccessor?.HttpContext, PayNlConstants.WebhookInvoiceNumberProperty);
+     
         //if (string.IsNullOrEmpty(invoiceNumber)) // For softpos exchanges use order_id, the object[orderId] is for online payments like iDEAL
         //    invoiceNumber = HttpContextHelpers.GetRequestValue(httpContextAccessor?.HttpContext, "order_id"); --> Endpoint order:status werkt niet voor softpos transacties
         /*if (string.IsNullOrEmpty(invoiceNumber))
@@ -599,6 +817,12 @@ public class PayNlService : PaymentServiceProviderBaseService, IPaymentServicePr
         {
             // For softpos payments the reference querystring must be added to the exchange url, payment_in uses this querystring to get the order
             invoiceNumber = HttpContextHelpers.GetRequestValue(httpContextAccessor?.HttpContext, "reference");  
+        }
+        
+        if (string.IsNullOrEmpty(invoiceNumber))
+        {
+            // Get the unique payment number from the query string order_id for refunds
+            invoiceNumber = HttpContextHelpers.GetRequestValue(httpContextAccessor?.HttpContext, "order_id");  
         }
 
         return invoiceNumber;

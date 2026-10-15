@@ -197,7 +197,7 @@ namespace GeeksCoreLibrary.Modules.Databases.Services
         }
         
         /// <inheritdoc />
-        public string AddInParameters(string key, IEnumerable<object> collection)
+        public string AddInParameters<T>(string key, IEnumerable<T> collection)
         {
             string joinedEntries = string.Join(", ", collection.Select((entry, entryIndex) =>
             {
@@ -207,6 +207,19 @@ namespace GeeksCoreLibrary.Modules.Databases.Services
             }));
             
             return $"({joinedEntries})";
+        }
+        
+        /// <inheritdoc/>
+        public string AddInsertIntoParameters(string key, IEnumerable<object> collection)
+        {
+            string joinedEntries = string.Join(", ", collection.Select((entry, entryIndex) =>
+            {
+                string parameterName = $"{key}_{entryIndex}";
+                AddParameter(parameterName, entry);
+                return $"(?{parameterName})";
+            }));
+            
+            return $"{joinedEntries}";
         }
 
         /// <inheritdoc />

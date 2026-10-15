@@ -50,7 +50,6 @@ namespace GeeksCoreLibrary.Modules.Templates.Services
         private readonly IHttpContextAccessor httpContextAccessor;
         private readonly IViewComponentHelper viewComponentHelper;
         private readonly ITempDataProvider tempDataProvider;
-        private readonly IActionContextAccessor actionContextAccessor;
         private readonly IWebHostEnvironment webHostEnvironment;
         private readonly IObjectsService objectsService;
         private readonly ILanguagesService languagesService;
@@ -71,7 +70,6 @@ namespace GeeksCoreLibrary.Modules.Templates.Services
             IAccountsService accountsService,
             IHttpClientService httpClientService,
             IHttpContextAccessor httpContextAccessor = null,
-            IActionContextAccessor actionContextAccessor = null,
             IWebHostEnvironment webHostEnvironment = null,
             IViewComponentHelper viewComponentHelper = null,
             ITempDataProvider tempDataProvider = null)
@@ -83,7 +81,6 @@ namespace GeeksCoreLibrary.Modules.Templates.Services
             this.httpContextAccessor = httpContextAccessor;
             this.viewComponentHelper = viewComponentHelper;
             this.tempDataProvider = tempDataProvider;
-            this.actionContextAccessor = actionContextAccessor;
             this.webHostEnvironment = webHostEnvironment;
             this.filtersService = filtersService;
             this.objectsService = objectsService;
@@ -400,7 +397,6 @@ namespace GeeksCoreLibrary.Modules.Templates.Services
                 Id = dataTable.Rows[0].Field<int>("template_id"),
                 Name = dataTable.Rows[0].Field<string>("template_name"),
                 CachingMinutes = dataTable.Rows[0].Field<int>("cache_minutes"),
-                CachingMode = dataTable.Rows[0].Field<TemplateCachingModes>("use_cache"),
                 CachingLocation = TemplateCachingLocations.OnDisk,
                 CachingRegex = dataTable.Rows[0].Field<string>("cache_regex"),
                 Type = (TemplateTypes)Convert.ToInt32(dataTable.Rows[0]["template_type"])
@@ -1152,7 +1148,9 @@ namespace GeeksCoreLibrary.Modules.Templates.Services
                 return "";
             }
 
-            if (httpContextAccessor?.HttpContext == null || actionContextAccessor?.ActionContext == null)
+            ActionContext actionContext = httpContextAccessor?.HttpContext?.GetActionContext();
+            
+            if (httpContextAccessor?.HttpContext == null || actionContext == null)
             {
                 throw new Exception("No httpContext found. Did you add the dependency in Program.cs or Startup.cs?");
             }
@@ -1213,7 +1211,7 @@ namespace GeeksCoreLibrary.Modules.Templates.Services
 
             // Create a fake ViewContext (but with a real ActionContext and a real HttpContext).
             var viewContext = new ViewContext(
-                actionContextAccessor.ActionContext,
+                actionContext,
                 NullView.Instance,
                 new ViewDataDictionary(new EmptyModelMetadataProvider(), new ModelStateDictionary()),
                 new TempDataDictionary(httpContextAccessor.HttpContext, tempDataProvider),
@@ -1404,24 +1402,12 @@ namespace GeeksCoreLibrary.Modules.Templates.Services
         {
             var originalUri = HttpContextHelpers.GetOriginalRequestUri(httpContextAccessor?.HttpContext);
             var cacheFileName = new StringBuilder($"template_{contentTemplate.Id}_");
-            switch (contentTemplate.CachingMode)
-            {
-                case TemplateCachingModes.ServerSideCaching:
-                    break;
-                case TemplateCachingModes.ServerSideCachingPerUrl:
-                    cacheFileName.Append(Uri.EscapeDataString(originalUri.AbsolutePath.ToSha512Simple()));
-                    break;
-                case TemplateCachingModes.ServerSideCachingPerUrlAndQueryString:
-                    cacheFileName.Append(Uri.EscapeDataString(originalUri.PathAndQuery.ToSha512Simple()));
-                    break;
-                case TemplateCachingModes.ServerSideCachingPerHostNameAndQueryString:
-                    cacheFileName.Append(Uri.EscapeDataString(originalUri.ToString().ToSha512Simple()));
-                    break;
-                case TemplateCachingModes.NoCaching:
-                    return "";
-                default:
-                    throw new ArgumentOutOfRangeException(nameof(contentTemplate.CachingMode), contentTemplate.CachingMode.ToString());
-            }
+            if(contentTemplate.CachePerUrl)
+                cacheFileName.Append(Uri.EscapeDataString(originalUri.AbsolutePath.ToSha512Simple()));
+            else if(contentTemplate.CachePerQueryString)
+                cacheFileName.Append(Uri.EscapeDataString(originalUri.PathAndQuery.ToSha512Simple()));
+            else if(contentTemplate.CachePerHostName)
+                cacheFileName.Append(Uri.EscapeDataString(originalUri.ToString().ToSha512Simple()));
 
             // If the caching should deviate based on certain cookies, then the names and values of those cookies should be added to the file name.
             var cookieCacheDeviation = (await objectsService.FindSystemObjectByDomainNameAsync("contentcaching_cookie_deviation")).Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);

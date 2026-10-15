@@ -51,7 +51,7 @@ namespace GeeksCoreLibrary.Components.Account.Models
             </div>
             [if({stepNumber}=1)]
             <div class='formRow center'>
-                <a href='#' id='GclResetPasswordLink{contentId}'>Wachtwoord vergeten?</a>
+                <a href='javascript:void(0)' id='GclResetPasswordLink{contentId}'>Wachtwoord vergeten?</a>
             </div>
             [endif]
         </div>

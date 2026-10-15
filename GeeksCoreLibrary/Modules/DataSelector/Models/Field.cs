@@ -83,7 +83,7 @@ namespace GeeksCoreLibrary.Modules.DataSelector.Models
             }
         }
 
-        public string TableAlias => $"{TableAliasPrefix}{FieldName}{(!String.IsNullOrWhiteSpace(LanguageCode) ? "_" + LanguageCode : "")}";
+        public string TableAlias => $"{TableAliasPrefix}{FieldName}{(!String.IsNullOrWhiteSpace(LanguageCodes.ElementAtOrDefault(0)) ? "_" + LanguageCodes.ElementAtOrDefault(0) : "")}";
 
         /// <summary>
         /// For internal use, for correctly grouping of the output JSON.

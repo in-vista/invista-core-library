@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Net.Http;
 using GeeksCoreLibrary.Core.Enums;
+using HttpMethod = System.Net.Http.HttpMethod;
 
 namespace GeeksCoreLibrary.Core.Models;
 
