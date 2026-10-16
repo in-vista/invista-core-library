@@ -238,24 +238,31 @@ namespace GeeksCoreLibrary.Modules.Exports.Services
         }
 
         /// <inheritdoc />
-        public List<string> GetColumnNames(string filePath)
+        public List<string> GetColumnNames(string filePath, Stream fileStream = null)
         {
             var columnNames = new List<string>();
 
-            using var document = SpreadsheetDocument.Open(filePath, false);
+            using var document = fileStream != null
+                ? SpreadsheetDocument.Open(fileStream, false)
+                : SpreadsheetDocument.Open(filePath, false);
+
             var workbookPart = document.WorkbookPart;
             if (workbookPart == null)
             {
                 return columnNames;
             }
 
-            var sharedStringTablePart = workbookPart.GetPartsOfType<SharedStringTablePart>().First();
-            var sharedStringTable = sharedStringTablePart.SharedStringTable;
+            var sharedStringTablePart = workbookPart.GetPartsOfType<SharedStringTablePart>().FirstOrDefault();
+            var sharedStringTable = sharedStringTablePart?.SharedStringTable;
 
-            var worksheetPart = workbookPart.WorksheetParts.First();
-            var sheet = worksheetPart.Worksheet;
+            var worksheetPart = workbookPart.WorksheetParts.FirstOrDefault();
+            var sheet = worksheetPart?.Worksheet;
+            var row = sheet?.Descendants<Row>().FirstOrDefault();
 
-            var row = sheet.Descendants<Row>().First();
+            if (row == null)
+            {
+                return columnNames;
+            }
 
             foreach (var cell in row.Elements<Cell>())
             {
@@ -264,14 +271,14 @@ namespace GeeksCoreLibrary.Modules.Exports.Services
                     continue;
                 }
 
-                if (cell.DataType != null && cell.DataType == CellValues.SharedString)
+                if (cell.DataType != null && cell.DataType == CellValues.SharedString && sharedStringTable != null)
                 {
                     var index = Int32.Parse(cell.CellValue.Text);
                     columnNames.Add(sharedStringTable.ChildElements[index].InnerText);
                 }
                 else
                 {
-                    columnNames.Add("");
+                    columnNames.Add(cell.CellValue.Text);
                 }
             }
 
@@ -279,9 +286,12 @@ namespace GeeksCoreLibrary.Modules.Exports.Services
         }
 
         /// <inheritdoc />
-        public int GetRowCount(string filePath)
+        public int GetRowCount(string filePath, Stream fileStream = null)
         {
-            using var document = SpreadsheetDocument.Open(filePath, false);
+            using var document = fileStream != null
+                ? SpreadsheetDocument.Open(fileStream, false)
+                : SpreadsheetDocument.Open(filePath, false);
+            
             var workbookPart = document.WorkbookPart;
             if (workbookPart == null)
             {
@@ -295,24 +305,32 @@ namespace GeeksCoreLibrary.Modules.Exports.Services
         }
 
         /// <inheritdoc />
-        public List<List<string>> GetLines(string filePath, int numberOfColumns, bool skipFirstLine = false, bool firstColumnAreIds = false)
+        public List<List<string>> GetLines(string filePath, int numberOfColumns, bool skipFirstLine = false, bool firstColumnAreIds = false, Stream fileStream = null)
         {
             var result = new List<List<string>>();
 
-            using var document = SpreadsheetDocument.Open(filePath, false);
+            using var document = fileStream != null
+                ? SpreadsheetDocument.Open(fileStream, false)
+                : SpreadsheetDocument.Open(filePath, false);
+
             var workbookPart = document.WorkbookPart;
             if (workbookPart == null)
             {
                 return result;
             }
 
-            var sharedStringTablePart = workbookPart.GetPartsOfType<SharedStringTablePart>().First();
-            var sharedStringTable = sharedStringTablePart.SharedStringTable;
+            var sharedStringTablePart = workbookPart.GetPartsOfType<SharedStringTablePart>().FirstOrDefault();
+            var sharedStringTable = sharedStringTablePart?.SharedStringTable;
 
-            var worksheetPart = workbookPart.WorksheetParts.First();
-            var sheet = worksheetPart.Worksheet;
+            var worksheetPart = workbookPart.WorksheetParts.FirstOrDefault();
+            var sheet = worksheetPart?.Worksheet;
+            var rows = sheet?.Descendants<Row>();
 
-            var rows = sheet.Descendants<Row>();
+            if (rows == null)
+            {
+                return result;
+            }
+
             var firstRow = true;
 
             foreach (var row in rows)
@@ -326,10 +344,9 @@ namespace GeeksCoreLibrary.Modules.Exports.Services
                 var columns = new List<string>();
 
                 // Create an entry for each column to ensure the correct number of columns in the row. Cells are only returned if they have a value.
-                for (var i = 0; i < numberOfColumns; i++)
+                for (var columnIndex = 0; columnIndex < numberOfColumns; columnIndex++)
                 {
-                    // If the first column are ids, the first column is always 0. When the import overrides existing items the value will be overwritten when reading the cells.
-                    if (i == 0 && firstColumnAreIds)
+                    if (columnIndex == 0 && firstColumnAreIds)
                     {
                         columns.Add("0");
                     }
@@ -350,7 +367,7 @@ namespace GeeksCoreLibrary.Modules.Exports.Services
                     var columnName = Regex.Replace(cell.CellReference.Value, @"[\d-]", string.Empty, RegexOptions.Compiled, TimeSpan.FromMilliseconds(2000));
                     var columnIndex = GetColumnIndexFromName(columnName);
 
-                    if (cell.CellValue != null && cell.DataType != null && cell.DataType == CellValues.SharedString)
+                    if (cell.CellValue != null && cell.DataType != null && cell.DataType == CellValues.SharedString && sharedStringTable != null)
                     {
                         var index = Int32.Parse(cell.CellValue.Text);
                         columns[columnIndex - 1] = sharedStringTable.ChildElements[index].InnerText;
