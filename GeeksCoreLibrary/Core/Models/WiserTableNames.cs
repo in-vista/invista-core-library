@@ -123,6 +123,10 @@ namespace GeeksCoreLibrary.Core.Models
         /// </summary>
         public const string WiserGrantStore = "wiser_grant_store";
         /// <summary>
+        /// This table contains the ASP.NET Core Data Protection key ring, so that multiple servers behind a load balancer can share the same keys.
+        /// </summary>
+        public const string WiserDataProtectionKeys = "wiser_data_protection_keys";
+        /// <summary>
         /// This table is used to keep track of when all other table definitions have been updated last. Wiser can then use this to make sure table definitions for all customers will be automatically kept up-to-date.
         /// </summary>
         public const string WiserTableChanges = "wiser_table_changes";

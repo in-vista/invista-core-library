@@ -198,6 +198,24 @@ public class WiserTableDefinitions
             }
         },
 
+        // wiser_data_protection_keys
+        new WiserTableDefinitionModel
+        {
+            Name = WiserTableNames.WiserDataProtectionKeys,
+            LastUpdate = new DateTime(2026, 10, 19),
+            Columns = new List<ColumnSettingsModel>
+            {
+                new("id", MySqlDbType.Int32, notNull: true, isPrimaryKey: true, autoIncrement: true),
+                new("friendly_name", MySqlDbType.VarChar, 255, notNull: true),
+                new("xml", MySqlDbType.MediumText, notNull: true),
+                new("added_on", MySqlDbType.DateTime, notNull: true, defaultValue: "CURRENT_TIMESTAMP")
+            },
+            Indexes = new List<IndexSettingsModel>
+            {
+                new(WiserTableNames.WiserDataProtectionKeys, "idx_friendly_name", IndexTypes.Unique, new List<string> {"friendly_name"})
+            }
+        },
+
         // wiser_grant_store
         new WiserTableDefinitionModel
         {
