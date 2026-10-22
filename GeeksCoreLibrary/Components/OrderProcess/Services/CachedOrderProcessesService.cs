@@ -4,6 +4,7 @@ using GeeksCoreLibrary.Components.Account.Models;
 using GeeksCoreLibrary.Components.OrderProcess.Interfaces;
 using GeeksCoreLibrary.Components.OrderProcess.Models;
 using GeeksCoreLibrary.Core.Models;
+using GeeksCoreLibrary.Core.Models.ErrorHandling;
 using GeeksCoreLibrary.Modules.Branches.Interfaces;
 using LazyCache;
 using Microsoft.Extensions.Caching.Memory;
@@ -92,13 +93,13 @@ namespace GeeksCoreLibrary.Components.OrderProcess.Services
         }
 
         /// <inheritdoc />
-        public override async Task<bool> HandlePaymentStatusUpdateAsync(OrderProcessSettingsModel orderProcessSettings, ICollection<(WiserItemModel Main, List<WiserItemModel> Lines)> conceptOrders, string newStatus, bool isSuccessfulStatus, int statusCode, bool convertConceptOrderToOrder = true, decimal paidAmount = 0)
+        public override async Task<ProcessResult<bool>> HandlePaymentStatusUpdateAsync(OrderProcessSettingsModel orderProcessSettings, ICollection<(WiserItemModel Main, List<WiserItemModel> Lines)> conceptOrders, string newStatus, bool isSuccessfulStatus, int statusCode, bool convertConceptOrderToOrder = true, decimal paidAmount = 0)
         {
             return await orderProcessesService.HandlePaymentStatusUpdateAsync(this, orderProcessSettings, conceptOrders, newStatus, isSuccessfulStatus, statusCode, convertConceptOrderToOrder, paidAmount);
         }
 
         /// <inheritdoc />
-        public override async Task<bool> HandlePaymentServiceProviderWebhookAsync(ulong orderProcessId, ulong paymentMethodId)
+        public override async Task<ProcessResult<bool>> HandlePaymentServiceProviderWebhookAsync(ulong orderProcessId, ulong paymentMethodId)
         {
             return await orderProcessesService.HandlePaymentServiceProviderWebhookAsync(this, orderProcessId, paymentMethodId);
         }

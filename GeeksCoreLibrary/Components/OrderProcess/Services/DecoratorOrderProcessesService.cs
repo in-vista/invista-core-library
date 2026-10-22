@@ -5,6 +5,7 @@ using GeeksCoreLibrary.Components.OrderProcess.Enums;
 using GeeksCoreLibrary.Components.OrderProcess.Interfaces;
 using GeeksCoreLibrary.Components.OrderProcess.Models;
 using GeeksCoreLibrary.Core.Models;
+using GeeksCoreLibrary.Core.Models.ErrorHandling;
 using GeeksCoreLibrary.Modules.Payments.Models;
 
 namespace GeeksCoreLibrary.Components.OrderProcess.Services;
@@ -89,25 +90,25 @@ public abstract class DecoratorOrderProcessesService : IOrderProcessesService
     }
 
     /// <inheritdoc />
-    public virtual async Task<bool> HandlePaymentStatusUpdateAsync(OrderProcessSettingsModel orderProcessSettings, ICollection<(WiserItemModel Main, List<WiserItemModel> Lines)> conceptOrders, string newStatus, bool isSuccessfulStatus, int statusCode, bool convertConceptOrderToOrder = true, decimal amountPaid = 0)
+    public virtual async Task<ProcessResult<bool>> HandlePaymentStatusUpdateAsync(OrderProcessSettingsModel orderProcessSettings, ICollection<(WiserItemModel Main, List<WiserItemModel> Lines)> conceptOrders, string newStatus, bool isSuccessfulStatus, int statusCode, bool convertConceptOrderToOrder = true, decimal amountPaid = 0)
     {
         return await orderProcessesService.HandlePaymentStatusUpdateAsync(this, orderProcessSettings, conceptOrders, newStatus, isSuccessfulStatus, statusCode, convertConceptOrderToOrder, amountPaid);
     }
 
     /// <inheritdoc />
-    public virtual async Task<bool> HandlePaymentStatusUpdateAsync(IOrderProcessesService service, OrderProcessSettingsModel orderProcessSettings, ICollection<(WiserItemModel Main, List<WiserItemModel> Lines)> conceptOrders, string newStatus, bool isSuccessfulStatus, int statusCode, bool convertConceptOrderToOrder = true, decimal amountPaid = 0)
+    public virtual async Task<ProcessResult<bool>> HandlePaymentStatusUpdateAsync(IOrderProcessesService service, OrderProcessSettingsModel orderProcessSettings, ICollection<(WiserItemModel Main, List<WiserItemModel> Lines)> conceptOrders, string newStatus, bool isSuccessfulStatus, int statusCode, bool convertConceptOrderToOrder = true, decimal amountPaid = 0)
     {
         return await orderProcessesService.HandlePaymentStatusUpdateAsync(service, orderProcessSettings, conceptOrders, newStatus, isSuccessfulStatus, statusCode, convertConceptOrderToOrder, amountPaid);
     }
 
     /// <inheritdoc />
-    public virtual async Task<bool> HandlePaymentServiceProviderWebhookAsync(ulong orderProcessId, ulong paymentMethodId)
+    public virtual async Task<ProcessResult<bool>> HandlePaymentServiceProviderWebhookAsync(ulong orderProcessId, ulong paymentMethodId)
     {
         return await orderProcessesService.HandlePaymentServiceProviderWebhookAsync(this, orderProcessId, paymentMethodId);
     }
 
     /// <inheritdoc />
-    public virtual async Task<bool> HandlePaymentServiceProviderWebhookAsync(IOrderProcessesService service, ulong orderProcessId, ulong paymentMethodId)
+    public virtual async Task<ProcessResult<bool>> HandlePaymentServiceProviderWebhookAsync(IOrderProcessesService service, ulong orderProcessId, ulong paymentMethodId)
     {
         return await orderProcessesService.HandlePaymentServiceProviderWebhookAsync(service, orderProcessId, paymentMethodId);
     }
@@ -149,13 +150,13 @@ public abstract class DecoratorOrderProcessesService : IOrderProcessesService
     }
 
     /// <inheritdoc />
-    public virtual async Task<bool> PaymentStatusUpdateBeforeCommunicationAsync(WiserItemModel main, List<WiserItemModel> lines, OrderProcessSettingsModel orderProcessSettings, bool wasHandledBefore, bool isSuccessfulStatus)
+    public virtual async Task<ProcessResult<bool>> PaymentStatusUpdateBeforeCommunicationAsync(WiserItemModel main, List<WiserItemModel> lines, OrderProcessSettingsModel orderProcessSettings, bool wasHandledBefore, bool isSuccessfulStatus)
     {
         return await orderProcessesService.PaymentStatusUpdateBeforeCommunicationAsync(main, lines, orderProcessSettings, wasHandledBefore, isSuccessfulStatus);
     }
     
     /// <inheritdoc />
-    public virtual async Task<bool> PaymentStatusUpdateBeforeCommunicationAsync(WiserItemModel main, List<WiserItemModel> lines, bool wasHandledBefore, bool isSuccessfulStatus)
+    public virtual async Task<ProcessResult<bool>> PaymentStatusUpdateBeforeCommunicationAsync(WiserItemModel main, List<WiserItemModel> lines, bool wasHandledBefore, bool isSuccessfulStatus)
     {
         return await orderProcessesService.PaymentStatusUpdateBeforeCommunicationAsync(main, lines, wasHandledBefore, isSuccessfulStatus);
     }
