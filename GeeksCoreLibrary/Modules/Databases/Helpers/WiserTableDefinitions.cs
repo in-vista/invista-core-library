@@ -280,6 +280,7 @@ public class WiserTableDefinitions
                 new("dedicated_table_prefix", MySqlDbType.VarChar, 25, notNull: true, defaultValue: ""),
                 new("delete_action", MySqlDbType.Enum, notNull: true, defaultValue: "archive", enumValues: new List<string> {"archive", "permanent", "hide", "disallow"}),
                 new("show_in_dashboard", MySqlDbType.Int16, 1, notNull: true, defaultValue: "0"),
+                new("show_in_import", MySqlDbType.VarChar, 1000, defaultValue: "0"),
                 new("item_window_mode", MySqlDbType.UInt32, notNull: true, defaultValue: "0")
             },
             Indexes = new List<IndexSettingsModel>
@@ -910,13 +911,9 @@ public class WiserTableDefinitions
                 new("id", MySqlDbType.Int32, notNull: true, isPrimaryKey: true, autoIncrement: true),
                 new("description", MySqlDbType.VarChar, 512, notNull: true, defaultValue: ""),
                 new("query", MySqlDbType.MediumText),
-                new("show_in_export_module", MySqlDbType.Int16, notNull: true, defaultValue: "0"),
+                new("show_in_export_module", MySqlDbType.VarChar, 1000, defaultValue: "0"),
                 new("show_in_communication_module", MySqlDbType.Int16, notNull: true, defaultValue: "0"),
                 new("changed_on", MySqlDbType.DateTime)
-            },
-            Indexes = new List<IndexSettingsModel>
-            {
-                new(WiserTableNames.WiserQuery, "idx_show_in_export_module", IndexTypes.Normal, new List<string> {"show_in_export_module"})
             }
         },
 
@@ -1194,7 +1191,8 @@ public class WiserTableDefinitions
                 new("group_options", MySqlDbType.Text),
                 new("custom_script", MySqlDbType.Text),
                 new("is_fullscreen", MySqlDbType.Int16, 4, notNull: true, defaultValue: "0"),
-                new("ordering", MySqlDbType.UInt32, notNull: true, defaultValue: "0")
+                new("ordering", MySqlDbType.UInt32, notNull: true, defaultValue: "0"),
+                new("show_in_export_module", MySqlDbType.VarChar, 1000, defaultValue: "0")
             }
         },
         
