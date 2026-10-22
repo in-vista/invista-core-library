@@ -26,5 +26,10 @@
         /// Gets or sets the reference of the PSP for the transaction
         /// </summary>
         public string PspTransactionId { get; set; }
+
+        /// <summary>
+        /// Gets or sets a description of what went wrong, if the status update could not be processed correctly.
+        /// </summary>
+        public string ErrorMessage { get; set; }
     }
 }

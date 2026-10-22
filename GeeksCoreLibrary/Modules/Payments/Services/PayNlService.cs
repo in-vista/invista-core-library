@@ -531,7 +531,8 @@ public class PayNlService : PaymentServiceProviderBaseService, IPaymentServicePr
             return new StatusUpdateResult
             {
                 Successful = false,
-                Status = "Error retrieving status: No HttpContext available."
+                Status = "Error retrieving status: No HttpContext available.",
+                ErrorMessage = "No HttpContext available."
             };
         }
         
@@ -586,7 +587,8 @@ public class PayNlService : PaymentServiceProviderBaseService, IPaymentServicePr
                             Successful = false,
                             Status = "error",
                             StatusCode = -1,
-                            PspTransactionId = payNlOrderId
+                            PspTransactionId = payNlOrderId,
+                            ErrorMessage = $"Pay.nl reported action '{action}' for this payment."
                         };
                     default:
                         return new StatusUpdateResult
@@ -594,7 +596,8 @@ public class PayNlService : PaymentServiceProviderBaseService, IPaymentServicePr
                             Successful = false,
                             Status = "unknown",
                             StatusCode = 0,
-                            PspTransactionId = payNlOrderId
+                            PspTransactionId = payNlOrderId,
+                            ErrorMessage = $"Unknown action '{action}' received from Pay.nl."
                         };
                 }
                 
@@ -680,7 +683,8 @@ public class PayNlService : PaymentServiceProviderBaseService, IPaymentServicePr
                             Successful = false,
                             Status = "unknown",
                             StatusCode = 0,
-                            PspTransactionId = payNlOrderId
+                            PspTransactionId = payNlOrderId,
+                            ErrorMessage = $"Unknown refund action '{action}' received from Pay.nl."
                         };
                 }
             }
@@ -704,7 +708,8 @@ public class PayNlService : PaymentServiceProviderBaseService, IPaymentServicePr
                 return new StatusUpdateResult
                 {
                     Successful = false,
-                    Status = "error"
+                    Status = "error",
+                    ErrorMessage = "No Pay.nl transaction ID found in the request."
                 };
             }
 
@@ -720,7 +725,8 @@ public class PayNlService : PaymentServiceProviderBaseService, IPaymentServicePr
                 return new StatusUpdateResult
                 {
                     Successful = false,
-                    Status = "error"
+                    Status = "error",
+                    ErrorMessage = $"Retrieving the status from Pay.nl failed with HTTP status {(int) restResponse.StatusCode} ({restResponse.StatusCode}). {restResponse.ErrorMessage}".Trim()
                 };
             }
 

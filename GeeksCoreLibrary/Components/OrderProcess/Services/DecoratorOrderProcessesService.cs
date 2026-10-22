@@ -101,6 +101,18 @@ public abstract class DecoratorOrderProcessesService : IOrderProcessesService
     }
 
     /// <inheritdoc />
+    public virtual async Task<bool> HandlePaymentStatusUpdateAsync(OrderProcessSettingsModel orderProcessSettings, ICollection<(WiserItemModel Main, List<WiserItemModel> Lines)> conceptOrders, StatusUpdateResult statusUpdateResult, bool convertConceptOrderToOrder = true)
+    {
+        return await orderProcessesService.HandlePaymentStatusUpdateAsync(this, orderProcessSettings, conceptOrders, statusUpdateResult, convertConceptOrderToOrder);
+    }
+
+    /// <inheritdoc />
+    public virtual async Task<bool> HandlePaymentStatusUpdateAsync(IOrderProcessesService service, OrderProcessSettingsModel orderProcessSettings, ICollection<(WiserItemModel Main, List<WiserItemModel> Lines)> conceptOrders, StatusUpdateResult statusUpdateResult, bool convertConceptOrderToOrder = true)
+    {
+        return await orderProcessesService.HandlePaymentStatusUpdateAsync(service, orderProcessSettings, conceptOrders, statusUpdateResult, convertConceptOrderToOrder);
+    }
+
+    /// <inheritdoc />
     public virtual async Task<bool> HandlePaymentServiceProviderWebhookAsync(ulong orderProcessId, ulong paymentMethodId)
     {
         return await orderProcessesService.HandlePaymentServiceProviderWebhookAsync(this, orderProcessId, paymentMethodId);
@@ -152,6 +164,13 @@ public abstract class DecoratorOrderProcessesService : IOrderProcessesService
     public virtual async Task<bool> PaymentStatusUpdateBeforeCommunicationAsync(WiserItemModel main, List<WiserItemModel> lines, OrderProcessSettingsModel orderProcessSettings, bool wasHandledBefore, bool isSuccessfulStatus)
     {
         return await orderProcessesService.PaymentStatusUpdateBeforeCommunicationAsync(main, lines, orderProcessSettings, wasHandledBefore, isSuccessfulStatus);
+    }
+
+    /// <inheritdoc />
+    public virtual async Task<bool> PaymentStatusUpdateBeforeCommunicationAsync(WiserItemModel main, List<WiserItemModel> lines, OrderProcessSettingsModel orderProcessSettings, bool wasHandledBefore, StatusUpdateResult statusUpdateResult)
+    {
+        // Call the overload with a bool on this decorator instead of the inner service, so projects that override that overload keep working.
+        return await PaymentStatusUpdateBeforeCommunicationAsync(main, lines, orderProcessSettings, wasHandledBefore, statusUpdateResult.Successful);
     }
     
     /// <inheritdoc />

@@ -1185,7 +1185,13 @@ namespace GeeksCoreLibrary.Components.OrderProcess.Services
         }
 
         /// <inheritdoc />
-        public async Task<bool> HandlePaymentStatusUpdateAsync(IOrderProcessesService orderProcessesService, OrderProcessSettingsModel orderProcessSettings, ICollection<(WiserItemModel Main, List<WiserItemModel> Lines)> conceptOrders, StatusUpdateResult statusUpdateResult, bool convertConceptOrderToOrder = true, decimal paidAmount = 0)
+        public async Task<bool> HandlePaymentStatusUpdateAsync(OrderProcessSettingsModel orderProcessSettings, ICollection<(WiserItemModel Main, List<WiserItemModel> Lines)> conceptOrders, StatusUpdateResult statusUpdateResult, bool convertConceptOrderToOrder = true)
+        {
+            return await HandlePaymentStatusUpdateAsync(this, orderProcessSettings, conceptOrders, statusUpdateResult, convertConceptOrderToOrder);
+        }
+
+        /// <inheritdoc />
+        public async Task<bool> HandlePaymentStatusUpdateAsync(IOrderProcessesService orderProcessesService, OrderProcessSettingsModel orderProcessSettings, ICollection<(WiserItemModel Main, List<WiserItemModel> Lines)> conceptOrders, StatusUpdateResult statusUpdateResult, bool convertConceptOrderToOrder = true)
         {
             // Return successfully, nothing else needs to be done here for canceled payments
             if (string.Equals(statusUpdateResult.Status, "CANCEL"))
@@ -1243,7 +1249,7 @@ namespace GeeksCoreLibrary.Components.OrderProcess.Services
                     }
 
                     // Allow custom code to be executed before we send the user to the PSP and cancel the payment if the code returned false.
-                    var success = await orderProcessesService.PaymentStatusUpdateBeforeCommunicationAsync(main, lines, orderProcessSettings, hasAlreadyBeenConvertedToOrderBefore, statusUpdateResult.Successful);    
+                    var success = await orderProcessesService.PaymentStatusUpdateBeforeCommunicationAsync(main, lines, orderProcessSettings, hasAlreadyBeenConvertedToOrderBefore, statusUpdateResult);
                 
                     if (!success)
                     {
@@ -1361,7 +1367,7 @@ namespace GeeksCoreLibrary.Components.OrderProcess.Services
                     }
                     
                     // Allow custom code to be executed before we send the user to the PSP and cancel the payment if the code returned false.
-                    var success = await orderProcessesService.PaymentStatusUpdateBeforeCommunicationAsync(main, lines, orderProcessSettings, hasAlreadyBeenConvertedToOrderBefore, statusUpdateResult.Successful);
+                    var success = await orderProcessesService.PaymentStatusUpdateBeforeCommunicationAsync(main, lines, orderProcessSettings, hasAlreadyBeenConvertedToOrderBefore, statusUpdateResult);
 
                     if (!success)
                     {
@@ -1464,7 +1470,7 @@ namespace GeeksCoreLibrary.Components.OrderProcess.Services
 
             // Let the payment service provider service handle the status update.
             var pspUpdateResult = await paymentServiceProviderService.ProcessStatusUpdateAsync(orderProcessSettings, paymentMethodSettings);
-            var result = await orderProcessesService.HandlePaymentStatusUpdateAsync(orderProcessSettings, conceptOrders, pspUpdateResult.Status, pspUpdateResult.Successful, pspUpdateResult.StatusCode, true, pspUpdateResult.PaidAmount);
+            var result = await orderProcessesService.HandlePaymentStatusUpdateAsync(orderProcessSettings, conceptOrders, pspUpdateResult);
 
             /*var basketSettings = await shoppingBasketsService.GetSettingsAsync();
             foreach (var (main, lines) in conceptOrders)
@@ -1616,7 +1622,13 @@ namespace GeeksCoreLibrary.Components.OrderProcess.Services
             // Use the decorator pattern to create an overwrite of IOrderProcessesService and then add custom code in this snippet.
             return Task.FromResult(true);
         }
-        
+
+        /// <inheritdoc />
+        public Task<bool> PaymentStatusUpdateBeforeCommunicationAsync(WiserItemModel main, List<WiserItemModel> lines, OrderProcessSettingsModel orderProcessSettings, bool wasHandledBefore, StatusUpdateResult statusUpdateResult)
+        {
+            return PaymentStatusUpdateBeforeCommunicationAsync(main, lines, orderProcessSettings, wasHandledBefore, statusUpdateResult.Successful);
+        }
+
         /// <inheritdoc />
         public Task<bool> PaymentStatusUpdateBeforeCommunicationAsync(WiserItemModel main, List<WiserItemModel> lines, bool wasHandledBefore, bool isSuccessfulStatus)
         {

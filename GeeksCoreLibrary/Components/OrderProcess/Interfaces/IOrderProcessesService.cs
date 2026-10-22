@@ -116,6 +116,25 @@ namespace GeeksCoreLibrary.Components.OrderProcess.Interfaces
         /// <param name="convertConceptOrderToOrder">Optional: Whether or not to convert the concept order(s) to order(s). Default value is true.</param>
         /// <param name="amountPaid">Optional: The paid amount if the payment is successful.</param>
         Task<bool> HandlePaymentStatusUpdateAsync(IOrderProcessesService orderProcessesService, OrderProcessSettingsModel orderProcessSettings, ICollection<(WiserItemModel Main, List<WiserItemModel> Lines)> conceptOrders, string newStatus, bool isSuccessfulStatus, int statusCode, bool convertConceptOrderToOrder = true, decimal amountPaid = 0);
+
+        /// <summary>
+        /// Handles a status update (usually done via a webhook) of a payment via an PSP.
+        /// </summary>
+        /// <param name="orderProcessSettings">The settings for the order process that is being used.</param>
+        /// <param name="conceptOrders">The (concept) orders of the user that the payment update is for.</param>
+        /// <param name="statusUpdateResult">The result of the status update, with the new status and other information that the PSP gave us.</param>
+        /// <param name="convertConceptOrderToOrder">Optional: Whether or not to convert the concept order(s) to order(s). Default value is true.</param>
+        Task<bool> HandlePaymentStatusUpdateAsync(OrderProcessSettingsModel orderProcessSettings, ICollection<(WiserItemModel Main, List<WiserItemModel> Lines)> conceptOrders, StatusUpdateResult statusUpdateResult, bool convertConceptOrderToOrder = true);
+
+        /// <summary>
+        /// Handles a status update (usually done via a webhook) of a payment via an PSP.
+        /// </summary>
+        /// <param name="orderProcessesService">The <see cref="IOrderProcessesService"/> to use, to prevent duplicate code while using caching with the decorator pattern, while still being able to use caching in calls to GetOrderProcessSettingsAsync() in this method.</param>
+        /// <param name="orderProcessSettings">The settings for the order process that is being used.</param>
+        /// <param name="conceptOrders">The (concept) orders of the user that the payment update is for.</param>
+        /// <param name="statusUpdateResult">The result of the status update, with the new status and other information that the PSP gave us.</param>
+        /// <param name="convertConceptOrderToOrder">Optional: Whether or not to convert the concept order(s) to order(s). Default value is true.</param>
+        Task<bool> HandlePaymentStatusUpdateAsync(IOrderProcessesService orderProcessesService, OrderProcessSettingsModel orderProcessSettings, ICollection<(WiserItemModel Main, List<WiserItemModel> Lines)> conceptOrders, StatusUpdateResult statusUpdateResult, bool convertConceptOrderToOrder = true);
         
         /// <summary>
         /// Handles the webhook of a PSP for payment status updates.
@@ -202,6 +221,19 @@ namespace GeeksCoreLibrary.Components.OrderProcess.Interfaces
         /// <param name="isSuccessfulStatus">Whether the payment of the user was successful.</param>
         /// <returns>If you return false, then the confirmation e-mail of this order will not be sent to the user.</returns>
         Task<bool> PaymentStatusUpdateBeforeCommunicationAsync(WiserItemModel main, List<WiserItemModel> lines, OrderProcessSettingsModel orderProcessSettings, bool wasHandledBefore, bool isSuccessfulStatus);
+
+        /// <summary>
+        /// This function can be used to add custom code snippets in your project. This will be executed after a status update of the PSP has been handled, but before the order confirmation is being sent to the user..
+        /// If the user paid for multiple orders at once, this function will be called once for each order.
+        /// By default this calls the overload with a bool for isSuccessfulStatus, so existing overrides of that overload keep working.
+        /// </summary>
+        /// <param name="main">The <see cref="WiserItemModel"/> of the order.</param>
+        /// <param name="lines">A list of <see cref="WiserItemModel"/> with the order lines.</param>
+        /// <param name="orderProcessSettings">The settings of the current order process.</param>
+        /// <param name="wasHandledBefore">This will be true if the current order has already been handled and converted from concept order to order before. Sometimes PSPs send duplicate status updates, in those cases this can be true.</param>
+        /// <param name="statusUpdateResult">The result of the status update, use the property "Successful" to see whether the payment of the user was successful. The other properties contain more information about the status, such as an error message.</param>
+        /// <returns>If you return false, then the confirmation e-mail of this order will not be sent to the user.</returns>
+        Task<bool> PaymentStatusUpdateBeforeCommunicationAsync(WiserItemModel main, List<WiserItemModel> lines, OrderProcessSettingsModel orderProcessSettings, bool wasHandledBefore, StatusUpdateResult statusUpdateResult);
         // ReSharper restore UnusedParameter.Global
         
         /// <summary>
