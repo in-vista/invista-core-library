@@ -653,36 +653,54 @@ public class PayNlService : PaymentServiceProviderBaseService, IPaymentServicePr
                 var payNlOrderId = (httpContextAccessor.HttpContext.Request.HasFormContentType
                     ? (Microsoft.Extensions.Primitives.StringValues?)httpContextAccessor.HttpContext.Request.Form["order_id"]
                     : httpContextAccessor.HttpContext.Request.Query["order_id"]).Value.ToString();
-                
-                //var amount = (httpContextAccessor.HttpContext.Request.HasFormContentType
-                //    ? (Microsoft.Extensions.Primitives.StringValues?)httpContextAccessor.HttpContext.Request.Form["amount"]
-                //    : httpContextAccessor.HttpContext.Request.Query["amount"]).Value.ToString();
+
+                string amountString = (httpContextAccessor.HttpContext.Request.HasFormContentType
+                    ? (Microsoft.Extensions.Primitives.StringValues?)httpContextAccessor.HttpContext.Request.Form[
+                        "amount"]
+                    : httpContextAccessor.HttpContext.Request.Query["amount"]).Value.ToString();
+
+                decimal amount = -decimal.Parse(amountString);
                 
                 await LogIncomingPaymentActionAsync(PaymentServiceProviders.PayNl, payNlOrderId, 0);
                 
                 // See this URL for the different action values: https://developer.pay.nl/docs/payouts
-                switch (action)
+                StatusUpdateResult statusUpdateResult = action switch
                 {
-                    case "refund:add":
-                    case "refund:received":
-                    case "refund:send":
-                    case "refund:storno":
-                        return new StatusUpdateResult
+                    "refund:add" or "refund:received" or "refund:send" or "refund:storno" => new StatusUpdateResult
                         {
                             Successful = true,
                             Status = "REFUND",
                             StatusCode = 100,
                             PspTransactionId = payNlOrderId
-                        };
-                    default:
-                        return new StatusUpdateResult
+                        },
+
+                    _ =>
+                        new StatusUpdateResult
                         {
                             Successful = false,
                             Status = "unknown",
                             StatusCode = 0,
                             PspTransactionId = payNlOrderId
-                        };
+                        }
+                };
+
+                if (string.Equals(statusUpdateResult.Status, "REFUND"))
+                {
+                    databaseConnection.ClearParameters();
+                    databaseConnection.AddParameter("payNlOrderId", payNlOrderId);
+                    databaseConnection.AddParameter("amount", amount);
+                    string query = """
+                                   INSERT INTO Payment_wiser_item (parent_item_id, entity_type, title, amount, added_by, unique_uuid, changed_by)
+                                   SELECT b.item_id, 'Payment', 'Terugbetaling', ?amount, 'GCL', '', ''
+                                   FROM Basket_wiser_itemdetail b
+                                   WHERE b.`key` = 'UniquePaymentNumber'
+                                   AND b.`value` = ?payNlOrderId
+                                   """;
+
+                    await databaseConnection.ExecuteAsync(query);
                 }
+
+                return statusUpdateResult;
             }
             catch (Exception e)
             {
