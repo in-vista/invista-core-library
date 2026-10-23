@@ -112,7 +112,7 @@ namespace GeeksCoreLibrary.Modules.GclReplacements.Extensions
         /// <param name="includeCurrencySymbol"></param>
         /// <param name="cultureName"></param>
         /// <returns></returns>
-        public static string Currency(this decimal input, bool includeCurrencySymbol = true, string cultureName = null)
+        public static string Currency(this decimal input, bool includeCurrencySymbol = true, string cultureName = "nl-NL")
         {
             var culture = !String.IsNullOrWhiteSpace(cultureName) ? new CultureInfo(cultureName) : CultureInfo.CurrentCulture;
             var output = input.ToString(includeCurrencySymbol ? "C" : $"N{culture.NumberFormat.CurrencyDecimalDigits}", culture);
@@ -132,7 +132,7 @@ namespace GeeksCoreLibrary.Modules.GclReplacements.Extensions
         /// <param name="includeCurrencySymbol"></param>
         /// <param name="cultureName"></param>
         /// <returns></returns>
-        public static string CurrencySup(this decimal input, bool includeCurrencySymbol = true, string cultureName = null)
+        public static string CurrencySup(this decimal input, bool includeCurrencySymbol = true, string cultureName = "nl-NL")
         {
             var culture = !String.IsNullOrWhiteSpace(cultureName) ? new CultureInfo(cultureName) : CultureInfo.CurrentCulture;
             var output = input.ToString(includeCurrencySymbol ? "C" : $"N{culture.NumberFormat.CurrencyDecimalDigits}", culture);
